@@ -1,6 +1,6 @@
-###  JVM与Java体系结构
+##  JVM与Java体系结构
 
-#####   为什么学习?
+**为什么学习**?
 
 1.BATJ TMD PKQ 面试;
 
@@ -10,7 +10,7 @@
 
 默认虚拟机（java -version ）：Java HotSpot(TM) 64-Bit Server VM (build 9.0.4+11, mixed mode)
 
-##### java:跨平台语言
+**java:跨平台语言**
 
 java程序 -->
 
@@ -20,7 +20,7 @@ win版jvm/linux版jvm/Mac版jvm
 
 write once,run anywhere
 
-##### jvm:跨语言的平台
+**jvm:跨语言的平台**
 
 kotlin/clojure/groovy/scala/jython/jruby/javascript -->
 
@@ -32,17 +32,17 @@ java虚拟机  只关心字节码文件
 
 (java7发布:通过JSR-292规范基本实现在java虚拟机平台上允许非java语言编写的和程序)
 
-##### 字节码
+**字节码**
 
 平常说的java字节码指的是用java语言编译成的字节码，准确的说任何能在jvm平台上直执行的字节码格式都一样，所以应该统称为jvm字节码
 
-##### 多语言混合编程
+**多语言混合编程**
 
-##### 虚拟机类型
+**虚拟机类型**
 
 HotSpot  JRockit
 
-##### java虚拟机解释
+java**虚拟机解释**
 
 java虚拟机就是二进制字节码的运行环境，负责装在字节码到其内部，解释、编译为对应平台上的机器指令执行。每一条java指令，java虚拟机规范中都由详细定义，如怎么取操作数，怎么处理操作数，处理结果放在哪。
 
@@ -54,7 +54,7 @@ java虚拟机就是二进制字节码的运行环境，负责装在字节码到�
 
 3.自动垃圾回收功能
 
-##### jvm整体结构
+**jvm整体结构**
 
 ![jvm整体结构](.\jvm-img\jvm整体结构.jpg)
 
@@ -68,7 +68,7 @@ java虚拟机就是二进制字节码的运行环境，负责装在字节码到�
 
 电脑只能执行机器指令，jvm由执行引擎完成。
 
-##### jvm架构模型
+**jvm架构模型**
 
 ![jvm架构模型](.\jvm-img\jvm架构模型.png)
 
@@ -82,13 +82,13 @@ java虚拟机就是二进制字节码的运行环境，负责装在字节码到�
 
 不同平台cpu架构不同所以不能设计位基于寄存器的架构
 
-#### 反编译(实际上为解析字节码文件)
+## 反编译(实际上为解析字节码文件)
 
 1.javap -v xxxxx.class
 
 2.jclasslib
 
-##### jvm生命周期
+### jvm生命周期
 
 1.虚拟器的启动
 
@@ -116,7 +116,7 @@ jps 输出显示当前进程
 
 某线程调用Runtime类或System类的exit方法，或Runtime类的halt方法，并且java安全管理器也允许这次exit或halt操作。 
 
-##### HotSpot
+### HotSpot
 
 指的是热点探测技术
 
@@ -124,13 +124,13 @@ jps 输出显示当前进程
 
 通过编译器与解释器协同工作，在最优化的程序相应事件与最佳执行性能中取得平衡。
 
-##### 其他jvm
+### 其他jvm
 
 Azul VM 和BEA Liquid VM是与硬件平台绑定、软硬件配合的专有虚拟机 了解即可
 
 等等
 
-### 类加载子系统
+## 类加载子系统
 
 ![类加载子系统图1](.\jvm-img\类加载子系统图1.png)    ![](.\jvm-img\类加载子系统图1中文版.png)
 
@@ -140,7 +140,7 @@ CAFEBABE 开头字节码文件
 
 ![![](.\jvm-img\类加载器代码1.png](.\jvm-img\类加载器示例代码1.png)
 
-#### java9的classloader区别：
+## java9的classloader区别：
 
 java9之前的classloader：
 
@@ -230,35 +230,35 @@ doc
 
 ![](.\jvm-img\类加载子系统说明.png)
 
-### 运行时数据区概述和线程
+## 运行时数据区概述和线程
 
 ![](.\jvm-img\运行时数据区和线程.png)
 
-### 程序计数器（PC计数器）
+## 程序计数器（PC计数器）
 
 ![](.\jvm-img\程序计数器以及举例.png)
 
-### 虚拟机栈（java栈）
+## 虚拟机栈（java栈）
 
-##### 栈的存储单位
+### 栈的存储单位
 
 ![](.\jvm-img\虚拟机栈1.png)
 
 方法的开始对应着栈帧的入栈，方法的结束对应着栈帧的出栈 
 
-#### 栈帧的内部结构
+## 栈帧的内部结构
 
-##### 局部变量表和操作数栈
+### 局部变量表和操作数栈
 
 栈帧内部的结构重点影响栈帧的大小，而栈帧的大小又重点影响了栈中能存放栈帧的个数
 
 ![](.\jvm-img\虚拟机栈2.png)
 
-##### 代码追踪、栈顶缓存、动态链接和方法的调用
+### 代码追踪、栈顶缓存、动态链接和方法的调用
 
 ![](.\jvm-img\虚拟机栈3.png)
 
-##### 方法的调用和方法的返回地址
+### 方法的调用和方法的返回地址
 
 ![](.\jvm-img\虚拟机栈4.png)
 
@@ -268,7 +268,7 @@ doc
 
 返回指令return 表示void类型
 
-#### 虚拟机栈总结
+## 虚拟机栈总结
 
 栈帧的内部结构  
 
@@ -298,15 +298,15 @@ doc
 
 方法区 生命周期长 有Error 有GC
 
-##### 本地方法接口（了解）
+### 本地方法接口（了解）
 
-##### 什么是本地方法
+### 什么是本地方法
 
-##### 为什么使用本地方法
+### 为什么使用本地方法
 
 ![](.\jvm-img\本地方法接口1.png)
 
-### 本地方法栈
+## 本地方法栈
 
 在内存溢出方面与虚拟机栈相同
 
@@ -314,7 +314,7 @@ Hotspot jvm中 直接将本地方法栈与虚拟机栈合二为一
 
 ![](.\jvm-img\本地方法栈1.png)
 
-### 堆
+## 堆
 
 ![](.\jvm-img\堆1.png)
 
@@ -370,13 +370,13 @@ Hotspot jvm中 直接将本地方法栈与虚拟机栈合二为一
 
 这里的前提 不允许动态扩建堆。
 
-##### 常用调优工具
+### 常用调优工具
 
 ![](.\jvm-img\堆2.png)
 
 OOM总是伴随着full gc liu
 
-##### 调优
+### 调优
 
 调优的本质就是希望gc的次数少一些 ，因为gc  使用垃圾回收线程回收时会导致用户线程暂停（STW），效率变低
 
@@ -409,7 +409,7 @@ jinfo -flag UseTLAB 进程id   查看是否开启TLAB
 
 
 
-#### 堆空间参数设置
+## 堆空间参数设置
 
 ![image243](.\jvm-img\media\image243.png)
 
@@ -459,13 +459,13 @@ jinfo -flag UseTLAB 进程id   查看是否开启TLAB
 
 server在64位电脑上默认开启 java -version 可查看![image263](.\jvm-img\media\image263.png)
 
-##### 对象实例目前都是分配在堆上
+### 对象实例目前都是分配在堆上
 
 标量替换 奖原始类型存在栈上（栈帧中的局部变量表）
 
 ![image264](.\jvm-img\media\image264.png)
 
-### 方法区
+## 方法区
 
 ![image265](.\jvm-img\media\image265.png)
 
@@ -473,7 +473,7 @@ server在64位电脑上默认开启 java -version 可查看![image263](.\jvm-img
 
 ![](.\jvm-img\media\image267.png)
 
-##### 栈堆方法区的交互关系
+### 栈堆方法区的交互关系
 
 ![image268](.\jvm-img\media\image268.png)
 
@@ -485,7 +485,7 @@ server在64位电脑上默认开启 java -version 可查看![image263](.\jvm-img
 
 ![image272](.\jvm-img\media\image272.png)
 
-##### 方法区的解释
+### 方法区的解释
 
 大体：共享 存储运行时类的结构、常量池
 
@@ -519,7 +519,7 @@ jdk8中，类元数据存储在本地内存中，这个空间叫元空间。
 
 ![image284](.\jvm-img\media\image284.png)
 
-##### 方法去的内部结构 
+### 方法去的内部结构 
 
 ![image285](.\jvm-img\media\image285.png)
 
@@ -541,7 +541,7 @@ jdk8中，类元数据存储在本地内存中，这个空间叫元空间。
 
 即在字节码文件中可以看到 其值，而非final的类变量在初始化clinit时候赋值  
 
-##### 常量池与运行时常量池
+### 常量池与运行时常量池
 
 ![image293](.\jvm-img\media\image293.png)
 
@@ -595,7 +595,7 @@ jdk8中，类元数据存储在本地内存中，这个空间叫元空间。
 
 ![image318](.\jvm-img\media\image318.png)
 
-##### 字符串常量池和静态变量仍在堆
+### 字符串常量池和静态变量仍在堆
 
 ![image319](.\jvm-img\media\image319.png)
 
@@ -605,11 +605,11 @@ jdk8中，类元数据存储在本地内存中，这个空间叫元空间。
 
 ![image322](.\jvm-img\media\image322.png)
 
-##### 永久代被元空间替换的原因
+### 永久代被元空间替换的原因
 
 ![image323](.\jvm-img\media\image323.png)
 
-##### 字符串常量因为在堆中，同样可能会被回收
+### 字符串常量因为在堆中，同样可能会被回收
 
 ![image324](.\jvm-img\media\image324.png)
 
@@ -633,7 +633,7 @@ jdk9自带的工具
 
 ![image331](.\jvm-img\media\image331.png)
 
-##### 方法区的垃圾回收
+### 方法区的垃圾回收
 
 ![image332](.\jvm-img\media\image332.png)
 
@@ -645,13 +645,13 @@ jdk9自带的工具
 
 ![image336](.\jvm-img\media\image336.png)
 
-##### 面试题
+### 面试题
 
 ![image337](.\jvm-img\media\image337.png)
 
 ![image338](.\jvm-img\media\image338.png)
 
-### 对象的实例化、内存布局与访问定位
+## 对象的实例化、内存布局与访问定位
 
 ![image339](.\jvm-img\media\image339.png)
 
@@ -671,7 +671,7 @@ clone：不需要任何构造器，需要当前类实现Cloneable接口，实现
 
 反序列化：从文件、网络中获取一个对象的二进制流，然后还原成内存中的对象。
 
-##### 创建对象的步骤
+### 创建对象的步骤
 
 ![image344](.\jvm-img\media\image344.png)
 
@@ -693,13 +693,13 @@ clone：不需要任何构造器，需要当前类实现Cloneable接口，实现
 
 ![s](.\jvm-img\media\image346.png)
 
-##### 内存布局图
+### 内存布局图
 
 对象头（运行时元数据和类型指针）+实例数据+对齐填充
 
 ![image347](.\jvm-img\media\image347.png)
 
-##### 对象的访问定位
+### 对象的访问定位
 
 ![image348](.\jvm-img\media\image348.png)
 
@@ -717,7 +717,7 @@ clone：不需要任何构造器，需要当前类实现Cloneable接口，实现
 
 ![image352](.\jvm-img\media\image352.png)
 
-### 直接内存
+## 直接内存
 
 ![image353](.\jvm-img\media\image353.png)
 
@@ -733,7 +733,7 @@ clone：不需要任何构造器，需要当前类实现Cloneable接口，实现
 
 ![image359](.\jvm-img\media\image359.png)
 
-### 执行引擎
+## 执行引擎
 
 ![image360](.\jvm-img\media\image360.png)
 
@@ -743,7 +743,7 @@ clone：不需要任何构造器，需要当前类实现Cloneable接口，实现
 
 ![image362](.\jvm-img\media\image362.png)
 
-##### 执行引擎概述
+### 执行引擎概述
 
 ![image363](.\jvm-img\media\image363.png)
 
@@ -757,7 +757,7 @@ clone：不需要任何构造器，需要当前类实现Cloneable接口，实现
 
 ![image368](.\jvm-img\media\image368.png)
 
-##### java代码编译和执行的过程
+### java代码编译和执行的过程
 
 ![image369](.\jvm-img\media\image369.png)
 
@@ -797,7 +797,7 @@ clone：不需要任何构造器，需要当前类实现Cloneable接口，实现
 
 ![image383](.\jvm-img\media\image383.png)
 
-##### 解释器
+### 解释器
 
 ![image384](.\jvm-img\media\image384.png)
 
@@ -825,13 +825,13 @@ JIT编译器
 
 ![image395](.\jvm-img\media\image395.png)
 
-##### 热点代码探测确定何时JIT
+### 热点代码探测确定何时JIT
 
 ![image396](.\jvm-img\media\image396.png)
 
 ![image397](.\jvm-img\media\image397.png)
 
-##### 方法调用计数器
+### 方法调用计数器
 
 ![image398](.\jvm-img\media\image398.png)
 
@@ -839,7 +839,7 @@ JIT编译器
 
 ![image400](.\jvm-img\media\image400.png)
 
-##### 回边计数器
+### 回边计数器
 
 ![image401](.\jvm-img\media\image401.png)
 
