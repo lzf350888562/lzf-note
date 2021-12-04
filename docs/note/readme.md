@@ -238,7 +238,7 @@ Office Tool Plus :Office部署
 
 [springcloud 脚手架](https://hub.fastgit.org/zhoutaoo/SpringCloud )
 
-[后台管理系统](https://hub.fastgit.org/elunez/eladmin) jpa
+[后台管理系统](https://hub.fastgit.org/elunez/eladmin) eladmin (jpa)
 
 [人力资源管理系统](https://hub.fastgit.org/lenve/vhr )
 

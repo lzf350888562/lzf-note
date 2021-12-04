@@ -836,48 +836,6 @@ InnoDB的修改数据的基本流程:  当我们想要修改DB上某一行数据
 
 
 
-## 高并发下的mysql
-
-### 集群模式
-
-单库模式: 一个mysql承载所有相关数据
-
-读写分离集群模式: 在原有的基础上增加中间层,与后端数据集构成读写分离的集群(互联网大多读多写少,如商城):
-
-> mysql根据binlog日志实现主从同步 ,从原有主库派生从库1 从库2 ,主库负责写入,从库负责读取.可通过中间件处理crud请求来决定使用哪个库处理.
-
-> 缺点,架构复杂度成本提高, ,适用于读多写少,可通过MHA中间件实现高可用:将某个从服务器提升为主服务器.
-
-分库分表集群模式: 一个mysql数据库撑不住,可将数据库的数据分散到不同的节点数据库,需要中间件进行路由.**不具备高可用性**
-
-> 范围法,对分片键进行范围划分,mysql默认提供的特性(分区表) ,易扩展,适用于范围检索,但数据不均匀, 局部负载大,适用于流水账应用(按时间分片)
->
-> hash法,对id取模,又分为取模 和 一致性hash(独特的环形算法). 数据分布均匀,扩展复杂,数据迁移难度大. 需要提前部署足够节点
-
-读写分离和分片的组合应用:
-
-![mysql集群图](picture/mysql集群图.png)
-
-### 垂直分表
-
-将一张大表按列拆分成多个小表.
-
-因为innodb管理数据的单位为页(16k) , 在表设计时,要尽可能在页内多存储行数据,减少跨页检索.
-
-通过将重要字段字段单独剥离小表,让每页容纳更多行数据,页减少后,缩小数据扫描范围达到提高执行效率的目的
-
-垂直分表条件:
-
-1.单表数据达千万;
-
-2.字段超过20个,且包含varchar,clob,blob(存二进制数据)等.
-
-字段分表依据:
-
-1.小表:数据查询,排序时需要的字段,高频访问的小字段;
-
-2.大表:低频访问的字段,大字段
-
 
 
 ## 时间格式选择
@@ -1238,6 +1196,22 @@ Redis 提供 6 种数据淘汰策略：
 
 去重：比如爬给定网址的时候对已经爬取过的 URL 去重。
 
+布隆过滤器在项目缓存中防止缓存穿透的使用流程:
+
+![image-20211204225755493](picture/image-20211204225755493.png)
+
+**问题**:假如布隆过滤器初始化后的某个商品被删除了怎么办?
+
+布隆过滤器因为某一位二进制可能被多个编号Hash引用,因此布隆过滤器无法直接处理删除数据的情况.
+
+解决办法:
+
+1.定时异步重建布隆过滤器.
+
+2.计数Bloom Filter(记录该位被几个数据引用).
+
+
+
 **实现**
 
 1.BitSet
@@ -1257,7 +1231,23 @@ filter.put(1);
 //当 mightContain() 方法返回 true 时，我们可以 99％确定该元素在过滤器中，当过滤器返回 false 时，我们可以 100％确定该元素不存在于过滤器中。
 ```
 
-3.RedisBloom
+3.Rdission
+
+```
+Config config = new Config();
+config.useSingleServer().setAddress("redis://127.0.0.1:6379");
+//构造Redisson
+RedissonClient redisson = Redisson.create(config);
+RBloomFilter<String> bloomFilter = redisson.getBloomFilter("bloom");
+//初始化布隆过滤器：预计元素为1000000L,误判率为1%
+bloomFilter.tryInit(1000000L,0.01);
+bloomFilter.add("1"); //增加数据
+//判断指定编号是否在布隆过滤器中
+System.out.println(bloomFilter.contains("1")); //输出true
+System.out.println(bloomFilter.contains("8888"));//输出false
+```
+
+4.RedisBloom
 
 Redis v4.0 之后有了 Module（模块/插件） 功能，Redis Modules 让 Redis 可以使用外部模块扩展其功能 。布隆过滤器就是其中的 Module。详情可以查看 Redis 官方对 Redis Modules 的介绍 ：https://redis.io/modules 
 
@@ -1289,6 +1279,10 @@ Redis v4.0 之后有了 Module（模块/插件） 功能，Redis Modules 让 Red
 ```
 127.0.0.1:6379> BF.ADD myFilter java(integer) 1127.0.0.1:6379> BF.ADD myFilter javaguide(integer) 1127.0.0.1:6379> BF.EXISTS myFilter java(integer) 1127.0.0.1:6379> BF.EXISTS myFilter javaguide(integer) 1127.0.0.1:6379> BF.EXISTS myFilter github(integer) 0
 ```
+
+
+
+
 
 ### 缓存雪崩
 

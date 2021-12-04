@@ -1,3 +1,90 @@
+
+
+# 枚举定义模板
+
+```
+public enum ExampleEnum {
+    /** 枚举相关 */
+    ONE(1, "one(1)"),
+    TWO(2, "two(2)"),
+    THREE(3, "two(3)");
+
+    /** 字段相关 优先使用基础类型 final防止*/
+    private final int value;
+    private final String desc;
+
+    /** 构造方法 private省略*/
+    ExampleEnum(int value, String desc) {
+        this.value = value;
+        this.desc = desc;
+    }
+
+    /** 获取取值 */
+    public int getValue() {
+        return value;
+    }
+
+```
+
+# 集合(数组)常量
+
+普通集合常量即便定义为final也可通过集合方法进行修改, 包括Arrays.asList方法生成的内部ArrayList不能执行add/remove/clear方法,但是可以set方法,也属于可变集合对象
+
+```
+ public final class ExampleHelper {
+    public static final List<Integer> CONST_VALUE_LIST = Arrays.asList(1, 2, 3);
+    public static final Set<Integer> CONST_VALUE_SET = new HashSet<>(Arrays.asList(1, 2, 3));
+    public static final Map<Integer, String> CONST_VALUE_MAP;
+    static {
+        CONST_VALUE_MAP = new HashMap<>(MapHelper.DEFAULT);
+        CONST_VALUE_MAP.put(1, "value1");
+        CONST_VALUE_MAP.put(2, "value2");
+        CONST_VALUE_MAP.put(3, "value3");
+    }
+}
+```
+
+可通过jdk的Collections工具类中提供的一套方法,用于把可变集合变为不可变,修改时UnsupportedOperationException异常
+
+```java
+public final class ExampleHelper {
+    public static final List<Integer> CONST_VALUE_LIST = Collections.unmodifiableList(Arrays.asList(1, 2, 3));
+    public static final Set<Integer> CONST_VALUE_SET = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(1, 2, 3)));
+    public static final Map<Integer, String> CONST_VALUE_MAP;
+    static {
+        Map<Integer, String> valueMap = new HashMap<>(MapHelper.DEFAULT);
+        valueMap.put(1, "value1");
+        valueMap.put(2, "value2");
+        valueMap.put(3, "value3");
+        CONST_VALUE_MAP = Collections.unmodifiableMap(valueMap);
+    }
+}
+```
+
+普通的final数组常量也可以通过下标值修改数组值, 可通过Collections包装list来解决
+
+```java
+public static final int[] CONST_VALUES = Collections.unmodifiableList(Arrays.asList(1,2,3)).stream().mapToInt(Integer::intValue).toArray();  
+```
+
+但是上述方式存在缺点:每一次都会把集合常量转换为数组常量,程序运行效率降低;
+
+最佳方式:”私有数组常量+公有克隆方法”解决方案：先定义一个私有数组常量，保证不会被外部类使用；在定义一个获取数组常量方法，并返回一个数组常量的克隆值。
+
+```
+public final class ExampleHelper {
+    /** 常量值数组 */
+    private static final int[] CONST_VALUES = new int[] {1, 2, 3};
+    /** 获取常量值数组方法 */
+    public static int[] getConstValues() {
+        return CONST_VALUES.clone();
+    }
+    ...
+}
+```
+
+由于每次返回的是一个克隆数组，即便修改了克隆数组的常量值，也不会导致原始数组常量值的修改。
+
 # 查看程序进程信息
 
 ```
@@ -55,14 +142,8 @@ public static String convert(String inDate){
 
 ```
 public class SerializeUtils {
-
     private static Logger logger = LoggerFactory.getLogger(SerializeUtils.class);
 
-    /**
-     * 反序列化
-     * @param bytes
-     * @return
-     */
     public static Object deserialize(byte[] bytes) {
 
         Object result = null;
@@ -95,11 +176,6 @@ public class SerializeUtils {
         return (data == null || data.length == 0);
     }
 
-    /**
-     * 序列化
-     * @param object
-     * @return
-     */
     public static byte[] serialize(Object object) {
 
         byte[] result = null;

@@ -231,6 +231,60 @@ invokeInitMethods(xxx) 调用用户自定义init方法
 applyBeanPostProcessorsBeforeInitialization(existingBean ,beanName)  -->
 ```
 
+### 循环依赖
+
+ioc中
+
+构造方法无法解决循环依赖问题,而通过settor方法可以解决循环依赖问题.
+
+即**将实例化和初始化分开处理,提前暴露对象** ,在中间过程给其他对象赋值的时候,并不是一个完整对象
+
+假如有A依赖B B依赖A的场景:
+
+```
+<bean id="a" class="org.example.A">
+	<property name="b" ref="b">
+</bean>
+<bean id="b" class="org.example.B">
+	<property name="a" ref="a">
+</bean>
+```
+
+![循环依赖](picture/循环依赖.png)
+
+```
+一级缓存 存放成品bean
+private final Map<String, Object> singletonObjects = new ConcurrentHashMap<>(256);
+三级缓存
+private final Map<String, ObjectFactory<?>> singletonFactories = new HashMap<>(16);
+二级缓存 存放半成品bean
+private final Map<String, Object> earlySingletonObjects = new ConcurrentHashMap<>(16);
+```
+
+其中,泛型`ObjectFactory`为函数式接口,只提供了getObject方法
+
+因为循环依赖问题存在于实例化初始化阶段,所以该问题需要在refresh方法的finishBeanFactoryInitialization(beanFactory)方法中的beanFactory.preInstantiateSingletons方法中解决
+
+
+
+而使用第三级缓存原因在于使用aop代理问题
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 # AOP

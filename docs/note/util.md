@@ -942,7 +942,7 @@ captcha.setCharType(Captcha.FONT_9);
 
 **Builder**
 
-使用Builder模式来构建对象
+使用Builder模式来构建不可变对象,实体对象只提供getter方法
 
 ```
 /** 请求类 */
@@ -972,7 +972,22 @@ public void testRpcOne() {
 }
 ```
 
+> 如果需要明确必填参数,可手动新建构造函数,并操作@Builder注解属性:
 
+```
+@Builder(builderMethodName = "hiddenBuilder")
+public class Person {
+
+    private String name;
+    private String surname;
+
+    public static PersonBuilder builder(String name) {
+        return hiddenBuilder().name(name);
+    }
+}
+```
+
+之后使用builder时必须指定name属性
 
 **SneakyThrows**
 

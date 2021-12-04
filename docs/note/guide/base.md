@@ -35,6 +35,12 @@ https://javaguide.cn/java/collection/hashmap-source-code/
 
 > `HashMap` 可以存储 null 的 key 和 value，但 null 作为键只能有一个，null 作为值可以有多个
 
+
+
+**LinkedHashMap**
+
+
+
 **CucurrentHashMap**
 
 https://javaguide.cn/java/collection/concurrent-hash-map-source-code/
