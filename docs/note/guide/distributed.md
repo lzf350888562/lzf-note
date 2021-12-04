@@ -61,6 +61,56 @@ AP 方案只是在系统发生分区的时候放弃一致性，而不是永远�
 
 比较推荐 **写时修复**，这种方式对性能消耗比较低。
 
+# 负载均衡
+
+## Nginx
+
+轮询策略(默认):每个请求按时间顺序逐一分配到不同的后端服务器，如果后端服务器down掉，能自动剔除。 
+
+```
+upstream backserver { 
+server 192.168.0.14; 
+server 192.168.0.15; 
+} 
+```
+
+权重策略:指定轮询几率，weight和访问比率成正比，用于后端服务器性能不均的情况。 
+
+```
+upstream backserver { 
+server 192.168.0.14 weight=8; 
+server 192.168.0.15 weight=10; 
+}
+```
+
+IP_HASH:每个请求按访问ip的hash结果分配，这样每个访客固定访问一个后端服务器，可以解决session的问题。
+
+```
+upstream backserver { 
+ip_hash; 
+server 192.168.0.14:88; 
+server 192.168.0.15:80; 
+} 
+```
+
+URL_HASH:按访问url的hash结果来分配请求，使每个url定向到同一个后端服务器，后端服务器为缓存时比较有效。 
+
+```
+upstream backserver { 
+server squid1:3128; 
+server squid2:3128; 
+hash $request_uri; 
+hash_method crc32; 
+} 
+```
+
+FAIR:按后端服务器的响应时间来分配请求，响应时间短的优先分配。 
+upstream backserver { 
+server server1; 
+server server2; 
+fair; 
+} 
+
 # RPC
 
 **RPC（Remote Procedure Call）** 即远程过程调用. 通过 RPC 可以帮助我们调用远程计算机上某个服务的方法，这个过程就像调用本地方法一样简单。并且！我们不需要了解底层网络编程的具体细节。
@@ -358,7 +408,251 @@ ShardingSphere（包括 Sharding-JDBC、Sharding-Proxy 和 Sharding-Sidecar) ,�
 
 
 
+## 分布式全局唯一id
 
+在分库之后， 数据遍布在不同服务器上的数据库，数据库的自增主键已经没办法满足生成的主键唯一了。**我们如何为不同的数据节点生成全局唯一主键呢？**
+
+ID生成规则部分硬性要求
+
+全局唯一：不能出现重复的ID号，既然是唯一标识，这是最基本的要求
+
+趋势递增：在MySQL的InnoDB引擎中使用的是聚集索引，由于多数RDBMS使用Btree的数据结构来存储索引数据，在主键的选择上面我们应该尽量使用有序的主键保证写入性能。
+
+单调递增：保证下一个ID一定大于上一个ID，例如事务版本号、IM增量消息、排序等特殊需求
+
+信息安全：如果ID是连续的，恶意用户的扒取工作就非常容易做了，直接按照顺序下载指定URL即可。如果是订单号就更危险了，竞对可以直接知道我们一天的单量。所以在一些应用场景下，需要ID无规则不规则，让竞争对手否好猜。
+
+含时间戳：这样就能够在开发中快速了解这个分布式id的生成时间。
+
+ID号生成系统的可用性要求
+
+高可用：发一个获取分布式ID的请求，服务器就要保证99.999%的情况下给我创建一个唯一分布式ID。
+
+低延迟：发一个获取分布式ID的请求，服务器就要快，极速。
+
+高QPS：假如并发一口气10万个创建分布式ID请求同时杀过来，服务器要顶的住且一下子成功创建10万个分布式ID。
+
+**方案1:UUID**
+
+UUID(Universally Unique ldentifer)的标准型式包含32个16进制数字，以连了号分为五段，形式为8-4-4-4-12的36个字符， 示例：550e8400-e29b-41d4-a716-446655440000
+
+性能非常高：本地生成，没有网络消耗
+
+如果只是考虑唯一性，那就选用它吧
+
+但是，入数据库性能差:
+
+**方案2:数据库自增主键**
+
+单机:数据库的自增ID机制的主要原理是：数据库自增ID和MySQL数据库的replace into实现的。
+
+系统水平扩展比较困难;
+
+数据库压力还是很大，每次获取ID都得读写一次数据库， 非常影响性能，不符合分布式ID里面的延迟低和要高QPS的规则（在高并发下，如果都去数据库里面获取id，那是非常影响性能的）
+
+**方案3:基于Redis生成全局ID策略**
+
+因为Redis是单线的天生保证原子性，可以使用原子操作INCR和INCRBY来实现
+
+注意：在Redis集群情况下，同样和MySQL一样需要设置不同的增长步长，同时key一定要设置有效期可以使用Redis集群来获取更高的吞吐量。
+
+假如一个集群中有5台Redis。可以初始化每台Redis的值分别是1,2,3,4,5，然后步长都是5。
+
+各个Redis生成的ID为:
+
+A：1, 6, 11, 16, 21
+B：2, 7 , 12, 17, 22
+C：3, 8, 13, 18, 23
+D：4, 9, 14, 19, 24
+E：5, 10, 15, 20, 25
+
+**方案4:Twitter的分布式自增ID算法snowflake**
+
+Twitter的snowflake解决了这种需求，最初Twitter把存储系统从MySQL迁移到Cassandra（由Facebook开发一套开源分布式NoSQL数据库系统）。因为Cassandra没有顺序ID生成机制，所以开发了这样一套全局唯一生成服务。
+
+Twitter的分布式雪花算法SnowFlake ，经测试snowflake 每秒能够产生26万个自增可排序的ID
+
+Twitter的SnowFlake生成ID能够按照时间有序生成。
+SnowFlake算法生成ID的结果是一个64bit大小的整数， 为一个Long型（转换成字符串后长度最多19）。
+分布式系统内不会产生ID碰撞（由datacenter和workerld作区分）并且效率较高。
+
+雪花算法的几个核心组成部分：
+
+![slowflack](picture/slowflack-16376832580722.png)
+
+实现雪花算法时需要注意时间回拨带来的影响
+
+实现
+
+```
+/**
+ * <p>名称：IdWorker.java</p>
+ * <p>描述：分布式自增长ID</p>
+ * <pre>
+ *     Twitter的 Snowflake　JAVA实现方案
+ * </pre>
+ * 核心代码为其IdWorker这个类实现，其原理结构如下，我分别用一个0表示一位，用—分割开部分的作用：
+ * 1||0---0000000000 0000000000 0000000000 0000000000 0 --- 00000 ---00000 ---000000000000
+ * 在上面的字符串中，第一位为未使用（实际上也可作为long的符号位），接下来的41位为毫秒级时间，
+ * 然后5位datacenter标识位，5位机器ID（并不算标识符，实际是为线程标识），
+ * 然后12位该毫秒内的当前毫秒内的计数，加起来刚好64位，为一个Long型。
+ * 这样的好处是，整体上按照时间自增排序，并且整个分布式系统内不会产生ID碰撞（由datacenter和机器ID作区分），
+ * 并且效率较高，经测试，snowflake每秒能够产生26万ID左右，完全满足需要。
+ * <p>
+ * 64位ID (42(毫秒)+5(机器ID)+5(业务编码)+12(重复累加))
+ *
+ */
+public class IdWorker {
+    // 时间起始标记点，作为基准，一般取系统的最近时间（一旦确定不能变动）
+    private final static long twepoch = 1288834974657L;
+    // 机器标识位数
+    private final static long workerIdBits = 5L;
+    // 数据中心标识位数
+    private final static long datacenterIdBits = 5L;
+    // 机器ID最大值
+    private final static long maxWorkerId = -1L ^ (-1L << workerIdBits);
+    // 数据中心ID最大值
+    private final static long maxDatacenterId = -1L ^ (-1L << datacenterIdBits);
+    // 毫秒内自增位
+    private final static long sequenceBits = 12L;
+    // 机器ID偏左移12位
+    private final static long workerIdShift = sequenceBits;
+    // 数据中心ID左移17位
+    private final static long datacenterIdShift = sequenceBits + workerIdBits;
+    // 时间毫秒左移22位
+    private final static long timestampLeftShift = sequenceBits + workerIdBits + datacenterIdBits;
+
+    private final static long sequenceMask = -1L ^ (-1L << sequenceBits);
+    /* 上次生产id时间戳 */
+    private static long lastTimestamp = -1L;
+    // 0，并发控制
+    private long sequence = 0L;
+
+    private final long workerId;
+    // 数据标识id部分
+    private final long datacenterId;
+
+    public IdWorker(){
+        this.datacenterId = getDatacenterId(maxDatacenterId);
+        this.workerId = getMaxWorkerId(datacenterId, maxWorkerId);
+    }
+    /**
+     * @param workerId
+     *            工作机器ID
+     * @param datacenterId
+     *            序列号
+     */
+    public IdWorker(long workerId, long datacenterId) {
+        if (workerId > maxWorkerId || workerId < 0) {
+            throw new IllegalArgumentException(String.format("worker Id can't be greater than %d or less than 0", maxWorkerId));
+        }
+        if (datacenterId > maxDatacenterId || datacenterId < 0) {
+            throw new IllegalArgumentException(String.format("datacenter Id can't be greater than %d or less than 0", maxDatacenterId));
+        }
+        this.workerId = workerId;
+        this.datacenterId = datacenterId;
+    }
+    /**
+     * 获取下一个ID
+     *
+     * @return
+     */
+    public synchronized long nextId() {
+        long timestamp = timeGen();
+        if (timestamp < lastTimestamp) {
+            throw new RuntimeException(String.format("Clock moved backwards.  Refusing to generate id for %d milliseconds", lastTimestamp - timestamp));
+        }
+
+        if (lastTimestamp == timestamp) {
+            // 当前毫秒内，则+1
+            sequence = (sequence + 1) & sequenceMask;
+            if (sequence == 0) {
+                // 当前毫秒内计数满了，则等待下一秒
+                timestamp = tilNextMillis(lastTimestamp);
+            }
+        } else {
+            sequence = 0L;
+        }
+        lastTimestamp = timestamp;
+        // ID偏移组合生成最终的ID，并返回ID
+        long nextId = ((timestamp - twepoch) << timestampLeftShift)
+                | (datacenterId << datacenterIdShift)
+                | (workerId << workerIdShift) | sequence;
+
+        return nextId;
+    }
+
+    private long tilNextMillis(final long lastTimestamp) {
+        long timestamp = this.timeGen();
+        while (timestamp <= lastTimestamp) {
+            timestamp = this.timeGen();
+        }
+        return timestamp;
+    }
+
+    private long timeGen() {
+        return System.currentTimeMillis();
+    }
+
+    /**
+     * <p>
+     * 获取 maxWorkerId
+     * </p>
+     */
+    protected static long getMaxWorkerId(long datacenterId, long maxWorkerId) {
+        StringBuffer mpid = new StringBuffer();
+        mpid.append(datacenterId);
+        String name = ManagementFactory.getRuntimeMXBean().getName();
+        if (!name.isEmpty()) {
+            /*
+             * GET jvmPid
+             */
+            mpid.append(name.split("@")[0]);
+        }
+        /*
+         * MAC + PID 的 hashcode 获取16个低位
+         */
+        return (mpid.toString().hashCode() & 0xffff) % (maxWorkerId + 1);
+    }
+
+    /**
+     * <p>
+     * 数据标识id部分
+     * </p>
+     */
+    protected static long getDatacenterId(long maxDatacenterId) {
+        long id = 0L;
+        try {
+            InetAddress ip = InetAddress.getLocalHost();
+            NetworkInterface network = NetworkInterface.getByInetAddress(ip);
+            if (network == null) {
+                id = 1L;
+            } else {
+                byte[] mac = network.getHardwareAddress();
+                id = ((0x000000FF & (long) mac[mac.length - 1])
+                        | (0x0000FF00 & (((long) mac[mac.length - 2]) << 8))) >> 6;
+                id = id % (maxDatacenterId + 1);
+            }
+        } catch (Exception e) {
+            System.out.println(" getDatacenterId: " + e.getMessage());
+        }
+        return id;
+    
+
+}
+```
+
+**方案5:框架**
+
+UidGenerator(百度) 18年起未维护
+
+Leaf(美团) https://tech.meituan.com/2017/04/21/mt-leaf.html
+
+Tinyid(滴滴) https://github.com/didi/tinyid/wiki/tinyid%E5%8E%9F%E7%90%86%E4%BB%8B%E7%BB%8D
+
+**方案6:中间件**
+
+比如zookeeper也可以生成唯一id
 
 # 消息队列
 
@@ -869,248 +1163,3 @@ shenyu
 
 
 
-# 分布式全局唯一id
-
-在分库之后， 数据遍布在不同服务器上的数据库，数据库的自增主键已经没办法满足生成的主键唯一了。**我们如何为不同的数据节点生成全局唯一主键呢？**
-
-ID生成规则部分硬性要求
-
-全局唯一：不能出现重复的ID号，既然是唯一标识，这是最基本的要求
-
-趋势递增：在MySQL的InnoDB引擎中使用的是聚集索引，由于多数RDBMS使用Btree的数据结构来存储索引数据，在主键的选择上面我们应该尽量使用有序的主键保证写入性能。
-
-单调递增：保证下一个ID一定大于上一个ID，例如事务版本号、IM增量消息、排序等特殊需求
-
-信息安全：如果ID是连续的，恶意用户的扒取工作就非常容易做了，直接按照顺序下载指定URL即可。如果是订单号就更危险了，竞对可以直接知道我们一天的单量。所以在一些应用场景下，需要ID无规则不规则，让竞争对手否好猜。
-
-含时间戳：这样就能够在开发中快速了解这个分布式id的生成时间。
-
-ID号生成系统的可用性要求
-
-高可用：发一个获取分布式ID的请求，服务器就要保证99.999%的情况下给我创建一个唯一分布式ID。
-
-低延迟：发一个获取分布式ID的请求，服务器就要快，极速。
-
-高QPS：假如并发一口气10万个创建分布式ID请求同时杀过来，服务器要顶的住且一下子成功创建10万个分布式ID。
-
-**方案1:UUID**
-
-UUID(Universally Unique ldentifer)的标准型式包含32个16进制数字，以连了号分为五段，形式为8-4-4-4-12的36个字符， 示例：550e8400-e29b-41d4-a716-446655440000
-
-性能非常高：本地生成，没有网络消耗
-
-如果只是考虑唯一性，那就选用它吧
-
-但是，入数据库性能差:
-
-**方案2:数据库自增主键**
-
-单机:数据库的自增ID机制的主要原理是：数据库自增ID和MySQL数据库的replace into实现的。
-
-系统水平扩展比较困难;
-
-数据库压力还是很大，每次获取ID都得读写一次数据库， 非常影响性能，不符合分布式ID里面的延迟低和要高QPS的规则（在高并发下，如果都去数据库里面获取id，那是非常影响性能的）
-
-**方案3:基于Redis生成全局ID策略**
-
-因为Redis是单线的天生保证原子性，可以使用原子操作INCR和INCRBY来实现
-
-注意：在Redis集群情况下，同样和MySQL一样需要设置不同的增长步长，同时key一定要设置有效期可以使用Redis集群来获取更高的吞吐量。
-
-假如一个集群中有5台Redis。可以初始化每台Redis的值分别是1,2,3,4,5，然后步长都是5。
-
-各个Redis生成的ID为:
-
-A：1, 6, 11, 16, 21
-B：2, 7 , 12, 17, 22
-C：3, 8, 13, 18, 23
-D：4, 9, 14, 19, 24
-E：5, 10, 15, 20, 25
-
-**方案4:Twitter的分布式自增ID算法snowflake**
-
-Twitter的snowflake解决了这种需求，最初Twitter把存储系统从MySQL迁移到Cassandra（由Facebook开发一套开源分布式NoSQL数据库系统）。因为Cassandra没有顺序ID生成机制，所以开发了这样一套全局唯一生成服务。
-
-Twitter的分布式雪花算法SnowFlake ，经测试snowflake 每秒能够产生26万个自增可排序的ID
-
-Twitter的SnowFlake生成ID能够按照时间有序生成。
-SnowFlake算法生成ID的结果是一个64bit大小的整数， 为一个Long型（转换成字符串后长度最多19）。
-分布式系统内不会产生ID碰撞（由datacenter和workerld作区分）并且效率较高。
-
-雪花算法的几个核心组成部分：
-
-![slowflack](picture/slowflack-16376832580722.png)
-
-实现雪花算法时需要注意时间回拨带来的影响
-
-实现
-
-```
-/**
- * <p>名称：IdWorker.java</p>
- * <p>描述：分布式自增长ID</p>
- * <pre>
- *     Twitter的 Snowflake　JAVA实现方案
- * </pre>
- * 核心代码为其IdWorker这个类实现，其原理结构如下，我分别用一个0表示一位，用—分割开部分的作用：
- * 1||0---0000000000 0000000000 0000000000 0000000000 0 --- 00000 ---00000 ---000000000000
- * 在上面的字符串中，第一位为未使用（实际上也可作为long的符号位），接下来的41位为毫秒级时间，
- * 然后5位datacenter标识位，5位机器ID（并不算标识符，实际是为线程标识），
- * 然后12位该毫秒内的当前毫秒内的计数，加起来刚好64位，为一个Long型。
- * 这样的好处是，整体上按照时间自增排序，并且整个分布式系统内不会产生ID碰撞（由datacenter和机器ID作区分），
- * 并且效率较高，经测试，snowflake每秒能够产生26万ID左右，完全满足需要。
- * <p>
- * 64位ID (42(毫秒)+5(机器ID)+5(业务编码)+12(重复累加))
- *
- */
-public class IdWorker {
-    // 时间起始标记点，作为基准，一般取系统的最近时间（一旦确定不能变动）
-    private final static long twepoch = 1288834974657L;
-    // 机器标识位数
-    private final static long workerIdBits = 5L;
-    // 数据中心标识位数
-    private final static long datacenterIdBits = 5L;
-    // 机器ID最大值
-    private final static long maxWorkerId = -1L ^ (-1L << workerIdBits);
-    // 数据中心ID最大值
-    private final static long maxDatacenterId = -1L ^ (-1L << datacenterIdBits);
-    // 毫秒内自增位
-    private final static long sequenceBits = 12L;
-    // 机器ID偏左移12位
-    private final static long workerIdShift = sequenceBits;
-    // 数据中心ID左移17位
-    private final static long datacenterIdShift = sequenceBits + workerIdBits;
-    // 时间毫秒左移22位
-    private final static long timestampLeftShift = sequenceBits + workerIdBits + datacenterIdBits;
-
-    private final static long sequenceMask = -1L ^ (-1L << sequenceBits);
-    /* 上次生产id时间戳 */
-    private static long lastTimestamp = -1L;
-    // 0，并发控制
-    private long sequence = 0L;
-
-    private final long workerId;
-    // 数据标识id部分
-    private final long datacenterId;
-
-    public IdWorker(){
-        this.datacenterId = getDatacenterId(maxDatacenterId);
-        this.workerId = getMaxWorkerId(datacenterId, maxWorkerId);
-    }
-    /**
-     * @param workerId
-     *            工作机器ID
-     * @param datacenterId
-     *            序列号
-     */
-    public IdWorker(long workerId, long datacenterId) {
-        if (workerId > maxWorkerId || workerId < 0) {
-            throw new IllegalArgumentException(String.format("worker Id can't be greater than %d or less than 0", maxWorkerId));
-        }
-        if (datacenterId > maxDatacenterId || datacenterId < 0) {
-            throw new IllegalArgumentException(String.format("datacenter Id can't be greater than %d or less than 0", maxDatacenterId));
-        }
-        this.workerId = workerId;
-        this.datacenterId = datacenterId;
-    }
-    /**
-     * 获取下一个ID
-     *
-     * @return
-     */
-    public synchronized long nextId() {
-        long timestamp = timeGen();
-        if (timestamp < lastTimestamp) {
-            throw new RuntimeException(String.format("Clock moved backwards.  Refusing to generate id for %d milliseconds", lastTimestamp - timestamp));
-        }
-
-        if (lastTimestamp == timestamp) {
-            // 当前毫秒内，则+1
-            sequence = (sequence + 1) & sequenceMask;
-            if (sequence == 0) {
-                // 当前毫秒内计数满了，则等待下一秒
-                timestamp = tilNextMillis(lastTimestamp);
-            }
-        } else {
-            sequence = 0L;
-        }
-        lastTimestamp = timestamp;
-        // ID偏移组合生成最终的ID，并返回ID
-        long nextId = ((timestamp - twepoch) << timestampLeftShift)
-                | (datacenterId << datacenterIdShift)
-                | (workerId << workerIdShift) | sequence;
-
-        return nextId;
-    }
-
-    private long tilNextMillis(final long lastTimestamp) {
-        long timestamp = this.timeGen();
-        while (timestamp <= lastTimestamp) {
-            timestamp = this.timeGen();
-        }
-        return timestamp;
-    }
-
-    private long timeGen() {
-        return System.currentTimeMillis();
-    }
-
-    /**
-     * <p>
-     * 获取 maxWorkerId
-     * </p>
-     */
-    protected static long getMaxWorkerId(long datacenterId, long maxWorkerId) {
-        StringBuffer mpid = new StringBuffer();
-        mpid.append(datacenterId);
-        String name = ManagementFactory.getRuntimeMXBean().getName();
-        if (!name.isEmpty()) {
-            /*
-             * GET jvmPid
-             */
-            mpid.append(name.split("@")[0]);
-        }
-        /*
-         * MAC + PID 的 hashcode 获取16个低位
-         */
-        return (mpid.toString().hashCode() & 0xffff) % (maxWorkerId + 1);
-    }
-
-    /**
-     * <p>
-     * 数据标识id部分
-     * </p>
-     */
-    protected static long getDatacenterId(long maxDatacenterId) {
-        long id = 0L;
-        try {
-            InetAddress ip = InetAddress.getLocalHost();
-            NetworkInterface network = NetworkInterface.getByInetAddress(ip);
-            if (network == null) {
-                id = 1L;
-            } else {
-                byte[] mac = network.getHardwareAddress();
-                id = ((0x000000FF & (long) mac[mac.length - 1])
-                        | (0x0000FF00 & (((long) mac[mac.length - 2]) << 8))) >> 6;
-                id = id % (maxDatacenterId + 1);
-            }
-        } catch (Exception e) {
-            System.out.println(" getDatacenterId: " + e.getMessage());
-        }
-        return id;
-    
-
-}
-```
-
-**方案5:框架**
-
-UidGenerator(百度) 18年起未维护
-
-Leaf(美团) https://tech.meituan.com/2017/04/21/mt-leaf.html
-
-Tinyid(滴滴) https://github.com/didi/tinyid/wiki/tinyid%E5%8E%9F%E7%90%86%E4%BB%8B%E7%BB%8D
-
-**方案6:中间件**
-
-比如zookeeper也可以生成唯一id
