@@ -1,4 +1,4 @@
-# 学习与工作笔记
+# 实用
 
 [spring](note/springboot-common.md "spring")
 
@@ -26,7 +26,7 @@
 
 [vue](note/vue.md "vue")
 
-# 虚拟机(尚硅谷宋红康老师视频学习笔记)
+# jvm(宋红康老师视频学习笔记)
 
 [篇幅1](note/jvm-notes/jvm-note01.md "jvm篇幅1")
 
