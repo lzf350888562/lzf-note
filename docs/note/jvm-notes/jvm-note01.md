@@ -1,4 +1,4 @@
-##  JVM与Java体系结构
+#  JVM与Java体系结构
 
 **为什么学习**?
 
@@ -130,7 +130,7 @@ Azul VM 和BEA Liquid VM是与硬件平台绑定、软硬件配合的专有虚�
 
 等等
 
-## 类加载子系统
+# 类加载子系统
 
 ![类加载子系统图1](.\jvm-img\类加载子系统图1.png)    ![](.\jvm-img\类加载子系统图1中文版.png)
 
@@ -236,13 +236,9 @@ doc
 
 ## 程序计数器（PC计数器）
 
-![](.\jvm-img\程序计数器以及举例.png)
-
 ## 虚拟机栈（java栈）
 
 ### 栈的存储单位
-
-![](.\jvm-img\虚拟机栈1.png)
 
 方法的开始对应着栈帧的入栈，方法的结束对应着栈帧的出栈 
 
@@ -467,15 +463,7 @@ server在64位电脑上默认开启 java -version 可查看![image263](.\jvm-img
 
 ## 方法区
 
-![image265](.\jvm-img\media\image265.png)
-
-![image266](.\jvm-img\media\image266.png)
-
-![](.\jvm-img\media\image267.png)
-
 ### 栈堆方法区的交互关系
-
-![image268](.\jvm-img\media\image268.png)
 
 ![image269](.\jvm-img\media\image269.png)
 
@@ -520,8 +508,6 @@ jdk8中，类元数据存储在本地内存中，这个空间叫元空间。
 ![image284](.\jvm-img\media\image284.png)
 
 ### 方法去的内部结构 
-
-![image285](.\jvm-img\media\image285.png)
 
 ![image286](.\jvm-img\media\image286.png)
 
@@ -635,8 +621,6 @@ jdk9自带的工具
 
 ### 方法区的垃圾回收
 
-![image332](.\jvm-img\media\image332.png)
-
 ![image333](.\jvm-img\media\image333.png)
 
 ![image334](.\jvm-img\media\image334.png)
@@ -671,7 +655,7 @@ clone：不需要任何构造器，需要当前类实现Cloneable接口，实现
 
 反序列化：从文件、网络中获取一个对象的二进制流，然后还原成内存中的对象。
 
-### 创建对象的步骤
+### 创建对象的步骤(实例化)
 
 ![image344](.\jvm-img\media\image344.png)
 
@@ -701,10 +685,6 @@ clone：不需要任何构造器，需要当前类实现Cloneable接口，实现
 
 ### 对象的访问定位
 
-![image348](.\jvm-img\media\image348.png)
-
-
-
 ![image350](.\jvm-img\media\image350.png)
 
 ![image349](.\jvm-img\media\image349.png)
@@ -719,8 +699,6 @@ clone：不需要任何构造器，需要当前类实现Cloneable接口，实现
 
 ## 直接内存
 
-![image353](.\jvm-img\media\image353.png)
-
 ![image354](.\jvm-img\media\image354.png)
 
 ![image355](.\jvm-img\media\image355.png)
@@ -734,14 +712,6 @@ clone：不需要任何构造器，需要当前类实现Cloneable接口，实现
 ![image359](.\jvm-img\media\image359.png)
 
 ## 执行引擎
-
-![image360](.\jvm-img\media\image360.png)
-
- 
-
-![](.\jvm-img\media\image361.png)
-
-![image362](.\jvm-img\media\image362.png)
 
 ### 执行引擎概述
 
@@ -758,8 +728,6 @@ clone：不需要任何构造器，需要当前类实现Cloneable接口，实现
 ![image368](.\jvm-img\media\image368.png)
 
 ### java代码编译和执行的过程
-
-![image369](.\jvm-img\media\image369.png)
 
 ![image370](.\jvm-img\media\image370.png)
 
@@ -798,8 +766,6 @@ clone：不需要任何构造器，需要当前类实现Cloneable接口，实现
 ![image383](.\jvm-img\media\image383.png)
 
 ### 解释器
-
-![image384](.\jvm-img\media\image384.png)
 
 ![image385](.\jvm-img\media\image385.png)
 

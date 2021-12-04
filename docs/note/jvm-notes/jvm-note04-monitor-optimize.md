@@ -4,7 +4,7 @@
 
 ## 背景说明
 
-### 生产环境中的问题
+**生产环境中的问题**
 
 1.生产环境发生了内存溢出该如何处理？
 
@@ -20,7 +20,7 @@
 
 7.不加log，如何实时查看某个方法的入参与返回值？
 
-### 为什么要调优
+**为什么要调优**
 
 1.防止出现OOM
 
@@ -28,7 +28,7 @@
 
 3.减少Full GC出现的频率
 
-### 不同阶段的考虑
+**不同阶段的考虑**
 
 1.上线前
 
@@ -38,7 +38,7 @@
 
 ## 调优概述
 
-### 监控的依据
+**监控的依据**
 
 1.运行日志
 
@@ -50,7 +50,7 @@
 
 5.堆转储快照
 
-### 调优的大方向
+**调优的大方向**
 
 1.合理地编写代码
 
@@ -60,7 +60,7 @@
 
 ## 性能优化地步骤
 
-### 1发现问题：性能监控
+**1发现问题：性能监控**
 
 ![](.\jvm-img\end\001.png)
 
@@ -76,7 +76,7 @@
 
 6.程序响应时间过长
 
-### 2排查问题：性能分析
+**2排查问题：性能分析**
 
 ![](.\jvm-img\end\002.png)
 
@@ -90,7 +90,7 @@
 
 5.jstack查看堆栈信息
 
-### 3解决问题：性能调优
+**3解决问题：性能调优**
 
 1.适当增加内存，根据业务背景选择垃圾回收器
 
@@ -108,17 +108,17 @@
 
 ![](.\jvm-img\end\003.png)
 
-### 停顿时间/响应时间
+停顿时间/响应时间
 
 ![](.\jvm-img\end\004.png)
 
-### 吞吐量
+吞吐量
 
-### 并发数
+并发数
 
-### 内存占用
+内存占用
 
-### 相互间的关系
+相互间的关系
 
 # jvm监控及诊断工具
 
@@ -162,7 +162,7 @@ jps [options] [hostid]
 
 jstat -<option> [-t] [-h<lines>] <vmid> [<interval> [<count]]
 
-#### option参数
+**option参数**
 
 jstat -gc pid
 
@@ -170,7 +170,7 @@ jstat -gc pid
 
 ![](.\jvm-img\end\011.png)
 
-#### interval参数
+**interval参数**
 
 用于指定输出统计数据的周期，单位为毫秒，即：查询间隔
 
@@ -178,7 +178,7 @@ jstat -class pid 1000
 
 1秒输出一次
 
-#### count参数
+**count参数**
 
 用于指定查询的总次数
 
@@ -186,17 +186,15 @@ jstat -class pid 1000 10
 
 1秒输出一次 一共10次
 
-#### -t参数
+**-t参数**
 
 显示程序的运行时间(Timestamp) 单位为秒
-
-##### +
 
 我们可以比较java进程的启动时间以及总GC时间(GCT列)，或者两次测量的间隔时间以及总GC时间的增量，来得出GC时间占运行时间的比例。
 
 如果该比例超过20%，则说明目前堆的压力较大，如果超过90%则说明堆里几乎没有可用的空间，随时都可能抛出OOM异常
 
-#### -h
+**-h**
 
 可在周期性数据输出时，输出多少行数据后输出一个表头信息
 
@@ -204,7 +202,7 @@ jstat -class pid 1000 10
 
 ![](.\jvm-img\end\012.png)
 
-jinfo实时查看和修改jvm配置参数
+## jinfo实时查看和修改jvm配置参数
 
 ![](.\jvm-img\end\013.png)
 
@@ -266,13 +264,13 @@ java -XX:+PrintCommandLineFlags
 
 ![025](.\jvm-img\end\025.png)
 
-#### 手动方式
+**手动方式**
 
 ![](.\jvm-img\end\026.png)
 
 
 
-#### 自动方式
+自动方式
 
 OOM时
 
@@ -427,29 +425,29 @@ jdk9 visualvm不再内置 需要下载 字体很小
 
 ### 分析dump文件
 
-#### histogram
+**histogram**
 
 展示各个类的实例数目以及这些实例的shallow heap 或retained heap的总和
 
-#### thread overview
+**thread overview**
 
 查看系统中的java线程
 
 查看局部变量的信息
 
-#### 获得对象项目引用的关系
+**获得对象项目引用的关系**
 
 with outgoing references
 
 with incoming references
 
-#### 深堆与浅堆
+**深堆与浅堆**
 
 ![](.\jvm-img\end\053.png)
 
 ![](.\jvm-img\end\054.png)
 
-##### 对象的实际大小
+**对象的实际大小**
 
 ![](.\jvm-img\end\055.png)
 
@@ -459,7 +457,7 @@ StudentTrace
 
 ![](.\jvm-img\end\056.png)
 
-#### 支配树
+**支配树**
 
 ![](.\jvm-img\end\057.png)
 
@@ -481,35 +479,35 @@ StudentTrace
 
 ### java中的内存泄漏8种情况
 
-#### 静态集合类
+静态集合类
 
 ![](.\jvm-img\end\065.png)
 
-#### 单例模式
+单例模式
 
 ![](.\jvm-img\end\066.png)
 
-#### 内部类持有外部类
+内部类持有外部类
 
 ![](.\jvm-img\end\067.png)
 
-#### 各种连接
+各种连接
 
 ![](.\jvm-img\end\068.png)
 
-#### 变量不合理的作用域
+变量不合理的作用域
 
 ![](.\jvm-img\end\069.png)
 
-#### 改变哈希值
+改变哈希值
 
 ![](.\jvm-img\end\070.png)
 
-#### 缓存泄漏
+缓存泄漏
 
 ![](.\jvm-img\end\071.png)
 
-#### 监听器和回调
+监听器和回调
 
 ![](.\jvm-img\end\072.png)
 
@@ -557,7 +555,7 @@ MAT支持一种类似于SQL的查询语言OQL(Object Query Language)。OQL使用
 
 ![](.\jvm-img\end\082.png)
 
-### 主要功能
+**主要功能**
 
 ![](.\jvm-img\end\083.png)
 
@@ -573,13 +571,11 @@ MAT支持一种类似于SQL的查询语言OQL(Object Query Language)。OQL使用
 
 在settings->Tools->jprofiler配置exe路径
 
-### 使用
+### 数据采集方式
 
-#### 数据采集方式
+**Instrumentation重构模式**
 
-##### Instrumentation重构模式
-
-##### Sampling抽样模式
+**Sampling抽样模式**
 
 ![](.\jvm-img\end\086.png)
 
@@ -587,21 +583,21 @@ MAT支持一种类似于SQL的查询语言OQL(Object Query Language)。OQL使用
 
 ![](.\jvm-img\end\087.png)
 
-#### 遥感监测Telemetries
+**遥感监测Telemetries**
 
-#### 内存视图Live  Memory
+**内存视图Live  Memory**
 
 ![](.\jvm-img\end\088.png)
 
-#### 堆遍历Heap Walker
+**堆遍历Heap Walker**
 
-#### cpu视图 cpu views
+**cpu视图 cpu views**
 
-#### 线程视图 threads
+**线程视图 threads**
 
 ![](.\jvm-img\end\089.png)
 
-#### 监视器&锁Monitors&locks
+**监视器&锁Monitors&locks**
 
 ![](.\jvm-img\end\090.png)
 
@@ -621,27 +617,27 @@ visualvm与jprofiler
 
 ![094](.\jvm-img\end\094.png)
 
-#### 工程目录
+工程目录
 
 ![](.\jvm-img\end\096.png)
 
-#### 启动
+启动
 
 ![](.\jvm-img\end\097.png)
 
-#### 查看日志
+查看日志
 
 cat ~/logs/arthas/arthas.log
 
-#### 查看帮相
+查看帮相
 
 java -jar arthas -boot.jar -h
 
-#### web console
+web console
 
 ![](.\jvm-img\end\098.png)
 
-#### 退出
+退出
 
 ![](.\jvm-img\end\099.png)
 
@@ -649,11 +645,11 @@ java -jar arthas -boot.jar -h
 
 具体在官方查看
 
-#### 基础指令
+**基础指令**
 
 ![](.\jvm-img\end\100.png)
 
-#### jvm相关
+**jvm相关**
 
 ![](.\jvm-img\end\101.png)
 
@@ -675,7 +671,7 @@ id 查看指定线程
 
 -i 指定时间段
 
-#### class/classloader相关
+**class/classloader相关**
 
 ![](.\jvm-img\end\102.png)
 
@@ -701,7 +697,7 @@ classloader
 
 ![](.\jvm-img\end\107.png)
 
-#### monitor/watch/trace相关
+monitor/watch/trace相关
 
 monitor
 
@@ -725,7 +721,7 @@ tt
 
 ![](.\jvm-img\end\113.png)
 
-#### 其他
+**其他**
 
 ![](.\jvm-img\end\114.png)
 
@@ -743,11 +739,11 @@ tt
 
 ![](.\jvm-img\end\121.png)
 
-#### 事件类型
+事件类型
 
 ![](.\jvm-img\end\119.png)
 
-#### 启动方式
+启动方式
 
 ![](.\jvm-img\end\122.png)
 
@@ -755,7 +751,7 @@ tt
 
 ![124](.\jvm-img\end\124.png)
 
-#### 取样分析
+取样分析
 
 ![](.\jvm-img\end\120.png)
 
@@ -789,7 +785,7 @@ Btrace
 
 运行java或java -help 可以看到所有的标准选项
 
-#### -X参数选项：
+-X参数选项：
 
 特点：非标准化参数，功能比较稳定，以-X开头
 
@@ -797,7 +793,7 @@ Btrace
 
 ![](.\jvm-img\end\130.png)
 
-#### -XX参数选项：
+-XX参数选项：
 
 特点：非标准化参数，使用的最多的参数类型，这类选项属于实验性，不稳定，以-XX开头。用于开发和调试jvm
 
@@ -863,11 +859,11 @@ number表示数值，可以带参数 不区分大小写
 
 ### 垃圾回收器相关
 
-#### 查看默认垃圾回收器
+查看默认垃圾回收器
 
 ![](.\jvm-img\end\140.png)
 
-#### 各种垃圾收集器具体
+各种垃圾收集器具体
 
 ![](.\jvm-img\end\141.png)
 
