@@ -2097,7 +2097,7 @@ time                count url
 目录:
 windows:
 
-整体目录默认在C:/Program Files/MySQL/MySQL Server8.0/
+工程目录默认在C:/Program Files/MySQL/MySQL Server8.0/
 
 数据目录默认在C:/ProgramData/MySQL/MySQL Server8.0/
 
@@ -2532,23 +2532,6 @@ explain select min(id) from subject;
 
 ## sql优化
 
-### 执行周期
-
-```
-#查看profile是否开启
-show variables  like '%profiling%';
-#开启profiling
-set profiling =1 ;
-#在MySQL中执行两条相同的SQL
-select * from mytbl2;
-select * from mytbl2;
-#查看最近执行的sql
-show profiles;
-#根据上一步查询出来的Query_ID,查看sql的具体执行周期
-show profile cpu,block io for query 1 ;
-show profile cpu,block io for query 2 ;
-```
-
 **关联查询**
 
 **left join**
@@ -2569,14 +2552,26 @@ show profile cpu,block io for query 2 ;
 
 在范围判断时，尽量不要使用not in和not exists，使用 left join on  xxx  where xxx is null代替。
 
-**排序分组**
 
-where 条件和 on的判断这些过滤条件，作为优先优化的部分，是要被先考虑的！其次，如果有分组和排序，那么也要考虑grouo by 和order by。
+
+### 执行周期
 
 ```
-无过滤，不索引： using filesort说明进行了手工排序。原因在于没有where作为过滤条件。where，limt都相当于一种过滤条件，所以才能使用上索引
-。。。todo
+#查看profile是否开启
+show variables  like '%profiling%';
+#开启profiling
+set profiling =1 ;
+#在MySQL中执行两条相同的SQL
+select * from mytbl2;
+select * from mytbl2;
+#查看最近执行的sql
+show profiles;
+#根据上一步查询出来的Query_ID,查看sql的具体执行周期
+show profile cpu,block io for query 1 ;
+show profile cpu,block io for query 2 ;
 ```
+
+
 
 ## 触发器
 
