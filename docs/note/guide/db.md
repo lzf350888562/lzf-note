@@ -933,7 +933,7 @@ InnoDB的修改数据的基本流程:  当我们想要修改DB上某一行数据
 
 应用场景： 一般常用在需要计数的场景，比如用户的访问次数、热点文章的点赞转发数量等等。
 
-相关命令: `set,get,strlen,exists,decr,incr,setex`
+相关命令: `set,get,strlen,exists,decr,incr,setex,setnx`
 
 > Redis 中除了字符串类型有自己独有设置过期时间的命令 `setex` 外，其他方法都需要依靠 `expire` 命令来设置过期时间 。另外， `persist` 命令可以移除一个键的过期时间。
 

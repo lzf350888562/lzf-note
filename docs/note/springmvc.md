@@ -1024,7 +1024,9 @@ public class WebConfig extends WebMvcConfigurerAdapter {
 
 相较于过滤器，拦截器多了Object和Exception对象，所以可以获取的信息比过滤器要多的多。但过滤器仍无法获取到方法的参数等信息，我们可以通过切面编程来实现这个目的.
 
-### 若依防重复提交
+### 若依防重复请求
+
+若依的防重复请求的依据为请求的参数或请求体在指定时间内唯一.
 
 这里使用的是`HandlerInterceptor`的抽象继承类 `HandlerInterceptorAdapter` ,它已经实现了所有方法(空),但现在`HandlerInterceptor`也提供了默认实现
 
@@ -1221,30 +1223,7 @@ public class ResourcesConfig implements WebMvcConfigurer
     {
         registry.addInterceptor(repeatSubmitInterceptor).addPathPatterns("/**");
     }
-
-  
 }
-```
-
-#### ioc 注入抽象类问题
-
-在上面可看到 抽象类和父类都注入了容器,并且在使用的地方注入的是抽象类,但实际上注入的是子类(抽象类无法注入)
-
-```
-@RunWith(SpringRunner.class)
-@SpringBootTest
-public class IOCTest {
-   @Autowired
-   private RepeatSubmitInterceptor repeatSubmitInterceptor;
-   @Test
-   public void testA (){
-      System.out.println("repeatSubmitInterceptor.getClass().toString() = " + repeatSubmitInterceptor.getClass().toString());
-   }
-}
-
-//输出结果为
-repeatSubmitInterceptor.getClass().toString() = 
-    class com.ruoyi.framework.interceptor.impl.SameUrlDataInterceptor
 ```
 
 

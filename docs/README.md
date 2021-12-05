@@ -16,7 +16,7 @@
 
 [日志](note/log.md "日志")
 
-[Json](note/json.md "json")
+[Json](note/json2j.md "json")
 
 [安全](note/safe.md "安全相关")
 
@@ -27,6 +27,22 @@
 [消息队列](note/mq.md "mq")
 
 [Nginx](note/first/nginx.md "nginx")
+
+# 概念相关
+
+[多线程](note/guide/thread.md "thread")
+
+[基础](note/guide/base.md "基础理论")
+
+[数据库](note/guide/db.md "数据库理论")
+
+[Spring](note/guide/spring.md "spring理论")
+
+[分布式](note/guide/distributed.md "分布式")
+
+[框架](note/guide/framework.md "框架")
+
+[其他](note/guide/other.md "other")
 
 # 网课笔记
 
@@ -48,16 +64,4 @@
 
 [Spring Cloud alibaba](note/first/micro-alibaba.md "alibaba")
 
-# 理论
-
-[基础](note/guide/base.md "基础理论")
-
-[数据库](note/guide/db.md "数据库理论")
-
-[Spring](note/guide/spring.md "spring理论")
-
-[分布式](note/guide/distributed.md "分布式")
-
-[框架](note/guide/framework.md "框架")
-
-[其他](note/guide/other.md "other")
+# 

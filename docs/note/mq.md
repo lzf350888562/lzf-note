@@ -1,3 +1,41 @@
+MQ全称为Message Queue，消息队列是应用程序和应用程序之间的通信方法。
+
+**为什么使用MQ ？**
+
+在项目中，可将一些无需即时返回且耗时的操作提取出来，进行异步处理，而这种异步处理的方式大大的节省 了服务器的请求响应时间，从而提高了系统的吞吐量。 
+
+**开发中消息队列通常有如下应用场景**： 
+
+1、任务异步处理 将不需要同步处理的并且耗时长的操作由消息队列通知消息接收方进行异步处理。提高了应用程序的响应时 间。 
+
+2、应用程序解耦合 MQ相当于一个中介，生产方通过MQ与消费方交互，它将应用程序进行解耦合
+
+MQ是消息通信的模型；
+
+实现MQ的大致有两种主流方式：
+
+AMQP:AMQP是一种协议，更准确的说是一种binary wire-level protocol（链接协议）。这是其和JMS的本质差别，AMQP 不从API层进行限定，而是直接定义网络交换的数据格式。
+
+JMS:JMS即Java消息服务（JavaMessage Service）应用程序接口，是一个Java平台中关于面向消息中间件（MOM）的 API，用于在两个应用程序之间，或分布式系统中发送消息，进行异步通信。
+
+区别:
+
+1.JMS是定义了统一的接口，来对消息操作进行统一；AMQP是通过规定协议来统一数据交互的格式
+
+2.JMS限定了必须使用Java语言；AMQP只是协议，不规定实现方式，因此是跨语言的。
+
+3.JMS规定了两种消息模式；而AMQP的消息模式更加丰富
+
+```
+ActiveMQ：基于JMS
+ZeroMQ：基于C语言开发
+RabbitMQ：基于AMQP协议，erlang语言开发，稳定性好
+RocketMQ：基于JMS，阿里巴巴产品
+Kafka：类似MQ的产品；分布式消息系统，高吞吐量
+```
+
+
+
 # RabbitMQ
 
 ```
@@ -881,43 +919,5 @@ spring.kafka.streams.ssl.trust-store-password= # Store password for the trust st
 spring.kafka.streams.ssl.trust-store-type= # Type of the trust store.
 spring.kafka.streams.state-dir= # Directory location for the state store.
 spring.kafka.template.default-topic= # Default topic to which messages are sent.
-```
-
-# MQ理论
-
-MQ全称为Message Queue，消息队列是应用程序和应用程序之间的通信方法。
-
-**为什么使用MQ ？**
-
-在项目中，可将一些无需即时返回且耗时的操作提取出来，进行异步处理，而这种异步处理的方式大大的节省 了服务器的请求响应时间，从而提高了系统的吞吐量。 
-
-**开发中消息队列通常有如下应用场景**： 
-
-1、任务异步处理 将不需要同步处理的并且耗时长的操作由消息队列通知消息接收方进行异步处理。提高了应用程序的响应时 间。 
-
-2、应用程序解耦合 MQ相当于一个中介，生产方通过MQ与消费方交互，它将应用程序进行解耦合
-
-MQ是消息通信的模型；
-
-实现MQ的大致有两种主流方式：
-
-AMQP:AMQP是一种协议，更准确的说是一种binary wire-level protocol（链接协议）。这是其和JMS的本质差别，AMQP 不从API层进行限定，而是直接定义网络交换的数据格式。
-
-JMS:JMS即Java消息服务（JavaMessage Service）应用程序接口，是一个Java平台中关于面向消息中间件（MOM）的 API，用于在两个应用程序之间，或分布式系统中发送消息，进行异步通信。
-
-区别:
-
-1.JMS是定义了统一的接口，来对消息操作进行统一；AMQP是通过规定协议来统一数据交互的格式
-
-2.JMS限定了必须使用Java语言；AMQP只是协议，不规定实现方式，因此是跨语言的。
-
-3.JMS规定了两种消息模式；而AMQP的消息模式更加丰富
-
-```
-ActiveMQ：基于JMS
-ZeroMQ：基于C语言开发
-RabbitMQ：基于AMQP协议，erlang语言开发，稳定性好
-RocketMQ：基于JMS，阿里巴巴产品
-Kafka：类似MQ的产品；分布式消息系统，高吞吐量
 ```
 
