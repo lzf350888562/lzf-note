@@ -325,7 +325,7 @@ public class DefaultAopProxyFactory implements AopProxyFactory, Serializable {
 
 
 
-## Ribbon负载均衡与nginx
+## Ribbon与nginx的负载均衡
 
 `Ribbon` 是运行在消费者端的负载均衡器,工作原理就是 `Consumer` 端获取到了所有的服务列表之后，在其**内部**使用**负载均衡算法**，进行对多个系统的调用。
 
@@ -337,4 +337,4 @@ public class DefaultAopProxyFactory implements AopProxyFactory, Serializable {
 
 ## feign
 
-factoryBean
+factoryBean实现
