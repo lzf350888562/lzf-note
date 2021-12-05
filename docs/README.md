@@ -1,12 +1,14 @@
-# 实用
+以下为本人在学习工作之路上所记录的笔记.
 
-[spring](note/springboot-common.md "spring")
+# 记录
 
-[spring扩展](note/springboot-extend.md "spring扩展")
+[Spring](note/springboot-common.md "spring")
 
-[mvc](note/springmvc.md "mvc")
+[Spring扩展](note/springboot-extend.md "spring扩展")
 
-[spring其他相关](note/springboot-problem.md "spring其他")
+[MVC](note/springmvc.md "mvc")
+
+[Spring其他相关](note/springboot-problem.md "spring其他")
 
 [数据库](note/db.md "数据库")
 
@@ -14,7 +16,7 @@
 
 [日志](note/log.md "日志")
 
-[json](note/json.md "json")
+[Json](note/json.md "json")
 
 [安全](note/safe.md "安全相关")
 
@@ -22,23 +24,29 @@
 
 [ElasticSearch7.8x](note/ES7-8.md "ElasticSearch7.8笔记")
 
-[前端](note/frontBase.md "前端笔记")
+[消息队列](note/mq.md "mq")
 
-[vue](note/vue.md "vue")
+[Nginx](note/first/nginx.md "nginx")
 
-# jvm(宋红康老师视频学习笔记)
+# 网课笔记
 
-[篇幅1](note/jvm-notes/jvm-note01.md "jvm篇幅1")
+[JVM篇幅1](note/jvm-notes/jvm-note01.md "jvm篇幅1")
 
-[篇幅2](note/jvm-notes/jvm-note02.md "jvm篇幅2")
+[JVM篇幅2](note/jvm-notes/jvm-note02.md "jvm篇幅2")
 
-[篇幅3-字节码](note/jvm-notes/jvm-note03-bytecode.md "jvm篇幅三 字节码")
+[JVM篇幅3-字节码](note/jvm-notes/jvm-note03-bytecode.md "jvm篇幅三 字节码")
 
-[篇幅4-监控调优](note/jvm-notes/jvm-note04-monitor-optimize.md "jvm篇幅4 监控调优")
+[JVM篇幅4-监控调优](note/jvm-notes/jvm-note04-monitor-optimize.md "jvm篇幅4 监控调优")
 
 [字节码文件结构](note/jvm-notes/class-bytecode-file-struct.md "字节码文件结构")
 
 [jvm指令](note/jvm-notes/jvm-directive.md "指令")
+
+[Spring Cloud D版](note/first/micro-Dalston.md "Dalston ")
+
+[Spring Cloud H版](note/first/micro-Hoxton.md "Hoxton")
+
+[Spring Cloud alibaba](note/first/micro-alibaba.md "alibaba")
 
 # 理论
 
@@ -46,9 +54,10 @@
 
 [数据库](note/guide/db.md "数据库理论")
 
-[spring](note/guide/spring.md "spring理论")
+[Spring](note/guide/spring.md "spring理论")
 
 [分布式](note/guide/distributed.md "分布式")
 
 [框架](note/guide/framework.md "框架")
 
+[其他](note/guide/other.md "other")
