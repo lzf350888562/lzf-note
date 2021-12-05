@@ -1391,3 +1391,48 @@ Write Behind Pattern 和 Read/Write Through Pattern 很相似，两者都是由 
 
 Write Behind Pattern 下 DB 的写性能非常高，非常适合一些数据经常变化又对数据一致性要求没那么高的场景，比如浏览量、点赞量。
 
+## 高可用
+
+### sentinel
+
+> 目前 Cluster可以完全用来替代Sentinel
+
+**在redis主从同步方式下**
+
+![image-20211205153409550](picture/image-20211205153409550.png)
+
+
+
+当主节点挂了,需要考虑可用性问题. 引入Sentinel (哨兵)
+
+![image-20211205153735959](picture/image-20211205153735959.png)
+
+**故障发现**:客观下线即认为其真正宕机.
+
+![image-20211205153935302](picture/image-20211205153935302.png)
+
+> 通常设置为有N/2+1 个sentinel确认master主观下线时就标注master为客观下线
+
+**故障转移**:先剔除无效slave, 再选出slave
+
+![image-20211205154614692](picture/image-20211205154614692.png)
+
+当选举出slave后 , sentinel leader控制改变master.
+
+![image-20211205155353562](picture/image-20211205155353562.png)
+
+> 为了防止应用实例重启以后之前的工作内容消失不见,所以所有redis节点在进行完主从迁移之后会自动对本地配置文件进行更新. 从而在重启后工作内容信息不会丢失.
+
+因为sentinel相当重要,所以也需要有相应的高可用解决方案:
+
+sentinel之间通过redis master 感知其他sentinel的存在
+
+![image-20211205155851734](picture/image-20211205155851734.png)
+
+
+
+### Cluster
+
+主从复制中单机的QPS可能无法满足业务需求
+
+Redis Cluster是分布式架构：即Redis Cluster中有多个节点，每个节点都负责进行数据读写操作, 且每个节点之间会进行通信。

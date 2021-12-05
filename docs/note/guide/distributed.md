@@ -430,7 +430,7 @@ canal实现mysql异构数据同步机制
 
 MHA（Master HA）是一款开源的 MySQL 的高可用程序，它为 MySQL 主从复制架构提供了 automating master failover 功能。MHA 在监控到 master 节点故障时，会提升其中拥有最新数据的 slave 节点成为新的master 节点，在此期间，MHA 会通过于其它从节点获取额外信息来避免一致性方面的问题。MHA 还提供了 master 节点的在线切换功能，即按需切换 master/slave 节点。
 
-https://www.cnblogs.com/keerya/p/7883766.html
+
 
 在mysql主从同步基本实现中, 主服务器在数据处理以后生成binlog ,从服务器将binlog保存在relaylog中进行应用来保持同步. 
 
@@ -489,6 +489,8 @@ E:当原主节点恢复后
 ![image-20211205142537761](picture/image-20211205142537761.png)
 
 而其他网络波动引发的问题或者故障时binlog server与主服务器没有同步等问题,需要结合具体的生产环境进行人工介入.
+
+[binlog server配置](https://www.cnblogs.com/ywrj/p/9443215.html)
 
 MHA缺点:
 
@@ -1257,9 +1259,72 @@ shenyu
 
 
 
+# 分布式事务
+
+分布式事务通用设计理念包括有两个阶段(二阶段提交)
+
+![image-20211205164829308](picture/image-20211205164829308.png)
+
+![image-20211205165027109](picture/image-20211205165027109.png)
+
+## Seata
+
+事务管理器（TM）：决定什么时候全局提交/回滚
+
+事务协调者（TC）：负责通知命令的中间件Seata-Server
+
+资源管理器（RM）：做具体事的工具人
+
+1.通过添加seata核心注解@GlobalTransactional注解开启全局事务 , TM通知TC向下通达给RM开启本地事务
+
+![image-20211205170142581](picture/image-20211205170142581.png)
+
+![image-20211205170117506](picture/image-20211205170117506.png)
+
+2.待本地事务都**提交**完成后,TM通过TC向RM下达全局事务处理结果.
+
+![image-20211205170519113](picture/image-20211205170519113.png)
+
+![image-20211205170857133](picture/image-20211205170857133.png)
 
 
 
+Q:如果事务中间阶段出了问题, 而在RM处理本地子事务时,处理完成后是直接写表提交, 在TC下达分支结果时,是如何实现回滚的?
+
+以主流的AT模式为例 , Seata AT模式下如何实现数据自动提交、回滚?
+
+seata AT通过在所有数据库增加一张UNDO_LOG表.
+
+> seata AT通过sql parser第三方jar包生成逆向sql , 存储在UNDO_LOG表中.  如:
+>
+> insert into 订单表 values(1,...);   -->  delete from 订单表 where id = 1; 
+>
+> update 会员积分表 set point = 50 where pid=1   --> update 会员积分表 set point = 40 where pid=1 
+
+如果收到TC下达的分支提交, 则删掉UNDO_LOG中对于的记录即可;
+
+如果收到TC下达的分支回滚, 执行UNDO_LOG中的**逆向SQL**,还原年数据.
+
+Q: Seata如何避免并发场景的脏读与脏写?
+
+利用**TC**自带的**分布式锁**完成:
+
+![image-20211205172341582](picture/image-20211205172341582.png)
+
+Q: 怎么使用Seata框架，来保证事务的隔离性？
+
+因seata一阶段本地事务已提交，为防止其他事务脏读脏写需要加强隔离。
+1.脏读select语句加for update，代理方法增加@GlobalLock+@Transactional或@GlobalTransaction
+
+2.脏写 必须使用@GlobalTransaction
+注：如果你查询的业务的接口没有GlobalTransactional包裹，也就是这个方法上压根没有分布式事务的
+需求，这时你可以在方法上标注@GlobalLock+@Transactional 注解，并且在查询语句上加 for update。
+如果你查询的接口在事务链路上外层有GlobalTransactional注解，那么你查询的语句只要加for update就
+行。设计这个注解的原因是在没有这个注解之前，需要查询分布式事务读已提交的数据，但业务本身不
+需要分布式事务。若使用GlobalTransactional注解就会增加一些没用的额外的rpc开销比如begin返回
+xid，提交事务等。GlobalLock简化了rpc过程，使其做到更高的性能。
+
+## Redission
 
 
 
