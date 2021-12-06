@@ -1,5 +1,7 @@
 swagger实体类搭配javax.validation.constraints的校验注解能在api界面展示校验限制
 
+
+
 # swagger2
 
 ## springfox

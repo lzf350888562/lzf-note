@@ -67,7 +67,7 @@ claims.getSubject()
 
 
 
-## jav
+## java-jwt
 
 与shiro有使用案例
 

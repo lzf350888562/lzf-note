@@ -251,7 +251,7 @@ ehcache（进程内缓存）可以在缓存不存在时去redis进程外缓存�
 什么情况适用多级缓存架构
 1、缓存数据稳定
 2、可能产生高并发场景（12306）应用启动时进行预热处理，访问前将热点数据先缓存，减少后端压力
-3、一定程度上允许数据不一致不重要的信息更新处理方式：T+1,ETL日中处理把数据进行补全.
+3、一定程度上允许数据不一致不重要的信息更新处理方式：T+1,ETL终处理把数据进行补全.
 
 # 高并发下的mysql
 
@@ -1257,17 +1257,33 @@ shenyu
 
 
 
+# 数据一致性
 
+## 分布式事务
 
-# 分布式事务
+分布式事务的解决方案:
 
-分布式事务通用设计理念包括有两个阶段(二阶段提交)
+**二阶段提交 2PC**
+
+实现了XA规范(定义了TM和RM)
 
 ![image-20211205164829308](picture/image-20211205164829308.png)
 
 ![image-20211205165027109](picture/image-20211205165027109.png)
 
-## Seata
+**TCC**
+
+Try-Confirm-Cancel
+
+**消息事务**
+
+实现最终一致性
+
+### Seata
+
+seata的设计为分布式事务设计理念中的二阶段提交.
+
+
 
 事务管理器（TM）：决定什么时候全局提交/回滚
 
@@ -1326,12 +1342,147 @@ Q: 怎么使用Seata框架，来保证事务的隔离性？
 需要分布式事务。若使用GlobalTransactional注解就会增加一些没用的额外的rpc开销比如begin返回
 xid，提交事务等。GlobalLock简化了rpc过程，使其做到更高的性能。
 
-## Redission
+## 分布式锁
+
+分布式锁的主要实现方案:
+
+| 分类               | 方案                              | 实现原理                                                     | 优点                                                         | 缺点                                                         |
+| ------------------ | --------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| 基于数据库         | 基于mysql 表唯一索引              | 1.表增加唯一索引 2.加锁：执行insert语句，若报错，则表明加锁失败 3.解锁：执行delete语句 | 完全利用DB现有能力，实现简单                                 | 1.锁无超时自动失效机制，有死锁风险 2.不支持锁重入，不支持阻塞等待 3.操作数据库开销大，性能不高 |
+|                    | 基于MongoDB findAndModify原子操作 | 1.加锁：执行findAndModify原子命令查找document，若不存在则新增 2.解锁：删除document | 实现也很容易，较基于MySQL唯一索引的方案，性能要好很多        | 1.大部分公司数据库用MySQL，可能缺乏相应的MongoDB运维、开发人员 2.锁无超时自动失效机制 |
+| 基于分布式协调系统 | 基于ZooKeeper                     | 1.加锁：在/lock目录下创建临时有序节点，判断创建的节点序号是否最小。若是，则表示获取到锁；否，则则watch /lock目录下序号比自身小的前一个节点 2.解锁：删除节点 | 1.由zk保障系统高可用 2.Curator框架已原生支持系列分布式锁命令，使用简单 | 需单独维护一套zk集群，维保成本高                             |
+| 基于缓存           | 基于redis命令                     | 1. 加锁：执行setnx，若成功再执行expire添加过期时间 2. 解锁：执行delete命令 | 实现简单，相比数据库和分布式系统的实现，该方案最轻，性能最好 | 1.setnx和expire分2步执行，非原子操作；若setnx执行成功，但expire执行失败，就可能出现死锁 2.delete命令存在误删除非当前线程持有的锁的可能 3.不支持阻塞等待、不可重入 |
+|                    | 基于redis Lua脚本能力             | 1. 加锁：执行SET lock_name random_value EX seconds NX 命令  2. 解锁：执行Lua脚本，释放锁时验证random_value  -- ARGV[1]为random_value, KEYS[1]为lock_nameif redis.call("get", KEYS[1]) == ARGV[1] then  return redis.call("del",KEYS[1])else  return 0end |                                                              | 同上；实现逻辑上也更严谨，除了单点问题，生产环境采用用这种方案，问题也不大。不支持锁重入，不支持阻塞等待 |
+
+### Redission
+
+依赖lua和netty,  功能强大, 支持重入锁 , 以及支持单点模式&主从模式&哨兵模式&集群模式等.
+
+**加锁lua脚本**
+
+KEYS[1] : 锁名
+
+ARGV[1] : 持有锁的有效时间,默认30s
+
+ARGV[2] : 唯一标识,获取锁时set的唯一值 , 客户端ID
+
+```
+-- 若锁不存在：则新增锁，并设置锁重入计数为1、设置锁过期时间
+if (redis.call('exists', KEYS[1]) == 0) then
+    redis.call('hset', KEYS[1], ARGV[2], 1);
+    redis.call('pexpire', KEYS[1], ARGV[1]);
+    return nil;
+end;
+ 
+-- 若锁存在，且唯一标识也匹配：则表明当前加锁请求为锁重入请求，故锁重入计数+1，并再次设置锁过期时间
+if (redis.call('hexists', KEYS[1], ARGV[2]) == 1) then
+    redis.call('hincrby', KEYS[1], ARGV[2], 1);
+    redis.call('pexpire', KEYS[1], ARGV[1]);
+    return nil;
+end;
+ 
+-- 若锁存在，但唯一标识不匹配：表明锁是被其他线程占用，当前线程无权解他人的锁，直接返回锁剩余过期时间
+return redis.call('pttl', KEYS[1]);
+```
+
+**解锁lua脚本**
+
+KEYS[1] : 锁名
+
+KEYS[2] : 解锁消息PubSub频道
+
+ARGV[1] : 重入数量 , 0标识解锁消息.	
+
+ARGV[2] : 持有锁的有效时间,默认30s
+
+ARGV[3] : 唯一标识,获取锁时set的唯一值 , 客户端ID
+
+```
+-- 若锁不存在：则直接广播解锁消息，并返回1
+if (redis.call('exists', KEYS[1]) == 0) then
+    redis.call('publish', KEYS[2], ARGV[1]);
+    return 1; 
+end;
+ 
+-- 若锁存在，但唯一标识不匹配：则表明锁被其他线程占用，当前线程不允许解锁其他线程持有的锁
+if (redis.call('hexists', KEYS[1], ARGV[3]) == 0) then
+    return nil;
+end; 
+ 
+-- 若锁存在，且唯一标识匹配：则先将锁重入计数减1
+local counter = redis.call('hincrby', KEYS[1], ARGV[3], -1); 
+if (counter > 0) then 
+    -- 锁重入计数减1后还大于0：表明当前线程持有的锁还有重入，不能进行锁删除操作，但可以友好地帮忙设置下过期时期
+    redis.call('pexpire', KEYS[1], ARGV[2]); 
+    return 0; 
+else 
+    -- 锁重入计数已为0：间接表明锁已释放了。直接删除掉锁，并广播解锁消息，去唤醒那些争抢过锁但还处于阻塞中的线程
+    redis.call('del', KEYS[1]); 
+    redis.call('publish', KEYS[2], ARGV[1]); 
+    return 1;
+end;
+ 
+return nil;
+```
+
+
+
+### zk
 
 
 
 
 
+# 幂等性
 
+**指的是发一次接口调用与发多次相同的接口消息都能得到与预期相符的结果**
 
-> 
+在实际应用中 , 为了提高通信的可靠性,通信框架/MQ可能会向数据服务推送多条相同的信息 , 如
+
+```
+PUT https://xxxxx.com/employee/salary
+{"id" : "1:,"incr_salary":500}
+```
+
+后台逻辑为
+
+```
+//典型的ORM做法
+Employee employee = employeeService.selectById(1);
+employee.setSalary(employee.getSalary() + incrSalary);
+employeeService.update(employee)
+```
+
+问题在于每重复发送一次请求工资就会多500
+
+解决办法:
+
+1.代码前置判断
+
+```
+if(!员工已调薪){进行调薪}
+```
+
+缺点: 项目中需要前置判断的地方太多了，一不留神就漏了 , 这种技术问题不应该成为干扰程序员写业务代码的因素
+
+所以大家需要一种无侵入的幂等解决方案.
+
+2.**幂等表**
+
+应用系统发送请求,
+
+![image-20211206000227897](picture/image-20211206000227897.png)
+
+应用系统再次请求, redis中已经存在requestid
+
+![image-20211206000238849](picture/image-20211206000238849.png)
+
+数据服务处理完更新,修改redis中value
+
+![image-20211206001345466](picture/image-20211206001345466.png)
+
+> 后台接口可通过AOP修改redis.
+>
+> requestId可通过后端生成, 在每次访问应用中可能应发幂等性问题的页面时返回.
+>
+> 如果提交表单中存在唯一约束,可以将该唯一约束缓存来替代requestId, 比如用户名唯一. 操作完对缓存进行及时删除.

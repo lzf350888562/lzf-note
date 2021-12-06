@@ -206,23 +206,109 @@ a.com以受害者的名义执行了act=xx。
 
 
 
-## jwt
+## JWT
 
-有没有一种不需要自己存放 `Session` 信息就能实现身份验证的方式呢？使用 `Token` 即可！**JWT** （JSON Web Token） 就是这种方式的实现，通过这种方式服务器端就不需要保存 `Session` 数据了，只用在客户端保存服务端返回给客户的 `Token` 就可以了，扩展性得到提升。 
+**JWT(Json Web Token)**是一个经过加密的，包含用户信息的且具有时效性的固定格式字符串 
 
-**JWT 本质上就一段签名的 JSON 格式的数据。由于它是带有签名的，因此接收者便可以验证它的真实性。**
+![image-20211206205223334](picture/image-20211206205223334.png)
 
-JWT 由 3 部分构成:
+**Header (标头)  ** : 描述 JWT 的元数据，定义了生成签名的算法以及 `Token` 的类型。
 
-1. **Header** : 描述 JWT 的元数据，定义了生成签名的算法以及 `Token` 的类型。
-2. **Payload** : 用来存放实际需要传递的数据
-3. **Signature（签名）** ：服务器通过`Payload`、`Header`和一个密钥(`secret`)使用 `Header` 里面指定的签名算法（默认是 HMAC SHA256）生成。
+```
+标头Header   : eyJhbGciOiJIUzI1NiJ9
+{
+  "alg": "HS256",
+  "typ": "JWT"
+}
+```
+
+**Payload  (载荷)**  : 用来存放实际需要传递的数据
+
+```
+载荷Payload    :  eyJzdWIiOiJ7XCJ1c.....
+{
+  "sub": "1234567890",
+  "name": "John Doe",
+  "admin": true,
+  "exp": "...",
+  ...
+}
+```
+
+**Signature（签名）** ：服务器通过`Payload`、`Header`(先base64编码)和一个后端提供的密钥(`secret`)使用 `Header` 里面指定的签名算法（默认是 HMAC SHA256）生成。
+
+```
+签名Sign    :  NT8QBdoK4S-....
+HMACSHA256(base64UrlEncode(header) + "." +  base64UrlEncode(payload),  secret)
+```
+
+> 只有在传递的原始数据和签名相同的情况,才认为这个JWT是合规的
+
+> jwt 只有最后签名部分时加密的, 因此签名两部分不能存放敏感信息(base64)
+
+此外 jwt还支持设置过期时间.
+
+[具体使用见](note/safe.md)
 
 可以将 `Token` 保存在 Cookie 或者 localStorage 里面，以后客户端发出的所有请求都会携带这个令牌.
 
 但通常更好的做法是放在 HTTP Header 的 Authorization 字段中：`Authorization: Bearer Token`。
 
+### JWT认证
 
+jwt根据验证签名的时机划分 , 认证方式有:
+
+网关统一校验 :JWT校验无感知，验签过程无侵入，执行效率低，适用于低并发企业级应用(网关为瓶颈).
+
+![image-20211206211024490](picture/image-20211206211024490.png)
+
+应用认证方案 :控制更加灵活，有一定代码侵入，代码可以灵活控制，适用于追求性能互联网应用
+
+![image-20211206211041243](picture/image-20211206211041243.png)
+
+在应用认证中 , 如果后端请求只有部分需要认证 , 可通过AOP实现.
+
+> 在两种方案中, 高并发环境下如何构建高可用的认证中心也是需要思考的问题
+
+### 无状态的JWT如何实现续签
+
+JWT不设置过期时间行不行？
+
+不行，会留下”太空垃圾”，后患无穷 , JWT不建议设置长时有效期  ,续签JWT必须有退出机制
+
+**在不允许改变Token令牌下实现续签**
+
+![image-20211206213233959](picture/image-20211206213233959.png)
+
+> 该方案中, redis的value没有作用
+
+> 为什么不直接将jwt存入redis key ,因为jwt占用空间大,  而加入客户端环境特征 , 可以避免认为盗取
+
+> 缺陷: 将jwt相关信息存入redis 并设置过期时间 , 意味着jwt变为有状态的了
+
+
+
+**允许前端改变Token令牌下实现续签**
+
+登录后认证中心返回两个jwt , 后续请求时两个token都未过期才校验成功
+
+1. 登录后30分钟内请求
+
+![image-20211206213957833](picture/image-20211206213957833.png)
+
+2.30-60分钟中间访问,access_token过期, 后端服务将refresh_token传入认证中心刷新接口 , 认证中心根据payload重新生成两个token,前端接收到后进行替换
+
+![image-20211206214320228](picture/image-20211206214320228.png)
+
+3. 60分钟之后访问直接认证失败.
+
+>  此方案并没有在后台保存jwt相关信息 , 所以jwt保持了无状态特征
+
+> 缺陷 : 客户端需要大量针对jwt续签的改造工作
+
+存在重复生成JWT的问题, 两个access_token都过期且refresh_token都没过期的请求同时访问,会生成两组不同的JWT, 存在逻辑问题 , 但不影响使用.
+
+![image-20211206220120405](picture/image-20211206220120405.png)
 
 
 
