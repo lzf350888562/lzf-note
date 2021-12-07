@@ -400,39 +400,53 @@ ACID特性
 
 并发事务问题:
 
-**脏读（Dirty read）:** 当一个事务正在访问数据并且对数据进行了修改，而这种修改还没有提交到数据库中，这时另外一个事务也访问了这个数据，然后使用了这个数据。因为这个数据是还没有提交的数据，那么另外一个事务读到的这个数据是“脏数据”，依据“脏数据”所做的操作可能是不正确的。
+**脏读（Dirty read）:** 脏读是指事务读取到其他事务没提交的数据
+
+![image-20211207194859328](picture/image-20211207194859328.png)
 
 **丢失修改（Lost to modify）:** 指在一个事务读取一个数据时，另外一个事务也访问了该数据，那么在第一个事务中修改了这个数据后，第二个事务也修改了这个数据。这样第一个事务内的修改结果就被丢失，因此称为丢失修改。 例如：事务 1 读取某表中的数据 A=20，事务 2 也读取 A=20，事务 1 修改 A=A-1，事务 2 也修改 A=A-1，最终结果 A=19，事务 1 的修改被丢失。
 
-**不可重复读（Unrepeatable read）:** 指在一个事务内多次读同一数据。在这个事务还没有结束时，另一个事务也访问该数据。那么，在第一个事务中的两次读数据之间，由于第二个事务的修改导致第一个事务两次读取的数据可能不太一样。这就发生了在一个事务内两次读到的数据是不一样的情况，因此称为不可重复读。
+**不可重复读（Unrepeatable read）:** 不可重复读是指在同一次事务中前后查询不一致的问题
 
-**幻读（Phantom read）:** 幻读与不可重复读类似。它发生在一个事务（T1）读取了几行数据，接着另一个并发事务（T2）插入了一些数据时。在随后的查询中，第一个事务（T1）就会发现多了一些原本不存在的记录，就好像发生了幻觉一样，所以称为幻读。
+![image-20211207195037888](picture/image-20211207195037888.png)
+
+**幻读（Phantom read）:** 幻读是一次事务中前后数据量发生变化用户产生不可预料的问题
+
+![image-20211207195053772](picture/image-20211207195053772.png)
 
 **不可重复读和幻读区别：**
 
-不可重复读的重点是修改比如多次读取一条记录发现其中某些列的值被修改，幻读的重点在于新增或者删除比如多次读取一条记录发现记录增多或减少了。
+不可重复读的重点是修改比如多次读取一条记录发现其中某些列的值被修改，幻读的重点在于新增或者删除比如多次读取一条记录发现记录增多或减少了(伤害不大)。
+
+
 
 **隔离级别**
 
-**READ-UNCOMMITTED(读取未提交)：** 最低的隔离级别，允许读取尚未提交的数据变更，**可能会导致脏读、幻读或不可重复读**。
+**READ-UNCOMMITTED(读取未提交)：** 最低的隔离级别，允许读取其他事务尚未提交的数据变更，**可能会导致脏读、幻读或不可重复读**。
 
 **READ-COMMITTED(读取已提交)：** 允许读取并发事务已经提交的数据，**可以阻止脏读，但是幻读或不可重复读仍有可能发生**。
 
 **REPEATABLE-READ(可重复读)：** 对同一字段的多次读取结果都是一致的，除非数据是被本身事务自己所修改，**可以阻止脏读和不可重复读，但幻读仍有可能发生**。
 
-**SERIALIZABLE(可串行化)：** 最高的隔离级别，完全服从 ACID 的隔离级别。所有的事务依次逐个执行，这样事务之间就完全不可能产生干扰，也就是说，**该级别可以防止脏读、不可重复读以及幻读**。
+**SERIALIZABLE(可串行化)：** 最高的隔离级别，完全服从 ACID 的隔离级别。所有的事务依次逐个执行，这样事务之间就完全不可能产生干扰，也就是说，**该级别可以防止脏读、不可重复读以及幻读**。**此隔离级别是唯一使用加锁读的方式的隔离级别.**
 
-> MySQL InnoDB 的 REPEATABLE-READ（可重读）并不保证避免幻读，需要应用使用加锁读来保证。而这个加锁度使用到的机制就是 Next-Key Locks。
+> MySQL InnoDB 的 REPEATABLE-READ（可重读）可避免幻读，需要应用使用加锁读来保证。而这个加锁度使用到的机制就是 Next-Key Locks(MVCC)。
 
 > 因为隔离级别越低，事务请求的锁越少，所以大部分数据库系统的隔离级别都是 **READ-COMMITTED(读取提交内容)** ，但是InnoDB 存储引擎默认使用 **REPEATABLE-READ（可重读）** 并不会有任何性能损失。
 
- InnoDB 存储引擎的默认支持的隔离级别是 **REPEATABLE-READ（可重读）**。我们可以通过`SELECT @@tx_isolation;`查看
+ InnoDB 存储引擎的默认支持的隔离级别是 **REPEATABLE-READ（可重读）**。
+
+我们可以通过`SELECT @@tx_isolation;` 或者 `SHOW VARIABLES LIKE 'transaction_isolation';`查看
+
+通过 `SET SESSION TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;` 设置当前会话的隔离级别.
+
+> 通常我们不需要修改mysql隔离级别
 
 ## MVCC
 
-MVCC ，全称 Multi-Version Concurrency Control ，即多版本并发控制。MVCC是一种并发控制的 方法，一般在数据库管理系统中，实现对数据库的并发访问，在编程语言中实现事务内存。
+MVCC ，全称 Multi-Version Concurrency Control ，即多版本并发控制。MVCC是基于”数据版本”对并发事务进行访问.
 
-MVCC在MySQL InnoDB中的实现主要是为了提高数据库并发性能，用更好的方式去处理读-写冲突， 做到即使有读写冲突时，也能做到不加锁，非阻塞并发读
+一致性的非锁定行读（consistent nonlocking read，简称CNR）是指InnoDB存储引擎通过行多版本控制（multi versioning）的方式来读取当前执行时间数据库中运行的数据
 
 https://www.cnblogs.com/xuwc/p/13873611.html
 
@@ -477,8 +491,16 @@ https://www.cnblogs.com/xuwc/p/13873611.html
 
 **Read view**
 
-```
-class ReadView {private:  trx_id_t m_low_limit_id;      /* 大于等于这个 ID 的事务均不可见 */  trx_id_t m_up_limit_id;       /* 小于这个 ID 的事务均可见 */  trx_id_t m_creator_trx_id;    /* 创建该 Read View 的事务ID */  trx_id_t m_low_limit_no;      /* 事务 Number, 小于该 Number 的 Undo Logs 均可以被 Purge */  ids_t m_ids;                  /* 创建 Read View 时的活跃事务列表 */  m_closed;                     /* 标记 Read View 是否 close */}
+```c++
+class ReadView {
+	private:  
+		trx_id_t m_low_limit_id;      			/* 大于等于这个 ID 的事务均不可见 */  
+		trx_id_t m_up_limit_id;       			/* 小于这个 ID 的事务均可见 */  
+		trx_id_t m_creator_trx_id;    			/* 创建该 Read View 的事务ID */  
+		trx_id_t m_low_limit_no;      			/* 事务 Number, 小于该 Number 的 Undo Logs 均可以被 Purge */  
+		ids_t m_ids;                  			/* 创建 Read View 时的活跃事务列表 */  
+		m_closed;                     			/* 标记 Read View 是否 close */
+}
 ```
 
 [`Read View` ](https://github.com/facebook/mysql-8.0/blob/8.0/storage/innobase/include/read0types.h#L298) 主要是用来做可见性判断，里面保存了 “当前对本事务不可见的其他活跃事务”
@@ -487,7 +509,7 @@ class ReadView {private:  trx_id_t m_low_limit_id;      /* 大于等于这个 ID
 
 - `m_low_limit_id`：目前出现过的最大的事务 ID+1，即下一个将被分配的事务 ID。大于等于这个 ID 的数据版本均不可见
 - `m_up_limit_id`：活跃事务列表 `m_ids` 中最小的事务 ID，如果 `m_ids` 为空，则 `m_up_limit_id` 为 `m_low_limit_id`。小于这个 ID 的数据版本均可见
-- `m_ids`：`Read View` 创建时其他未提交的活跃事务 ID 列表。创建 `Read View`时，将当前未提交事务 ID 记录下来，后续即使它们修改了记录行的值，对于当前事务也是不可见的。`m_ids` 不包括当前事务自己和已提交的事务（正在内存中）
+- `m_ids`：`Read View` 创建时其他未提交的活跃事务 ID 列表。创建 `Read View`时，将当前未提交事务 ID 记录下来，后续即使它们修改了记录行的值，对于当前事务也是不可见的。`m_ids` 不包括当前事务自己和已提交的事务
 - `m_creator_trx_id`：创建该 `Read View` 的事务 ID
 
 ![trans_visible](picture/trans_visible.jpg)
@@ -520,6 +542,8 @@ class ReadView {private:  trx_id_t m_low_limit_id;      /* 大于等于这个 ID
 ![img](picture/6a276e7a-b0da-4c7b-bdf7-c0c7b7b3b31c.png)
 
 不同事务或者相同事务的对同一记录行的修改，会使该记录行的 `undo log` 成为一条链表，链首就是最新的记录，链尾就是最早的旧记录。
+
+> mysql确保UNDO_LOG版本链数据不再被“引用”后再进行删除。
 
 
 
@@ -562,9 +586,9 @@ class ReadView {private:  trx_id_t m_low_limit_id;      /* 大于等于这个 ID
 
 **RC 下 ReadView 生成情况**
 
-1. **`假设时间线来到 T4 ，那么此时数据行 id = 1 的版本链为`：**
+1.**`假设时间线来到 T4 ，那么此时数据行 id = 1 的版本链为`：**
 
-   ![img](picture/a3fd1ec6-8f37-42fa-b090-7446d488fd04.png)
+![img](picture/a3fd1ec6-8f37-42fa-b090-7446d488fd04.png)
 
 由于 RC 级别下每次查询都会生成`Read View` ，并且事务 101、102 并未提交，此时 `103` 事务生成的 `Read View` 中活跃的事务 **`m_ids` 为：[101,102]** ，`m_low_limit_id`为：104，`m_up_limit_id`为：101，`m_creator_trx_id` 为：103
 
@@ -572,16 +596,16 @@ class ReadView {private:  trx_id_t m_low_limit_id;      /* 大于等于这个 ID
 - 根据 `DB_ROLL_PTR` 找到 `undo log` 中的上一版本记录，上一条记录的 `DB_TRX_ID` 还是 101，不可见
 - 继续找上一条 `DB_TRX_ID`为 1，满足 1 < m_up_limit_id，可见，所以事务 103 查询到数据为 `name = 菜花`
 
-1. **`时间线来到 T6 ，数据的版本链为`：**
+2.**`时间线来到 T6 ，数据的版本链为`：**
 
-   ![markdown](picture/528559e9-dae8-4d14-b78d-a5b657c88391.png)
+![markdown](picture/528559e9-dae8-4d14-b78d-a5b657c88391.png)
 
 因为在 RC 级别下，重新生成 `Read View`，这时事务 101 已经提交，102 并未提交，所以此时 `Read View` 中活跃的事务 **`m_ids`：[102]** ，`m_low_limit_id`为：104，`m_up_limit_id`为：102，`m_creator_trx_id`为：103
 
 - 此时最新记录的 `DB_TRX_ID` 为 102，m_up_limit_id <= 102 < m_low_limit_id，所以要在 `m_ids` 列表中查找，发现 `DB_TRX_ID` 存在列表中，那么这个记录不可见
 - 根据 `DB_ROLL_PTR` 找到 `undo log` 中的上一版本记录，上一条记录的 `DB_TRX_ID` 为 101，满足 101 < m_up_limit_id，记录可见，所以在 `T6` 时间点查询到数据为 `name = 李四`，与时间 T4 查询到的结果不一致，不可重复读！
 
-1. **`时间线来到 T9 ，数据的版本链为`：**
+3.**`时间线来到 T9 ，数据的版本链为`：**
 
 ![markdown](picture/6f82703c-36a1-4458-90fe-d7f4edbac71a.png)
 
@@ -624,6 +648,10 @@ class ReadView {private:  trx_id_t m_low_limit_id;      /* 大于等于这个 ID
 
 此时情况跟 T6 完全一样，由于已经生成了 `Read View`，此时依然沿用 **`m_ids` ：[101,102]** ，所以查询结果依然是 `name = 菜花`
 
+> 连续多次快照读，ReadView会产生复用，没有幻读问题.
+>
+> 特例: 如果事务中两次快照读中出现了修改其他事务新增的当前读,  会重新生成ReadView ,  导致出现幻读.
+
 
 
 **MVCC➕Next-key-Lock 防止幻读**
@@ -637,6 +665,10 @@ class ReadView {private:  trx_id_t m_low_limit_id;      /* 大于等于这个 ID
 **2、执行 select...for update/lock in share mode、insert、update、delete 等当前读**
 
 在当前读下，读取的都是最新的数据，如果其它事务有插入新的记录，并且刚好在当前事务查询范围内，就会产生幻读！`InnoDB` 使用 [Next-key Lock  (opens new window)](https://dev.mysql.com/doc/refman/5.7/en/innodb-locking.html#innodb-next-key-locks) 来防止这种情况。当执行当前读时，会锁定读取到的记录的同时，锁定它们的间隙，防止其它事务在查询范围内插入数据。只要我不让你插入，就不会发生幻读
+
+
+
+
 
 
 
@@ -1417,10 +1449,71 @@ sentinel之间通过redis master 感知其他sentinel的存在
 
 ![image-20211205155851734](picture/image-20211205155851734.png)
 
-
+>  哨兵模式每个节点保留全量数据,且数据保持一致, 仅为单节点redis提供高可用 , 存在性能瓶颈
 
 ### Cluster
 
-主从复制中单机的QPS可能无法满足业务需求
-
 Redis Cluster是分布式架构：即Redis Cluster中有多个节点，每个节点都负责进行数据读写操作, 且每个节点之间会进行通信。
+
+> cluster利用多台服务器构建集群提高超大规模数据处理能力 ,同时提供高可用支持
+
+•Cluster模式是Redis3.0开始推出
+
+•采用无中心结构，每个节点保存数据和整个集群状态, 每个节点都和其他所有节点连接
+
+•官方要求：至少6个节点才可以保证高可用，即3主3从；扩展性强、更好做到高可用
+
+•各个节点会互相通信，采用gossip协议交换节点元数据信息
+
+•数据分散存储到各个节点上
+
+**Cluster如何将数据分散存储?**
+
+Redis Cluster 集群采用Hash Slot（哈希槽）分配
+
+Redis集群预分好16384个槽，初始化集群时平均规划给每一台Redis Master
+
+```
+crc16(key)%16384
+```
+
+cluster模式集群中槽分配的元数据会不断的在集群中分发(gossip协议) ,以保证所有节点都知晓槽的分配情况.
+
+**为什么时16384?**
+
+主节点个数通常远远达不到16384 
+
+> 16384即16k ,在发送心跳包时使用char进行bitmap压缩后是2k( 2 * 8 ( 8bit) * 1024 ( 1k ) = 16k) .
+
+**构建配置**
+
+redis-cluster.conf
+
+![image-20211207193419534](picture/image-20211207193419534.png)
+
+**创建命令**
+
+指定所有机器ip和端口 , 最后指定副本数, redis默认自动配置规则会将前面的3台作为主节点,
+
+```
+./src/redis-cli -a 123456 --cluster create 
+192.168.31.102:6379 192.168.31.103:6379 192.168.31.104:6379  
+192.168.31.110:6379 192.168.31.111:6379 192.168.31.112:6379 
+--cluster-replicas 1
+```
+
+启动之后日志
+
+![image-20211207193714585](picture/image-20211207193714585.png)
+
+操作结果中也会显示槽的定位转发
+
+![image-20211207193814192](picture/image-20211207193814192.png)
+
+**故障日志**
+
+![image-20211207194103490](picture/image-20211207194103490.png)
+
+![image-20211207194107617](picture/image-20211207194107617.png)
+
+如果一对主从都挂了 , 整个集群变为fail状态而不可用 . 所以redis规定最少一个副本 , 条件允许可以弄两个副本.
