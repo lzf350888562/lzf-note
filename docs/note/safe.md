@@ -1934,42 +1934,6 @@ public enum SessionCreationPolicy {
 security.sessions: stateless
 ```
 
-## jwt
-
-使用jwt在过滤器中完成认证
-
-```
-@Component
-public class JwtAuthenticationTokenFilter extends OncePerRequestFilter
-{
-    @Autowired
-    private TokenService tokenService;
-
-    @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
-            throws ServletException, IOException
-    {
-        LoginUser loginUser = tokenService.getLoginUser(request);
-        //如果loginUser为null才去获取Authentication对象
-        if (StringUtils.isNotNull(loginUser) && StringUtils.isNull(SecurityUtils.getAuthentication()))
-        {
-            //验证token有效期
-            tokenService.verifyToken(loginUser);
-            UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(loginUser, null, loginUser.getAuthorities());
-            authenticationToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-            SecurityContextHolder.getContext().setAuthentication(authenticationToken);
-        }
-        chain.doFilter(request, response);
-    }
-}
-```
-
-最后需要将过滤器注册在`UsernamePasswordAuthenticationFilter`以前
-
-```
-httpSecurity.addFilterBefore(authenticationTokenFilter, UsernamePasswordAuthenticationFilter.class);
-```
-
 ## 单账号
 
 ```
@@ -2002,87 +1966,15 @@ public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
 }
 ```
 
-- 通过`@EnableWebSecurity`注解开启Spring Security的功能
-- 继承`WebSecurityConfigurerAdapter`，并重写它的方法来设置一些web安全的细节
-- configure(HttpSecurity http)方法
-  - 通过`authorizeRequests()`定义哪些URL需要被保护、哪些不需要被保护。例如以上代码指定了`/`和`/home`不需要任何认证就可以访问，其他的路径都必须通过身份验证。
-  - 通过`formLogin()`定义当需要用户登录时候，转到的登录页面。
 - `configureGlobal(AuthenticationManagerBuilder auth)`方法，在内存中创建了一个用户，该用户的名称为user，密码为password，用户角色为USER。
 
-根据配置，Spring Security提供了一个过滤器来拦截请求并验证用户身份。如果用户身份认证失败，页面就重定向到`/login?error`，并且页面中会展现相应的错误信息。若用户想要注销登录，可以通过访问`/login?logout`请求，在完成注销之后，页面展现相应的成功消息。
 
-到这里，我们启用应用，并访问`http://localhost:8080/`，可以正常访问。但是访问`http://localhost:8080/hello`的时候被重定向到了`http://localhost:8080/login`页面，因为没有登录，用户没有访问权限，通过输入用户名user和密码password进行登录后，跳转到了Hello World页面，再也通过访问`http://localhost:8080/login?logout`，就可以完成注销操作。
 
-thymeleaf:
-
-login.html  
+## 若依添加自定义Filter校验JWT
 
 ```
-<!DOCTYPE html>
-<html xmlns="http://www.w3.org/1999/xhtml"
-      xmlns:th="http://www.thymeleaf.org"
-      xmlns:sec="http://www.thymeleaf.org/thymeleaf-extras-springsecurity3">
-    <head>
-        <title>Spring Security Example </title>
-    </head>
-    <body>
-        <div th:if="${param.error}">
-            用户名或密码错
-        </div>
-        <div th:if="${param.logout}">
-            您已注销成功
-        </div>
-        <form th:action="@{/login}" method="post">
-            <div><label> 用户名 : <input type="text" name="username"/> </label></div>
-            <div><label> 密  码 : <input type="password" name="password"/> </label></div>
-            <div><input type="submit" value="登录"/></div>
-        </form>
-    </body>
-</html>
-```
-
-hello.html
-
-```
-<!DOCTYPE html>
-<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org"
-      xmlns:sec="http://www.thymeleaf.org/thymeleaf-extras-springsecurity3">
-    <head>
-        <title>Hello World!</title>
-    </head>
-    <body>
-        <h1 th:inline="text">Hello [[${#httpServletRequest.remoteUser}]]!</h1>
-        <form th:action="@{/logout}" method="post">
-            <input type="submit" value="注销"/>
-        </form>
-    </body>
-</html>
-```
-
-
-
-## 若依使用
-
-```
-package com.ruoyi.framework.security.handle;
-
-import java.io.IOException;
-import java.io.Serializable;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import org.springframework.security.core.AuthenticationException;
-import org.springframework.security.web.AuthenticationEntryPoint;
-import org.springframework.stereotype.Component;
-import com.alibaba.fastjson.JSON;
-import com.ruoyi.common.constant.HttpStatus;
-import com.ruoyi.common.core.domain.AjaxResult;
-import com.ruoyi.common.utils.ServletUtils;
-import com.ruoyi.common.utils.StringUtils;
-
 /**
  * 认证失败处理类 返回未授权
- * 
- * @author ruoyi
  */
 @Component
 public class AuthenticationEntryPointImpl implements AuthenticationEntryPoint, Serializable
@@ -2093,7 +1985,7 @@ public class AuthenticationEntryPointImpl implements AuthenticationEntryPoint, S
     public void commence(HttpServletRequest request, HttpServletResponse response, AuthenticationException e)
             throws IOException
     {
-        int code = HttpStatus.UNAUTHORIZED;  /
+        int code = HttpStatus.UNAUTHORIZED;  
         String msg = StringUtils.format("请求访问：{}，认证失败，无法访问系统资源", request.getRequestURI());
         ServletUtils.renderString(response, JSON.toJSONString(AjaxResult.error(code, msg)));
     }
@@ -2101,31 +1993,8 @@ public class AuthenticationEntryPointImpl implements AuthenticationEntryPoint, S
 ```
 
 ```
-package com.ruoyi.framework.security.handle;
-
-import java.io.IOException;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.web.authentication.logout.LogoutSuccessHandler;
-import com.alibaba.fastjson.JSON;
-import com.ruoyi.common.constant.Constants;
-import com.ruoyi.common.constant.HttpStatus;
-import com.ruoyi.common.core.domain.AjaxResult;
-import com.ruoyi.common.core.domain.model.LoginUser;
-import com.ruoyi.common.utils.ServletUtils;
-import com.ruoyi.common.utils.StringUtils;
-import com.ruoyi.framework.manager.AsyncManager;
-import com.ruoyi.framework.manager.factory.AsyncFactory;
-import com.ruoyi.framework.web.service.TokenService;
-
 /**
  * 自定义退出处理类 返回成功
- * 
- * @author ruoyi
  */
 @Configuration
 public class LogoutSuccessHandlerImpl implements LogoutSuccessHandler
@@ -2133,11 +2002,6 @@ public class LogoutSuccessHandlerImpl implements LogoutSuccessHandler
     @Autowired
     private TokenService tokenService;
 
-    /**
-     * 退出处理
-     * 
-     * @return
-     */
     @Override
     public void onLogoutSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication)
             throws IOException, ServletException
@@ -2157,24 +2021,6 @@ public class LogoutSuccessHandlerImpl implements LogoutSuccessHandler
 ```
 
 ```
-package com.ruoyi.framework.security.filter;
-
-import java.io.IOException;
-import javax.servlet.FilterChain;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
-import org.springframework.stereotype.Component;
-import org.springframework.web.filter.OncePerRequestFilter;
-import com.ruoyi.common.core.domain.model.LoginUser;
-import com.ruoyi.common.utils.SecurityUtils;
-import com.ruoyi.common.utils.StringUtils;
-import com.ruoyi.framework.web.service.TokenService;
-
 /**
  * token过滤器 验证token有效性
  * 使用filter 在没有通过dispatcher前
@@ -2207,26 +2053,6 @@ public class JwtAuthenticationTokenFilter extends OncePerRequestFilter
 ```
 
 ```
-package com.ruoyi.framework.config;
-
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Bean;
-import org.springframework.http.HttpMethod;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
-import org.springframework.security.config.annotation.method.configuration.EnableGlobalMethodSecurity;
-import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
-import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.security.web.authentication.logout.LogoutFilter;
-import org.springframework.web.filter.CorsFilter;
-import com.ruoyi.framework.security.filter.JwtAuthenticationTokenFilter;
-import com.ruoyi.framework.security.handle.AuthenticationEntryPointImpl;
-import com.ruoyi.framework.security.handle.LogoutSuccessHandlerImpl;
-
 /**
  * spring security配置
  * 
@@ -2355,13 +2181,137 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter
 }
 ```
 
+> 注册自定义的jwt认证过滤器加在`UsernamePasswordAuthenticationFilter`前
+
+```
+httpSecurity.addFilterBefore(authenticationTokenFilter, UsernamePasswordAuthenticationFilter.class);
+```
+
 获取当前登录对象,需要强转为实现了UserDetails的用户类
 
 ```
 SecurityContextHolder.getContext().getAuthentication().getPrincipal()
 ```
 
+## 动态权限控制
 
+通过`FilterInvocationSecurityMetadataSource`实现动态权限控制 , 该类的主要功能就是通过当前的请求地址，获取该地址需要的用户角色。
+
+```
+@Component
+public class CustomFilterInvocationSecurityMetadataSource implements FilterInvocationSecurityMetadataSource {
+    @Autowired
+    MenuService menuService;
+    // AntPathMatcher 是一个正则匹配工具
+    AntPathMatcher antPathMatcher = new AntPathMatcher();
+    //根据用户传来的请求地址，分析请求需要的角色，并将所需要的角色放在 Collection中
+    @Override
+    public Collection<ConfigAttribute> getAttributes(Object o) throws IllegalArgumentException {
+        String requestUrl = ((FilterInvocation) o).getFullRequestUrl();
+        List<Menu> menus = menuService.getAllMenusWithRole();
+        for (Menu menu: menus){
+            if (antPathMatcher.match(menu.getUrl(), requestUrl)){
+                List<Role> roles = menu.getRoles();
+                String[] str = new String[roles.size()];
+                for (int i=0; i<roles.size(); i++){
+                    str[i] = roles.get(i).getName();
+                }
+                return SecurityConfig.createList(str);
+            }
+        }
+        // 没有匹配上的，只要登录之后就可以访问，这里“ROLE_LOGIN”只是一个标记.
+        return SecurityConfig.createList("ROLE_LOGIN");
+    }
+   ...
+}
+```
+
+还需要实现`AccessDecisionManager`判断当前用户是否当前url具备指定的角色 , 如果不具备，就抛出 AccessDeniedException 异常，否则不做任何事即可.
+
+```
+@Component
+public class CustomUrlDecisionManager implements AccessDecisionManager {
+    @Override
+    public void decide(Authentication authentication, Object o, Collection<ConfigAttribute> collection) throws AccessDeniedException, InsufficientAuthenticationException {
+        for (ConfigAttribute configAttribute : collection) {
+            String needRole = configAttribute.getAttribute();
+            //如果需要的角色是ROLE_LOGIN，说明当前请求的URL用户登陆后即可访问
+            if ("ROLE_LOGIN".equals(needRole)){
+                if (authentication instanceof AnonymousAuthenticationToken){
+                 	throw new AccessDeniedException("尚未登录，请登录！");
+                }else {
+                    return;
+                }
+            }
+            Collection<? extends GrantedAuthority> authorities = authentication.getAuthorities();
+            for (GrantedAuthority authority : authorities) {
+                if (authority.getAuthority().equals(needRole)){
+                    return;
+                }
+            }
+        }
+        throw new AccessDeniedException("权限不足，请联系管理员！");
+    }
+}
+```
+
+### 基于SpEL方式
+
+注册一个包含返回值为布尔的公共方法: 方法具有两个参数 `Authentication`和`HttpServletRequest` ,目的在于拿着当前请求去和当前认证信息中包含的角色进行访问控制判断.
+
+然后按照`@bean名称.方法名(authentication,request)`的格式配置到`HttpSecurity`对象中.
+
+```
+httpSecurity.authorizeRequests()
+	.anyRequest()
+	.access("@roleChecker.check(authentication,request)");
+```
+
+## AuthorizationManager
+
+5.6版本增加的泛型接口, 它用来检查当前认证信息是否可以访问特定对象T.
+
+> 对比SpEL方式 ,`RoleChecker`不就是`AuthorizationManager<HttpServletRequest>`?`AuthorizationManager`就是将这种访问决策抽象的更加泛化。
+
+```
+@FunctionalInterface
+public interface AuthorizationManager<T> {
+ 
+ default void verify(Supplier<Authentication> authentication, T object) {
+  AuthorizationDecision decision = check(authentication, object);
+        // 授权决策没有经过允许就403
+  if (decision != null && !decision.isGranted()) {
+   throw new AccessDeniedException("Access Denied");
+  }
+        // todo 没有null 的情况
+ }
+
+    // 钩子方法。
+ @Nullable
+ AuthorizationDecision check(Supplier<Authentication> authentication, T object);
+
+}
+```
+
+在5.6中, 就可以这样去实现了
+
+```
+
+        httpSecurity.authorizeHttpRequests()
+                .anyRequest()
+                .access((authenticationSupplier, requestAuthorizationContext) -> {
+                    // 当前用户的权限信息 比如角色
+                    Collection<? extends GrantedAuthority> authorities = authenticationSupplier.get().getAuthorities();
+                    // 当前请求上下文
+                    // 我们可以获取携带的参数
+                    Map<String, String> variables = requestAuthorizationContext.getVariables();
+                    // 我们可以获取原始request对象
+                    HttpServletRequest request = requestAuthorizationContext.getRequest();
+                    //todo 根据这些信息 和业务写逻辑即可 最终决定是否授权 isGranted
+                    boolean isGranted = true;
+                    return new AuthorizationDecision(isGranted);
+                });
+```
 
 
 
