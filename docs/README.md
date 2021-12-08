@@ -1,4 +1,4 @@
-以下为本人在学习工作之路上所记录的笔记.
+记录学习工作点滴
 
 # 记录
 
@@ -41,6 +41,10 @@
 [分布式](note/guide/distributed.md "分布式")
 
 [框架](note/guide/framework.md "框架")
+
+[服务器](note/guide/server.md "服务器")
+
+[中间件](note/guide/middleware.md "中间件")
 
 [其他](note/guide/other.md "other")
 
