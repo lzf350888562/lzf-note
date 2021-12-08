@@ -140,6 +140,8 @@ public static String convert(String inDate){
 
 # 原生序列化
 
+java序列化二进制流的方式
+
 ```
 public class SerializeUtils {
     private static Logger logger = LoggerFactory.getLogger(SerializeUtils.class);
