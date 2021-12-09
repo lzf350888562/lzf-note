@@ -89,7 +89,7 @@ private static final ObjectMapper getMapper() {
 @JsonProperty("mail")  
 private String email;
 //格式    还可以用在LocalDateTime上
-@JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+@JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss",t)
 private Date createTime;
 //为空不序列化
 @JsonInclude(JsonInclude.Include.NON_EMPTY)

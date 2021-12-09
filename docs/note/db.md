@@ -2343,6 +2343,8 @@ lower_case_table_names = 1
 
 explain关键字可以模拟MySQL优化器执行SQL语句，可以很好的分析SQL语句或表结构的性能 瓶颈。
 
+> explain extended 可查看相关警告信息
+
 ```
 mysql> explain select * from subject where id = 1
 ******************************************************
