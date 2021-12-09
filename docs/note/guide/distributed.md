@@ -51,15 +51,10 @@ AP 方案只是在系统发生分区的时候放弃一致性，而不是永远�
 > 2. **弱一致性** ：不一定可以读取到最新写入的值，也不保证多少时间之后读取到的数据是最新的，只是会尽量保证某个时刻达到数据一致的状态。
 > 3. **最终一致性** ：弱一致性的升级版，系统会保证在一定时间内达到数据一致的状态。
 >
-> **业界比较推崇是最终一致性级别，但是某些对数据一致要求十分严格的场景比如银行转账还是要保证强一致性。**
 
-那实现最终一致性的具体方式是什么呢? [《分布式协议与算法实战》](http://gk.link/a/10rZM) 中是这样介绍：
+Q:如何保证最终一致性?
 
-> - **读时修复** : 在读取数据时，检测数据的不一致，进行修复。比如 Cassandra 的 Read Repair 实现，具体来说，在向 Cassandra 系统查询数据的时候，如果检测到不同节点 的副本数据不一致，系统就自动修复数据。
-> - **写时修复** : 在写入数据，检测数据的不一致时，进行修复。比如 Cassandra 的 Hinted Handoff 实现。具体来说，Cassandra 集群的节点之间远程写数据的时候，如果写失败 就将数据缓存下来，然后定时重传，修复数据的不一致性。
-> - **异步修复** : 这个是最常用的方式，通过定时对账检测副本数据的一致性，并修复。
-
-比较推荐 **写时修复**，这种方式对性能消耗比较低。
+A:重试(MQ) , 数据校对程序(可通过定时任务实现 , 本质还是重发, 金融业务使用较多) , APM链路监控系统人工介入
 
 # 负载均衡
 
@@ -1211,6 +1206,74 @@ A:利用临时顺序节点可以避免“惊群效应”，当某一个客户端
 - 从第二个客户端开始，ZK不但创建0002子节点，还会监听前一个0001节点。当客户端1处理完毕或者其他原因释放0001节点后，ZK会通过Watch监听机制通知客户端2进行后续处理，以此保证处理的有序性，避免“惊群效应”产生。
 
 
+
+**通过`curator‐recipes`(Apache Curator:zk客户端框架)代码实现**
+
+```
+<dependency>
+	<groupId>org.apache.curator</groupId>
+	<artifactId>curator‐recipes</artifactId>
+	<version>5.2.0</version>
+</dependency>
+```
+
+模拟防止商品超卖, 强制将并行变为串行...(
+
+```java
+import org.apache.curator.RetryPolicy;
+import org.apache.curator.framework.CuratorFramework;
+import org.apache.curator.framework.CuratorFrameworkFactory;
+import org.apache.curator.framework.recipes.locks.InterProcessMutex;
+import org.apache.curator.retry.ExponentialBackoffRetry;
+import org.springframework.stereotype.Service;
+
+@Service
+public class WarehouseService {
+    public static int shoe = 10;
+
+    public int outOfWarehouseWithLock() throws Exception {
+        //设置ZK客户端重试策略, 如果无法获取锁资源, 则每隔5秒重试一次，最多重试10次
+        RetryPolicy policy = new ExponentialBackoffRetry(5000, 10);
+
+        //创建ZK客户端，连接到Zookeeper服务器
+        CuratorFramework client = CuratorFrameworkFactory.builder().connectString("192.168.31.103:2181").retryPolicy(policy).build();
+        //创建与Zookeeper服务器的连接
+        client.start();
+
+        //声明锁对象，本质就是ZK顺序临时节点
+        final InterProcessMutex mutex = new InterProcessMutex(client, "/locks/wh-shoe");
+        try {
+            //请求锁，创建锁
+            mutex.acquire();
+            //处理业务逻辑
+            if (WarehouseService.shoe > 0) {
+                Thread.sleep(1000);
+                //扣减库存
+                return --WarehouseService.shoe;
+            } else {
+                //库存不足，
+                throw new RuntimeException("运动鞋库存不足");
+            }
+        } finally {
+            //释放锁
+            mutex.release();
+        }
+    }
+
+    public int outOfWarehouse() throws Exception {
+        //处理业务逻辑
+        if (WarehouseService.shoe > 0) {
+            Thread.sleep(1000);
+            //扣减库存
+            return --WarehouseService.shoe;
+        } else {
+            throw new RuntimeException("运动鞋库存不足");
+        }
+    }
+}
+```
+
+> 可通过jmeter+zoolytic加入断点调试查看zk变化, 验证流程
 
 # 幂等性
 

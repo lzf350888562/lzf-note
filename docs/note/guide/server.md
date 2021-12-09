@@ -232,6 +232,151 @@ docker network rm my‐bridge
 
 
 
+# JVM
+
+jvm选项规则
+
+1. `java -version` 标准选项 ,任何版本JVM/任何平台都可使用
+2. `java -Xms10m` 非标准选项, 部分版本(基本主流都)识别
+3. `java -XX:+PrintGCDetails` 不稳定参数, 不同JVM有差异, 随时可能会被移除.
+
+> PS: +代表开启/-代表关闭
+
+## 调优
+
+**调优建议**
+
+- 大多数情况JVM生产环境考虑调整**①最大堆和最小堆大小②GC收集器③新生代大小** 三方面
+- 在没有全面监控和收集性能数据之前, 调优都是扯淡
+- 99%情况是代码出现了问题, 而不是JVM参数设置不对
+
+### 优化选项
+
+1.jdk1.8有限使用G1收集器, 摆脱各种选项烦恼(jdk9产生 , jdk1.8内置)
+
+```
+Java -jar -XX:+UseG1GC -Xms2G -Xmx2G -Xss256k
+-XX:MaxGCPauseMillis=300 -Xloggc:/logs/gc.log 
+-XX:+PrintGCTimeStamps -XX:+PrintGCDetails  xxx.jar
+```
+
+解析:
+
+1) `-Xms`与`-Xmx`配置值相同 , 当程序运行时 ,自动把空间直接分配 , **减少内存交换**(动态内存调整);
+2) 而具体评估`-Xmx`值得方法为: 第一次起始设置大一点, 跟踪监控日志 , 调整为堆峰值的*2 或 *3即可;
+3) `-Xloggc`配置了监控日志地址, `-XX:+PrintGCTimeStamps`表示打印GC具体时间,  `-XX:+PrintGCDetails`表示打印GC详细信息;
+4) `-XX:MaxGCPauseMillis`表示最多300毫秒STW时间 ( G1独有, 设置STW时间) , 200~500区间 ,增大可减少GC次数, 提高吞吐;
+5) 虚拟机栈默认采用一个线程分配1M空间, 因为局部变量表不保存对象(指针) ,多余(不涉及复杂业务运算)且内存压力大, 采用`-Xss`设置为128k/256k即可, 不建议超过256k , 如超过考虑其他优化, 特别是代码;
+6) G1一般不设置新生代大小 , G1的新生代是动态调整的.
+
+
+
+# Zookeeper
+
+
+
+## Apache Curator
+
+Apache Curator(https://curator.apache.org/)是一个比较完善的ZooKeeper客户端框架，通 过封装的一套高级API 简化了ZooKeeper的操作。
+
+通过查看官方文档，可以发现Curator主要解决 了三类问题： 
+
+1.封装ZooKeeper client与ZooKeeper server之间的连接处理 
+
+2.提供了一套Fluent风格的操作API
+
+3.提供ZooKeeper各种应用场景(recipe， 比如：分布式锁服务、集群领导选举、共享 计数器、缓存机制、分布式队列等)的抽象封装
+
+## 安装
+
+**centos手动安装**
+
+```
+# Zookeeper依赖JVM运行，先安装JDK
+2 yum ‐y install java‐1.8.0‐openjdk
+3 cd /usr/local
+4 # 下载Zookeeper Tar
+5 wget http://dlcdn.apache.org/zookeeper/zookeeper‐3.7.0/apache‐zookeeper‐
+3.7.0‐bin.tar.gz
+6 tar ‐zxvf apache‐zookeeper‐3.7.0‐bin.tar.gz
+7 cd ./apache‐zookeeper‐3.7.0‐bin/
+8 cd ./conf/
+9 # 按实例文件复制重命名到 zoo.cfg
+10 cp zoo_sample.cfg zoo.cfg
+11 cd ../bin
+12 # 启动Zookeeper
+13 ./zkServer.sh start
+14 # 防火墙放行 2181 是Zookeeper服务端口 8080是Web命令端口（可选）
+15 firewall‐cmd ‐‐zone=public ‐‐add‐port=2181/tcp ‐‐permanent
+16 firewall‐cmd ‐‐zone=public ‐‐add‐port=8080/tcp ‐‐permanent
+17 # 重载防火墙
+18 firewall‐cmd ‐‐reload
+```
+
+访问 8080/commands/stat 成功即表示安装成功
+
+**Docker安装**
+
+```
+docker run ‐‐privileged=true ‐d ‐‐name zookeeper ‐p 2181:2181 ‐p 8080:808
+0 ‐d zookeeper:latest
+2 firewall‐cmd ‐‐zone=public ‐‐add‐port=2181/tcp ‐‐permanent
+3 firewall‐cmd ‐‐zone=public ‐‐add‐port=8080/tcp ‐‐permanent
+4 firewall‐cmd ‐‐reload
+```
+
+**IDEA插件Zoolytic**
+
+安装完成后在View->Tool Windows->zoolytic
+
+输入ip:2181连接zk
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # 发布部署
 
 应用发布与持续继承
@@ -301,103 +446,6 @@ insert into t(a,b) values(‘a’,’b’);
 在灰度发布的时候，可以部署相对较小的集群，让集群保持在高压力确认新版应用的性能情况，之后再酌情进行扩容。
 
 > TIPS: 服务监控可使用简单粗暴的SkyWalking
-
-
-
-# JVM
-
-jvm选项规则
-
-1. `java -version` 标准选项 ,任何版本JVM/任何平台都可使用
-2. `java -Xms10m` 非标准选项, 部分版本(基本主流都)识别
-3. `java -XX:+PrintGCDetails` 不稳定参数, 不同JVM有差异, 随时可能会被移除.
-
-> PS: +代表开启/-代表关闭
-
-## 调优
-
-**调优建议**
-
-- 大多数情况JVM生产环境考虑调整**①最大堆和最小堆大小②GC收集器③新生代大小** 三方面
-- 在没有全面监控和收集性能数据之前, 调优都是扯淡
-- 99%情况是代码出现了问题, 而不是JVM参数设置不对
-
-### 优化选项
-
-1.jdk1.8有限使用G1收集器, 摆脱各种选项烦恼(jdk9产生 , jdk1.8内置)
-
-```
-Java -jar -XX:+UseG1GC -Xms2G -Xmx2G -Xss256k
--XX:MaxGCPauseMillis=300 -Xloggc:/logs/gc.log 
--XX:+PrintGCTimeStamps -XX:+PrintGCDetails  xxx.jar
-```
-
-解析:
-
-1) `-Xms`与`-Xmx`配置值相同 , 当程序运行时 ,自动把空间直接分配 , **减少内存交换**(动态内存调整);
-2) 而具体评估`-Xmx`值得方法为: 第一次起始设置大一点, 跟踪监控日志 , 调整为堆峰值的*2 或 *3即可;
-3) `-Xloggc`配置了监控日志地址, `-XX:+PrintGCTimeStamps`表示打印GC具体时间,  `-XX:+PrintGCDetails`表示打印GC详细信息;
-4) `-XX:MaxGCPauseMillis`表示最多300毫秒STW时间 ( G1独有, 设置STW时间) , 200~500区间 ,增大可减少GC次数, 提高吞吐;
-5) 虚拟机栈默认采用一个线程分配1M空间, 因为局部变量表不保存对象(指针) ,多余(不涉及复杂业务运算)且内存压力大, 采用`-Xss`设置为128k/256k即可, 不建议超过256k , 如超过考虑其他优化, 特别是代码;
-6) G1一般不设置新生代大小 , G1的新生代是动态调整的.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
