@@ -2267,7 +2267,7 @@ httpSecurity.authorizeRequests()
 	.access("@roleChecker.check(authentication,request)");
 ```
 
-## AuthorizationManager
+### AuthorizationManager
 
 5.6版本增加的泛型接口, 它用来检查当前认证信息是否可以访问特定对象T.
 

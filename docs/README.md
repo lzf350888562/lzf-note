@@ -46,6 +46,8 @@
 
 [中间件](note/guide/middleware.md "中间件")
 
+[Spring Cloud](note/guide/springcloud.md "cloud")
+
 [大数据](note/guide/bigdata.md "大数据")
 
 [其他](note/guide/other.md "other")
