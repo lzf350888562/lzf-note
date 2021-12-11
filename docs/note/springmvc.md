@@ -1346,11 +1346,9 @@ public class RepeatedlyRequestWrapper extends HttpServletRequestWrapper {
 
 ## XSS
 
-前后端分离的项目中,xss一般用来过滤增删改操作
+前后端分离的项目中,xss过滤一般是在后端进行过滤增删改操作
 
 ### HttpServletRequestWrapper参数过滤
-
-若依项目中有更详细的过滤方式
 
 ```
 public class XssHttpServletRequestWrapper extends HttpServletRequestWrapper {

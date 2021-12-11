@@ -316,7 +316,9 @@ JWT不设置过期时间行不行？
 
 SSO(Single Sign On)即单点登录说的是用户登陆多个子系统的其中一个就有权访问与其相关的其他系统。举个例子我们在登陆了京东金融之后，我们同时也成功登陆京东的京东超市、京东国际、京东生鲜等子系统。
 
+![SSO系统设计-登录时序图](picture/sso-login-sequence.png-kbrb.png)
 
+用户登录后AuthToken保存在Cookie中。 domain=test.com 浏览器会将domain设置成 .test.com， 这样访问所有*.test.com的web站点，都会将AuthToken携带到服务器端。 然后通过SSO服务，完成对用户状态的校验/用户登录信息的获取 ----- 著作权归Guide哥所有。 链接: https://javaguide.cn/system-design/security/sso-intro/#_3%E3%80%81%E7%94%A8%E6%88%B7%E7%99%BB%E5%BD%95-%E7%99%BB%E5%BD%95%E6%A0%A1%E9%AA%8C
 
 ## OAuth2
 

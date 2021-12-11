@@ -195,6 +195,208 @@ OLTP联机事务处理:
 
 -->关系型数据库
 
+## 执行计划explain
+
+explain关键字可以模拟MySQL优化器执行SQL语句，可以很好的分析SQL语句或表结构的性能 瓶颈。
+
+> explain extended 可查看相关警告信息
+
+```
+mysql> explain select * from subject where id = 1
+******************************************************
+id: 1
+select_type: SIMPLE
+table: subject
+partitions: NULL
+type: const
+possible_keys: PRIMARY
+key: PRIMARY
+key_len: 4
+ref: const
+rows: 1
+filtered: 100.00
+Extra: NULL
+```
+
+```
+1. id 				//select查询的序列号，包含一组数字，表示查询中执行select子句或操作表的顺序
+2. select_type 		//查询类型 主要用于区别普通查询、联合查询、子查询等的复杂查询
+3. table 			//这个数据是基于哪张表的
+4. partitions 		//匹配的分区
+5. type 			//访问的类型
+6. possible_keys 	//与当前查询相关备选的索引有哪些, PRIMARY代表主键
+7. key 				//代表当前实际使用的索引是哪个
+8. key_len 			//代表单个索引值的长度
+9. ref 				//显示使用哪个列或常数与key一起从表中选择行
+10. rows 			//本次查询所扫描的行数, 不一定一致, 扫描行数越少越好
+11. filtered 		//查询的表行占表的百分比
+12. Extra 			//包含不适合在其它列中显示但十分重要的额外信息
+```
+
+**id字段**
+
+```
+1.id相同 : 执行顺序从上至下  (最上方的为驱动)
+2.id不同 : 如果是子查询，id的序号会递增，id的值越大优先级越高，越先被执行
+3.id相同又不同 : id如果相同，可以认为是一组，从上往下顺序执行 在所有组中，id值越大，优先级越高，越先执行
+```
+
+**select_type字段**(关键)
+
+```
+1.SIMPLE : 简单查询，不包含子查询或Union查询
+2.PRIMARY : 查询中若包含任何复杂的子部分，最外层查询则被标记为主查询
+3.SUBQUERY : 在select或where中包含子查询
+4.DERIVED : 在FROM列表中包含的子查询被标记为DERIVED（衍生），MySQL 会递归执行这些子查询，把结果放在临时表中
+			MySQL5.7+ 进行优化了，增加了derived_merge（派生合并），默认开启，可加快查询效率
+5.UNION : 若第二个select出现在union之后，则被标记为UNION
+6.UNION RESULT : 从UNION表获取结果的select (去重)
+```
+
+**type字段**(关键)
+
+```
+表示索引检索类型, 以下顺序从好到差
+1.NULL : MySQL能够在优化阶段分解查询语句，在执行阶段用不着再访问表或索引.
+比如通过id没有找到 explain select min(id) from subject;
+2.system : 表只有一行记录（等于系统表），这是const类型的特列，平时不大会出现，
+3.const : 表示通过索引一次就找到了，const用于比较primary key或uique索引，因为只匹配一行数据，所以很快，如主键置于where列表中，MySQL就能将该查询转换为一个常量.
+4.eq_ref :唯一性索引扫描，对于每个索引键，表中只有一条记录与之匹配，常见于主键或唯一索引扫描
+5.ref : 非唯一性索引扫描，返回匹配某个单独值的所有行, 本质上也是一种索引访问，返回所有匹配某个单独值的行,然而可能会找到多个符合条件的行，应该属于查找和扫描的混合体
+6.ref_or_null : 类似ref, 但是可以搜索值为null的行
+7.index_merge : 表示使用了索引合并的优化方法
+8.range : 只检索给定范围的行，使用一个索引来选择行，key列显示使用了哪个索引 一般就是在你的where语句中出现between、<>、in等的查询。
+9.index : Full index Scan
+如explain select id from subject; 
+10.ALL : Full Table Scan，将遍历全表以找到匹配行.
+Index与All区别：index只遍历索引树，通常比All快 因为索引文件通常比数据文件小，也就是虽然all和index都是读全表，但index是从索引中读取的，而all 是从硬盘读的。
+```
+
+**Extra字段**(关键)
+
+```
+1.Using filesort : 说明MySQL会对数据使用一个外部的索引排序，而不是按照表内的索引顺序进行读取 
+	MySQL中无法利用索引完成的排序操作称为“文件排序”
+	优化方式,给排序字段建索引，并使用where或limit激活
+2.Using temporary : 使用了临时表保存中间结果，MySQL在对结果排序时使用临时表，常见于排序order by 和分组查询group by
+	优化方式,给分组字段建索引
+3.Using index : 表示相应的select操作中使用了覆盖索引(Covering Index ,就是select的数据列只用从索引中就能够取得，不必从数据表中读取，换句话说查询列要被所使用的索引覆盖)，避免访问了表的数据行，效率不错！
+4.Using where : 使用了where条件,表示优化器需要通过索引回表查询数据
+5.Using join buffer :使用了连接缓存 
+	explain select student.*,teacher.*,subject.* from student,teacher,subject;
+	explain select * from emp ,dept where emp.empno = dept.ceo ;
+6.impossible where : where子句的值总是false，不能用来获取任何元组
+7.distinct : 一旦mysql找到了与行相联合匹配的行，就不再搜索了, 如左连接里的右表
+8.Select tables optimized away
+	explain select * from emp ,dept where emp.empno = dept.ceo ;
+	explain select min(id) from subject;
+9.using MMR : MMR(Multi Range Read), 当查询通过二级索引得到的主键值进行回表时,如果回表的主键值为二级索引的顺序,对应的主键就是乱序的, 回表的时候就需要进行大量随机IO; MRR则在内存中将二级索引中命中的主键值进行根据主键列进行排序后才进行回表,这样回表则是顺序IO,极大提高了性能.
+```
+
+### NLJ
+
+ NLJ(Nested Loop Join 嵌套循环关联)
+
+与编程中的二层嵌套类似,  驱动表中的每一条记录与被驱动表总的记录进行比较, 驱动表的选择决定了查询性能的高低.
+
+> mysql会自动选择最优驱动表, 但是在多级关联情况下有可能会出现选择问题
+
+案例:
+
+在mysql8多表关联查询语句下:
+
+![image-20211211180444460](picture/image-20211211180444460.png)
+
+执行计划为:
+
+![image-20211211180520940](picture/image-20211211180520940.png)
+
+按上下顺序, 最顶端的是驱动表, 此时未加索引, h表不幸被选中作为驱动表 , 进行全表关联, 效率极差.
+
+此过程先对h表全表扫描576931行, 然后根据ref的关联在被驱动表中查询.
+
+此时, 如果只给筛选条件的字段m.role和c.series_id加索引(小白做法):
+
+```
+create index idx_series_id on blog_chapter(series_id);
+create index idx_role on blog_menber(role);
+```
+
+再查看执行计划, 会发现与没加索引结果一样.
+
+> 结论:如果在多表关联时只在筛选条件上加字段索引, 没卵用.
+
+此时, 再给关联条件的外键增加索引:
+
+```
+create index idx_chapter_id on blog_browse_history(chapter_id);  	#新增
+create index idx_menber_id on blog_browse_history(menber_id);		#新增
+create index idx_series_id on blog_chapter(series_id);
+create index idx_role on blog_menber(role);
+```
+
+再查看执行计划:
+
+![image-20211211182325320](picture/image-20211211182325320.png)
+
+此时的驱动顺序为: c -> h -> m
+
+先在驱动表c中通过对series_id进行const筛选(vip),  这里的Using index表示通过series_id二级索引查询到主键chapter_id后并未回表, 直接使用主键与被驱动表关联.
+
+然后h表根据c表查询出来的主键(chapter_id)通过外键关联进行查询(由于h表对外键chapter_id已建立索引, 所以查询效率高) , 这里的Using where表示通过二级索引chapter_id查询到h表的主键后进行回表.
+
+再然后m表根据h表查询出来的外键(menber_id)直接进行主键查询. (但是不懂这里为什么Using where)
+
+> 结论:只有正确的在外键上建立索引(关联的主键自带索引), 在关联表的索引才能生效, 查询优化器才能正确决定用哪个表作为驱动表是最优解
+
+
+
+另外
+
+1.在索引正确的情况下, 如果将多表关联改为where in 子查询,  在查询优化器的驱使执行计划不会改变, 仍然使用NLJ高效查询.
+
+![image-20211211185611638](picture/image-20211211185611638.png)
+
+查看查询计划与上面结果一样.
+
+2.在索引正确的情况下, 如果将多表关联改为from子句筛选, 在查询优化器的驱使执行计划不会改变, 仍然使用NLJ高效查询.
+
+![image-20211211185819137](picture/image-20211211185819137.png)
+
+查看查询计划与上面结果一样.
+
+
+
+3.例外:如果select包含子查询, 会出现DEPENDENT SUBQUERY, 代表依赖子查询, 也属于NLJ范畴
+
+![image-20211211190254986](picture/image-20211211190254986.png)
+
+该方式在每查询出一条记录后,就将这条记录的某个属性拿去进行子查询.
+
+### 其他执行计划
+
+- DERIVED 子查询中出现多结果集运算![image-20211211191021781](picture/image-20211211191021781.png)
+
+id越大的子查询越先执行:
+
+id=4和id=3时: 通过两个根据series_id查询形成一个结果集
+
+id相同时从上往下执行:
+
+< derived3 >表示指向id为3的执行计划以及向后的延伸. 这里为id=4和id=3的结果集,
+
+id=1的执行计划先以derived3为驱动表c,通过c表的chapter_id查询h表二级索引,然后回表获取h表数据,然后再根据h表的menber_id查询blog_menber表数据(没有走二级索引)
+
+- UNION RESULT 少用UNION, 多用UNION ALL.
+
+
+
+![image-20211211193250977](picture/image-20211211193250977.png)
+
+这里的UNION RESULT执行计划表示对union3和4进行去重, 通过类型可以看到这个操作为全表扫描 , 关键的是Using temporary
+
+> UNION去重基于临时表, 临时表特性时如果缓存够使用内容, 缓存不够自动创建MyISAM引擎表(磁盘), IO效率变差.
+
 ## 锁
 
 数据库锁机制简单来说，就是数据库为了保证数据的一致性，使各种 共享资源 在被访问时变得 有 序而设计 的一种规则。

@@ -56,6 +56,181 @@ Q:如何保证最终一致性?
 
 A:重试(MQ) , 数据校对程序(可通过定时任务实现 , 本质还是重发, 金融业务使用较多) , APM链路监控系统人工介入
 
+# 高可用
+
+规避单点是高可用架构设计最基本的考量.(实际上总是无法避免)
+
+## Keepalived+VIP
+
+**Keepalive**是Linux轻量级别的高可用解决方案.
+
+其主要通过虚拟路由冗余(VRRP) 来实现高可用功能, 其部署和使用非常简单, 所有配置只需要一个配置文件即可完成.
+
+虚拟路由冗余协议(VRRP)是由IETF提出的解决局域网中配置静态网关出现单点失效现象的路由协议.
+
+**VIP(虚拟IP)**与实际网卡绑定的ip地址不同, VIP在内网中被动态的映射到不同的MAC地址上, 也就是映射到不同的机器设备上 ,keepalive通过"心跳机制"检测服务器状态, Master主节点宕机则自动将"IP漂移"到Backup备用机上实现高可用.
+
+
+
+在两台linux上配置keepalived.conf , 主备配置只有state和priority不同.
+
+```
+vrrp_instance VI_1 {
+	state MASTER			#主服务器
+	interface ens33			#绑定的网卡
+	virtual_router_id 51	#虚拟路由编号 (用于分组)
+	priority 100			#优先级，高优先级竞选为master
+	advert_int 2			#每2秒发送一次心跳包
+	authentication {		#设置认证
+		auth_type PASS		#认证方式，类型主要有PASS、AH 两种
+		auth_pass 123456	#认证密码
+	}
+	virtual_ipaddress {		#设置vip
+		192.168.237.5/24
+	}
+}
+# ---------------------
+vrrp_instance VI_1 {
+	state BACKUP			#备服务器
+	interface ens33			#绑定的网卡
+	virtual_router_id 51	#虚拟路由编号 (用于分组)
+	priority 99			    #优先级，高优先级竞选为master
+	advert_int 2			#每2秒发送一次心跳包
+	authentication {		#设置认证
+		auth_type PASS		#认证方式，类型主要有PASS、AH 两种
+		auth_pass 123456	#认证密码
+	}
+	virtual_ipaddress {		#设置vip
+		192.168.237.5/24
+	}
+}
+```
+
+设置完后master设置vip为237.5,  master的keepalived每两秒发送一次VRRP心跳包给backup, 让backup知道其还在工作 ,如果超时未接收到, 则需要keepalived进行vip漂移.
+
+> 因为设置了优先级 , 所以即使master中途宕机,vip漂移到backup后,master恢复时, vip会自动漂移回原master, 新master自动降级回backup
+
+### Nginx故障切换
+
+在通常的一nginx多web服务器的架构下(反向代理+负载均衡) ,
+
+为了实现nginx高可用, 可以再配置一台nginx , 并通过配置keepalived+VIP实现高可用.
+
+当主服务器宕机, vip即可漂移到备服务器.
+
+Q:如果当主服务器未宕机, 但其运行的nginx挂了,此时keepalived还是能发送心跳包所以不会发送漂移.
+
+所以**keepalived如何观测nginx是否有效是故障切换的重点**.
+
+通过给keepalived指定脚本观测nginx.
+
+```conf
+vrrp_script check_nginx{
+	script "/etc/keepalived/nginx_check.sh"		#nginx服务器检查脚本
+	interval 2 									#触发间隔
+	weight 1									#权重
+}
+```
+
+nginx_check.sh (手写脚本 , 有更好的方案 , pid文件不一定会消失)
+
+```sh
+#!/bin/bash
+#检查nginx的pid文件是否存在 不存在时 killall keepalived VIP漂移
+NGINXPID="/usr/install/nginx/logs/nginx.pid"
+if [ ! -f $NGINXPID ];then
+	killall keepalived
+fi
+```
+
+效果就是如果发现nginx挂掉, 就kill keepalived进程, 自然不会发送心跳包了
+
+### 互为主备+DNS轮询
+
+上述情况下 , 在第一台nginx没挂之前, 第二台nginx都是闲置状态.
+
+为了让另外一台nginx也投入使用,  可对两台nginx设置互为主备: 通过再加入一组VIP配置, vip为237.6
+
+```
+vrrp_instance VI_2 {  		#修改处1
+	state BACKUP			#修改处2
+	interface ens33			
+	virtual_router_id 52	#修改处3
+	priority 199			#修改处4
+	advert_int 2			
+	authentication {		
+		auth_type PASS		
+		auth_pass 123456	
+	}
+	virtual_ipaddress {		
+		192.168.237.6/24	#修改处5
+	}
+}
+//-------------------
+vrrp_instance VI_2 {  		#修改处1
+	state MASTER			#修改处2
+	interface ens33			
+	virtual_router_id 52	#修改处3
+	priority 200			#修改处4
+	advert_int 2			
+	authentication {		
+		auth_type PASS		
+		auth_pass 123456	
+	}
+	virtual_ipaddress {		
+		192.168.237.6/24	#修改处5
+	}
+}
+```
+
+Q:如何让两个vip都能被访问且负载均衡呢?
+
+A:利用DNS轮询机制给一个域名绑定这两个VIP , 而任一nginx挂掉, 另一个nginx服务器都同时持有237.5和237.6的VIP , 都不影响使用.
+
+DNS轮询缺点:
+
+1.只负责IP轮询获取,不保证节点可用;
+
+2.DNS IP列表更新有延迟;
+
+3.外网IP占用严重(所以中间通过nginx转发);
+
+4.安全性降低
+
+### 其他问题
+
+1. 每次在原master挂掉又恢复后, 都要进行来回两次VIP漂移, 节点会出现短暂不可提供.
+
+Q:如何让原backup称为主以后干脆一直使用原backup作为主?
+
+A:设置nopreempt非抢占模式 , 只需要加入一个配置即可
+
+```
+vrrp_instance VI_1 {
+	state BACKUP			
+	interface ens33			
+	virtual_router_id 51	
+	nopreempt			#非抢占模式
+	priority 99			    
+	advert_int 2			
+	authentication {		
+		auth_type PASS		
+		auth_pass 123456	
+	}
+	virtual_ipaddress {		
+		192.168.237.5/24
+	}
+}
+```
+
+2. 如果两台服务器中发送心跳的网络出现问题, 这种情况下backup因为接收不到master的心跳而提升为主, 从而出现两个相同的IP(脑裂)?
+
+因为问题发生在网络, 所以首先需要提高局域网可用性.
+
+禁止pkill -9 keepalived (强制关闭, keepalive不会回收VIP) ,使用pkill keepalived正常结束.
+
+解决网络问题后, 在备机上需要 systemctl restart network 重启网络对ip重置 去掉VIP.
+
 # 负载均衡
 
 ## Nginx
@@ -1379,6 +1554,12 @@ public class WarehouseService {
 ```
 
 > 可通过jmeter+zoolytic加入断点调试查看zk变化, 验证流程
+
+## **Paxos**选举算法
+
+Paxos算法是Lamport宗师提出的一种基于消息传递的分布式一致性算法，使其获得2013年图灵奖。
+
+在Zookeeper中，通过Paxos算法选举出主节点，同时保证集群数据的强一致性（CP)。
 
 # 幂等性
 

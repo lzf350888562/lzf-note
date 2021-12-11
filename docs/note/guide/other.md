@@ -98,6 +98,48 @@ public void updateBal(){
 
 最终解决方案为: 使用时间戳来表示已删除, 使用0来表示未删除.
 
+## 海量数据下大页码查询
+
+对于一个海量数据表, 执行下列sql
+
+```sql
+select * from table order by create_time limit 50000,10;
+```
+
+为了解决查询慢, 通常会给create_time增加索引,  但是实际并未生效, 因为没有使用where条件,   并且在create_time创建的索引下因为查询结果为*还要回表, 可能查询优化器认为走create_time执行效率比全表扫描还要慢, 所以走了全表扫描(explain的type 为ALL, Extra为Using filesort) ,在大数据量下这个执行效率是非常差的.
+
+所以优化的主要方向为如何利用create_time索引?
+
+A: 可利用索引覆盖特性查找第50000页的起始时间, 基于索引快速定位, 向后取10条数据:
+
+```sql
+select * from table where 
+create_time >=
+(
+	select create_time from table 
+	oreder by create_time limit 50000,1
+)
+order by create_time limit 10;
+```
+
+在这里, 子查询通过索引覆盖查出50000页的第一条数据, 效率是很高的(explian的type为index, extra为Using index), 接下来外层查询在order by和where下走了范围查询, 执行效率也得到了提高(explain的type为range,extra为**Using where**(也要回表))
+
+
+
+拓展: 如果在连续翻页的情况下, 可利用上一页最后一条记录的时间, 作为下一页的查询起始时间, 可以减少一次子查询 .
+
+这也是为什么很多地方UI只有上一页和下一页 还有移动端上拉加载下一页的原因, 没有显示总页数和总数减少获取总数和计算页数的过程.
+
+>  高并发下不可取, 因为时间会重复, 在对后续页查询需要额外增加偏移量处理
+
+> 另外时间采用时间戳效果会更好,不容易重复
+
+实际上用户真的会点击10000页吗? 对于这些分页问题, 实际业务场景会有更好的策略. 而淘宝页面采用的是只支持最多查询到100页的方案.
+
+
+
+
+
 ## Redis分片下的缓存访问倾斜
 
 redis分片下, 商品缓存均匀分布在redis分片 但是用户访问可能倾斜在某些热点商品,导致某些redis分片访问较多,其他的较少, 如何解决?
@@ -339,23 +381,46 @@ ssi_types text/html;
 
 
 
-# Nginx+keepalived+DNS实现高可用
+# 防止XSS
 
-在通常的一nginx多web服务器的架构下(反向代理+负载均衡) ,
+XSS攻击通常指的是利用网页开发时留下的漏洞, 通过巧妙的方法注入恶意指令代码到网页, 使用户加载并执行攻击者恶意制造的网页程序.
 
-为了实现高可用, 可以再配置一台Nginx ,并利用linux上的VIP屏蔽两台机器的实际ip  ,  外加keepalived利用VIP定时向nginx发送心跳, 如果一台挂掉, keepalived自动将VIP漂移到另一台上.
+比如攻击者在提交的表单中输入
 
-上述情况下 , 在第一台nginx没挂之前, 第二台nginx都是闲置状态 ,为了让另外一台nginx也投入使用,  可利用DNS轮询机制给一个域名绑定两个VIP ,  一个VIP指向第一台nginx ,一个VIP指向另一台nginx  . 而任一nginx挂掉, 都不影响使用.
+```html
+<script>
+	window.location=http://假网站.com/login.html;
+</script>
+```
 
-DNS轮询缺点:
+假网站的登录页面UI与主站完全相同, 而安全警惕性不高的用户通常不会考虑原因, 就再登录一次, 最后造成大量敏感数据失窃.
 
-1.只负责IP轮询获取,不保证节点可用;
+可通过对特殊字符进行转义解决.
 
-2.DNS IP列表更新有延迟;
+```
+&lt;script&gt;
+	window.location=http://假网站.com/login.html;
+&lt;/script&gt;
+```
 
-3.外网IP占用严重(所以中间通过nginx转发);
+Q:什么时候进行XSS过滤呢?
 
-4.安全性降低
+A:
+
+1.一定不要相信客户端数据, 表单欺诈
+
+2.一定要在服务端做转义符转换和有效性校验(验证码)
+
+org.springframework.web.util.HtmlUtils 提供了转义符转换功能
+
+```
+//转义符转换
+String str = HtmlUtils.htmlEscape(str);
+//反向转化
+String str = HtmlUtils.htmlescape(str);
+```
+
+
 
 # JDK序列化问题
 

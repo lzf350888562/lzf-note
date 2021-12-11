@@ -298,7 +298,61 @@ Kafka采用字节(流)紧密存储，避免产生对象，这样可以进一步�
 
 [博客](https://mp.weixin.qq.com/s?__biz=Mzg2OTA0Njk0OA==&mid=2247485969&idx=1&sn=6bd53abde30d42a778d5a35ec104428c&chksm=cea245daf9d5cccce631f93115f0c2c4a7634e55f5bef9009fd03f5a0ffa55b745b5ef4f0530&token=294077121&lang=zh_CN#rd)
 
+![image-20211211155606580](picture/image-20211211155606580.png)
 
+NameServer命名服务是RocketMQ特有(类似注册中心),用于
+
+1.接收broker注册信息 , 完成主题与broker绑定;
+
+2.每30秒, broker向NameServer上报心跳包;
+
+### 高可用
+
+生产高可用拓扑:NameServer 2-3个 , 采用多主多从方案.
+
+对broker-a建立从broker-slave-a, 对broker-b建立从broker-slave-b , slave通过日志从master同步数据 , slave只提供读 ,master提供读写.
+
+1.当a主挂了, a主停止写入服务, 此时:
+
+Consumer到a从pull原来积压的数据 (RocketMQ不会自动进行主从切换);
+
+Producer重试发送到b主, a主120秒后从NameServer摘除;
+
+> 如果slave采用异步复制可能会丢失数据
+
+2.当a主a从都挂了, 积压的数据都无法获取, 但不会丢失, 此时:
+
+Producer将相同的消息重试发送给b主(同步到b从) 被Consumer消费;
+
+a从恢复后, Comsumer继续消费;
+
+3.a主b主都挂了, Producer无法发送消息, 此时:
+
+Consumer多次重试后, 选择从提取积压数据;
+
+数据不会丢失, 但无法产生新消息; 
+
+4.NameServer挂, Producer/Consumer到NameServer List轮询, 从有效的NameServer获取broker信息
+
+5.broker-a与NameServer2网络阻塞, 此时:
+
+会导致两个NameServer状态不一致, 从而轮询到Consumer只能获取broker-b的数据(短板, 可手动摘除NameServer2) .
+
+broker-a数据不会丢失, 但无法被消费, 直到网络a与NameServer2网络恢复.
+
+### 主从复制
+
+**同步复制**:阻塞,效率低,没有丢数风险.
+
+Producer把消息发送给a主, a主在本地日志中写入后在a从同步前Producer都是阻塞的, 直到同步完成在返回响应.
+
+如果出现断网则会导致消息失败而整体回滚, 保证主从一致.
+
+**异步复制**:非阻塞,效率高,有丢数风险.
+
+Producer把消息发送给a主, a主在本地日志中写入后就立即返回响应给Producer. 
+
+而a从在响应过程中进行同步复制 , 加入在**响应后但未完成异步同步前主从断网**, a从会丢失数据, 从而主从不一致. 
 
 ## RabbitMQ
 
