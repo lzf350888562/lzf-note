@@ -68,6 +68,8 @@ Spring Boot默认配置只会输出到控制台，并不会记录到文件中，
 
 **日志文件会在10Mb大小的时候被截断，产生新的日志文件，默认级别为：ERROR、WARN、INFO**
 
+**日志文件以天为单位, 到第二天时前一天的日志自动打包成gz**
+
 ## 级别控制
 
 在Spring Boot中只需要在`application.properties`中进行配置完成日志记录的级别控制。
@@ -103,6 +105,8 @@ Spring Boot默认配置只会输出到控制台，并不会记录到文件中，
 - logging.pattern.file：定义输出到文件的样式（不支持JDK Logger）
 
 # logback
+
+Springboot默认logback-spring.xml
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -144,7 +148,7 @@ Spring Boot默认配置只会输出到控制台，并不会记录到文件中，
 </configuration>
 ```
 
-## 配置文件节点与属性详解
+## 节点与属性详解
 
 **根节点`<configuration>`包含的属性**
 
@@ -226,7 +230,7 @@ root节点是必选节点，用来指定最基础的日志输出级别，只有�
 - `level`：用来设置打印级别，大小写无关：TRACE, DEBUG, INFO, WARN, ERROR, ALL 和 OFF，还有一个特俗值INHERITED或者同义词NULL，代表强制执行上级的级别。如果未设置此属性，那么当前logger将会继承上级的级别。
 - `addtivity`：是否向上级logger传递打印信息。默认是true。
 
-### 配置文件流程
+### logger标签深入
 
 1.
 
