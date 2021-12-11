@@ -58,6 +58,47 @@ A:重试(MQ) , 数据校对程序(可通过定时任务实现 , 本质还是重�
 
 # 高可用
 
+高可用描述的是一个系统在大部分时间都是可用的，可以为我们提供服务的。高可用代表系统即使在发生硬件故障或者系统升级的时候，服务仍然是可用的。
+
+原因:
+
+- 黑客攻击；
+- 硬件故障，比如服务器坏掉。
+- 并发量/用户请求量激增导致整个服务宕掉或者部分服务不可用。
+- 代码中的坏味道导致内存泄漏或者其他问题导致程序挂掉。
+- 网站架构某个重要的角色比如 Nginx 或者数据库突然不可用。
+- 自然灾害或者人为破坏
+- ...
+
+提高办法:
+
+- 注重代码质量,测试严格把关
+
+比较常见的内存泄漏、循环依赖都是对系统可用性极大的损害
+
+- 使用集群,减少单点故障
+- 限流
+- 超时和重试机制设置
+
+一旦用户请求超过某个时间的得不到响应，就抛出异常。在读取第三方服务的时候，尤其适合设置超时和重试机制。一些 RPC 框架都自带的超时重试的配置。如果不进行超时设置可能会导致请求响应速度慢，甚至导致请求堆积进而让系统无法再处理请求。重试的次数一般设为 3 次，再多次的重试没有好处，反而会加重服务器压力（部分场景使用失败重试机制会不太适合）。 
+
+- 熔断机制
+
+超时和重试机制设置之外，熔断机制也是很重要的。 熔断机制说的是系统自动收集所依赖服务的资源使用情况和性能指标，当所依赖的服务恶化或者调用失败次数达到某个阈值的时候就迅速失败，让当前系统立即切换依赖其他备用服务。 比较常用的流量控制和熔断降级框架是 Netflix 的 Hystrix 和 alibaba 的 Sentinel。
+
+- 异步调用
+
+异步调用的话我们不需要关心最后的结果，这样我们就可以用户请求完成之后就立即返回结果.
+
+- 使用缓存
+- 容灾备份
+
+容灾:将系统所产生的的所有重要数据多备份几份。
+
+备份:在异地建立两个完全相同的系统。当某个地方的系统突然挂掉，整个应用系统可以切换到另一个，这样系统就可以正常提供服务了。
+
+
+
 规避单点是高可用架构设计最基本的考量.(实际上总是无法避免)
 
 ## Keepalived+VIP
@@ -230,6 +271,489 @@ vrrp_instance VI_1 {
 禁止pkill -9 keepalived (强制关闭, keepalive不会回收VIP) ,使用pkill keepalived正常结束.
 
 解决网络问题后, 在备机上需要 systemctl restart network 重启网络对ip重置 去掉VIP.
+
+## 限流
+
+**限流算法**
+
+1. 固定窗口计数器算法;
+
+ 固定窗口计数器算法规定了我们单位时间处理的请求数量
+
+![固定窗口计数器算法](picture/8ded7a2b90e1482093f92fff555b3615.png)
+
+**这种限流算法无法保证限流速率，因而无法保证突然激增的流量。**
+
+2.滑动窗口计数器算法;
+
+固定窗口计数器算法的升级版。
+
+滑动窗口计数器算法相比于固定窗口计数器算法的优化在于：**它把时间以一定比例分片** 。
+
+假设, 先把一分钟划分成6段! 也就是10s一个段!在第一段里,假如请求61次,那么直接触发了规则!肯定就过不去了!如果只请求了1次!则是正常的! 当时间走到第二个段里,即10s~20s这段范围里,我请求数不能超过总的限定条件,且当前段的请求数量 加上 之前段的总数量也不能超过总限定数量!
+
+很显然， **当滑动窗口的格子划分的越多，滑动窗口的滚动就越平滑，限流的统计就会越精确。**
+
+3.漏桶算法
+
+我们可以把发请求的动作比作成注水到桶中，我们处理请求的过程可以比喻为漏桶漏水。我们往桶中以任意速率流入水，以一定速率流出水。当水超过桶流量则丢弃，因为桶容量是不变的，保证了整体的速率。
+
+如果想要实现这个算法的话也很简单，准备一个队列用来保存请求，然后我们定期从队列中拿请求来执行就好了（和消息队列削峰/限流的思想是一样的）。![漏桶算法](picture/75938d1010138ce66e38c6ed0392f103.png)
+
+4.令牌桶算法
+
+和漏桶算法算法一样，主角还是桶。不过现在桶里装的是令牌了，请求在被处理之前需要拿到一个令牌，请求处理完毕之后将这个令牌丢弃（删除）。我们根据限流大小，按照一定的速率往桶里添加令牌。如果桶装满了，就不能继续往里面继续添加令牌了。 
+
+![令牌桶算法](picture/eca0e5eaa35dac938c673fecf2ec9a93.png)
+
+
+
+**单机限流工具**
+
+单机限流可以直接使用 Google Guava 自带的限流工具类 `RateLimiter` 。 `RateLimiter` 基于令牌桶算法，可以应对突发流量。
+
+除了最基本的令牌桶算法(平滑突发限流)实现之外，Guava 的`RateLimiter`还提供了 **平滑预热限流** 的算法实现。
+
+平滑突发限流就是按照指定的速率放令牌到桶里，而平滑预热限流会有一段预热时间，预热时间之内，速率会逐渐提升到配置的速率。
+
+```
+<dependency>
+    <groupId>com.google.guava</groupId>
+    <artifactId>guava</artifactId>
+    <version>31.0.1-jre</version>
+</dependency>
+```
+
+```
+ // 1s 放 5 个令牌到桶里也就是 0.2s 放 1个令牌到桶里
+        RateLimiter rateLimiter = RateLimiter.create(5);
+        for (int i = 0; i < 10; i++) {
+            double sleepingTime = rateLimiter.acquire(1);
+            System.out.printf("get 1 tokens: %ss%n", sleepingTime);
+        }
+//输出
+get 1 tokens: 0.0s
+get 1 tokens: 0.188413s
+get 1 tokens: 0.197811s
+get 1 tokens: 0.198316s
+get 1 tokens: 0.19864s
+get 1 tokens: 0.199363s
+get 1 tokens: 0.193997s
+get 1 tokens: 0.199623s
+get 1 tokens: 0.199357s
+get 1 tokens: 0.195676s
+```
+
+平滑预热限流
+
+```
+// 1s 放 5 个令牌到桶里也就是 0.2s 放 1个令牌到桶里
+// 预热时间为3s,也就说刚开始的 3s 内发牌速率会逐渐提升到 0.2s 放 1 个令牌到桶里
+        RateLimiter rateLimiter = RateLimiter.create(5, 3, TimeUnit.SECONDS);
+        for (int i = 0; i < 20; i++) {
+            double sleepingTime = rateLimiter.acquire(1);
+            System.out.printf("get 1 tokens: %sds%n", sleepingTime);
+        }
+//输出
+get 1 tokens: 0.0s
+get 1 tokens: 0.561919s
+get 1 tokens: 0.516931s
+get 1 tokens: 0.463798s
+get 1 tokens: 0.41286s
+get 1 tokens: 0.356172s
+get 1 tokens: 0.300489s
+get 1 tokens: 0.252545s
+get 1 tokens: 0.203996s
+get 1 tokens: 0.198359s
+```
+
+单机限流工具还有Bucket4j和Resilience4j
+
+Spring Cloud Gateway 中自带的单机限流的早期版本就是基于 Bucket4j 实现的。后来，替换成了Resilience4j .
+
+Resilience4j 不仅提供限流，还提供了熔断、负载保护、自动重试等保障系统高可用开箱即用的功能。并且，Resilience4j 的生态也更好，很多网关都使用 Resilience4j 来做限流熔断的。
+
+
+
+**分布式限流工具**
+
+- 借助中间件限流: 如sentinel, 或使用redis手动实现(可配合lua脚本)限流逻辑
+- 网关限流
+
+netflix zuul
+
+spring cloud gateway
+
+kong
+
+apisix
+
+shenyu
+
+
+
+## 降级&熔断
+
+降级是从系统功能优先级的角度考虑如何应对系统故障。
+
+服务降级指的是当服务器压力剧增的情况下，根据当前业务情况及流量对一些服务和页面有策略的降级，以此释放服务器资源以保证核心任务的正常运行。
+
+熔断和降级是两个比较容易混淆的概念，两者的含义并不相同。
+
+降级的目的在于应对系统自身的故障，而熔断的目的在于应对当前系统依赖的外部系统或者第三方系统的故障。
+
+## Raft选举算法
+
+Raft 算法是分布式系统开发首选的共识算法。 主要在分布式集群架构下进行领导者（主节点）的确认。
+
+现在流行的组件 Etcd、Consul、Nacos、RocketMQ、Redis Sentinel 底层都是采用Raft算法来确 认集群中的主节点，再通过主节点向其他节点下发指令。
+
+**Raft角色**
+
+跟随者（Follower）：普通群众，默默接收和来自领导者的消息，当领导者心跳 信息超时的时候，就主动站出来，推荐自己当候选人。 
+
+候选人（Candidate）：候选人将向其他节点请求投票 RPC 消息，通知其他节点来投票，如果赢得了大多数投票选票，就晋升当领导者。 
+
+领导者（Leader）：霸道总裁，一切以我为准。处理写请求、管理日志复制和 不断地发送心跳信息，通知其他节点“我是领导者，我还活着，你们不要发起新的选举，不用找新领导来替代我”。
+
+**Raft选举过程**
+
+1.初始状态
+
+初始状态下，集群中所有节点都是跟随者的状态 , 任期（Term）都为 0
+
+Raft 算法实现了随机超时时间的特性，每个节点等待领导者节点心跳信息的超时时间间隔是随机的(防止所有节点同一时间向其他节点发起投票)。
+
+比如 A 节点等待超时的时间间隔 150 ms，B 节点 200 ms，C 节点 175 ms。 那么 a 先超时，最先因为没有等到领导者的心跳信息，发生超时。
+
+2.发起投票
+
+当 A 节点的超时时间到了后，A 节点成为候选者，并增加自己的任期编号，Term 值从 0 更新为 1，并给自己投了一票( , Vote Count = 1 ).
+
+3.成为领导者的简化过程
+
+```
+1. 节点 A 成为候选者后，向其他节点发送请求投票 RPC 信息，请它们选举自己为领导者。
+2. 节点 B 和 节点 C 接收到节点 A 发送的请求投票信息后，在编号为 1 的这届任期内，还没有进行过投票，就把选票投给节点 A，并增加自己的任期编号(更新为1)。
+3. 节点 A 收到 3 次投票，得到了大多数节点（n/2+1)的投票，从候选者成为本届任期内的新的领导者。
+4. 节点 A 作为领导者，固定的时间间隔给 节点 B 和节点 C 发送心跳信息，告诉节点 B 和 C，我是领导者。
+5. 节点 B 和节点 C 发送响应信息给节点 A，告诉节点 A 我是正常的。
+```
+
+4.领导者的任期解释
+
+英文单词是 term，领导者是有任期的。
+
+- 自动增加：跟随者在等待领导者心跳信息超时后，推荐自己为候选人，会增加自 己的任期号，如第二个过程时，节点 A 任期为 0，推举自己为候选人时，任期编号增加为 1。
+- 更新为较大值：当节点发现自己的任期编号比其他节点小时，会更新到较大的编号值。比如节点 A 的任期为 1，请求投票，投票消息中包含了节点 A 的任期编号， 且编号为 1，节点 B 收到消息后，会将自己的任期编号更新为 1。 
+- 恢复为跟随者：如果一个候选人或者领导者，发现自己的任期编号比其他节点 小，那么它会立即恢复成跟随者状态。这种场景出现在**分区错误恢复**后，任期为 3 的领导者受到任期编号为 4 的心跳消息，那么前者将立即恢复成跟随者状态。 
+- 拒绝消息：如果一个节点接收到较小的任期编号值的请求，那么它会直接拒绝这 个请求，比如任期编号为 6 的节点 A，收到任期编号为 5 的节点 B 的请求投票 RPC 消息，那么节点 A 会拒绝这个消息。
+- 一个任期内，领导者一直都会领导者，直到自身出现问题（如宕机），或者网络问题（延迟），其他节点发起一轮新的选举。
+
+5.防止多个节点同时发起投票
+
+为了防止多个节点同时发起投票，会给每个节点分配一个随机的选举超时时间。这个时间 内，节点不能成为候选者，只能等到超时。比如上述例子，节点 A 先超时，先成为了候选 者。这种巧妙的设计，在大多数情况下只有一个服务器节点先发起选举，而不是同时发起选 举，减少了因选票瓜分导致选举失败的情况。
+
+6.触发新的一轮选举 如果领导者节点出现故障，则会触发新的一轮选举。当领导者节点 A 发生故 障，节点 B 和 节点 C 就会重新选举 Leader。
+
+```
+1. 节点 A 发生故障，节点 B 和节点 C 没有收到领导者节点 A 的心跳信息，等待超时。
+2. 节点 C (175ms) 先发生超时，节点 C 成为候选人。
+3. 节点 C 向节点 A 和 节点 B 发起请求投票信息。
+4. 节点 C 响应投票，将票投给了 C，而节点 A 因为发生故障了，无法响应 C 的投票请求。
+5. 节点 C 收到两票（大多数票数），成为领导者。
+6. 节点 C 向节点 A 和 B 发送心跳信息，节点 B 响应心跳信息，节点 A 不响应心跳信息。
+7. 节点 A 恢复后，收到节点 C 的高任期消息，自身将为跟随者，接收节点 C 的消息。
+```
+
+
+
+
+
+# 数据一致性
+
+## 分布式事务
+
+分布式事务的解决方案:
+
+**二阶段提交 2PC**
+
+实现了XA规范(定义了TM和RM)
+
+![image-20211205164829308](picture/image-20211205164829308.png)
+
+![image-20211205165027109](picture/image-20211205165027109.png)
+
+**TCC**
+
+Try-Confirm-Cancel
+
+**消息事务**
+
+实现最终一致性
+
+### Seata
+
+seata的设计为分布式事务设计理念中的二阶段提交.
+
+
+
+事务管理器（TM）：决定什么时候全局提交/回滚
+
+事务协调者（TC）：负责通知命令的中间件Seata-Server
+
+资源管理器（RM）：做具体事的工具人
+
+1.通过添加seata核心注解@GlobalTransactional注解开启全局事务 , TM通知TC向下通达给RM开启本地事务
+
+![image-20211205170142581](picture/image-20211205170142581.png)
+
+![image-20211205170117506](picture/image-20211205170117506.png)
+
+2.待本地事务都**提交**完成后,TM通过TC向RM下达全局事务处理结果.
+
+![image-20211205170519113](picture/image-20211205170519113.png)
+
+![image-20211205170857133](picture/image-20211205170857133.png)
+
+
+
+Q:如果事务中间阶段出了问题, 而在RM处理本地子事务时,处理完成后是直接写表提交, 在TC下达分支结果时,是如何实现回滚的?
+
+以主流的AT模式为例 , Seata AT模式下如何实现数据自动提交、回滚?
+
+seata AT通过在所有数据库增加一张UNDO_LOG表.
+
+> seata AT通过sql parser第三方jar包生成逆向sql , 存储在UNDO_LOG表中.  如:
+>
+> insert into 订单表 values(1,...);   -->  delete from 订单表 where id = 1; 
+>
+> update 会员积分表 set point = 50 where pid=1   --> update 会员积分表 set point = 40 where pid=1 
+
+如果收到TC下达的分支提交, 则删掉UNDO_LOG中对于的记录即可;
+
+如果收到TC下达的分支回滚, 执行UNDO_LOG中的**逆向SQL**,还原年数据.
+
+Q: Seata如何避免并发场景的脏读与脏写?
+
+利用**TC**自带的**分布式锁**完成:
+
+![image-20211205172341582](picture/image-20211205172341582.png)
+
+Q: 怎么使用Seata框架，来保证事务的隔离性？
+
+因seata一阶段本地事务已提交，为防止其他事务脏读脏写需要加强隔离。
+
+1.脏读select语句加for update，代理方法增加@GlobalLock+@Transactional或@GlobalTransaction
+
+2.脏写 必须使用@GlobalTransaction
+
+注：如果你查询的业务的接口没有GlobalTransactional包裹，也就是这个方法上压根没有分布式事务的
+需求，这时你可以在方法上标注@GlobalLock+@Transactional 注解，并且在查询语句上加 for update。
+如果你查询的接口在事务链路上外层有GlobalTransactional注解，那么你查询的语句只要加for update就
+行。设计这个注解的原因是在没有这个注解之前，需要查询分布式事务读已提交的数据，但业务本身不
+需要分布式事务。若使用GlobalTransactional注解就会增加一些没用的额外的rpc开销比如begin返回
+xid，提交事务等。GlobalLock简化了rpc过程，使其做到更高的性能。
+
+## 分布式锁
+
+在分布式系统下 ,由于每个服务部署在独立的机器, 运行的应用更是独立的进程, 传统的上锁因为只针对一个jvm中多个线程起到同步作用, 因此是无效的.
+
+分布式锁的主要实现方案:
+
+| 分类               | 方案                              | 实现原理                                                     | 优点                                                         | 缺点                                                         |
+| ------------------ | --------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| 基于数据库         | 基于mysql 表唯一索引              | 1.表增加唯一索引 2.加锁：执行insert语句，若报错，则表明加锁失败 3.解锁：执行delete语句 | 完全利用DB现有能力，实现简单                                 | 1.锁无超时自动失效机制，有死锁风险 2.不支持锁重入，不支持阻塞等待 3.操作数据库开销大，性能不高 |
+|                    | 基于MongoDB findAndModify原子操作 | 1.加锁：执行findAndModify原子命令查找document，若不存在则新增 2.解锁：删除document | 实现也很容易，较基于MySQL唯一索引的方案，性能要好很多        | 1.大部分公司数据库用MySQL，可能缺乏相应的MongoDB运维、开发人员 2.锁无超时自动失效机制 |
+| 基于分布式协调系统 | 基于ZooKeeper                     | 1.加锁：在/lock目录下创建临时有序节点，判断创建的节点序号是否最小。若是，则表示获取到锁；否则watch /lock目录下序号比自身小的前一个节点 2.解锁：删除节点 | 1.由zk保障系统高可用 2.Curator框架已原生支持系列分布式锁命令，使用简单 | 需单独维护一套zk集群，维保成本高                             |
+| 基于缓存           | 基于redis命令                     | 1. 加锁：执行setnx，若成功再执行expire添加过期时间 2. 解锁：执行delete命令 | 实现简单，相比数据库和分布式系统的实现，该方案最轻，性能最好 | 1.setnx和expire分2步执行，非原子操作；若setnx执行成功，但expire执行失败，就可能出现死锁 2.delete命令存在误删除非当前线程持有的锁的可能 3.不支持阻塞等待、不可重入 |
+|                    | 基于redis Lua脚本能力             | 1. 加锁：执行SET lock_name random_value EX seconds NX 命令  2. 解锁：执行Lua脚本，释放锁时验证random_value  -- ARGV[1]为random_value, KEYS[1]为lock_nameif redis.call("get", KEYS[1]) == ARGV[1] then  return redis.call("del",KEYS[1])else  return 0end |                                                              | 同上；实现逻辑上也更严谨，除了单点问题，生产环境采用用这种方案，问题也不大。不支持锁重入，不支持阻塞等待 |
+
+适用分布式锁有以下几个场景： 
+
+数据价值大，必须要保证一致性的。例如：金融业务系统间的转账汇款等。 
+
+并发量低但重要的业务系统。比如：各种大宗商品的分布式交易 
+
+总结：重要的但对并发要求不高的系统可以使用分布式锁，对于并发量高、数据价值小、 对一致性要求没那么高的系统可以进行最终一致性(BASE)处理，保证并发的前提下通过重 试、程序矫正、人工补录的方式进行处理。
+
+### Redission
+
+依赖lua和netty,  功能强大, 支持重入锁 , 以及支持单点模式&主从模式&哨兵模式&集群模式等.
+
+**加锁lua脚本**
+
+KEYS[1] : 锁名
+
+ARGV[1] : 持有锁的有效时间,默认30s
+
+ARGV[2] : 唯一标识,获取锁时set的唯一值 , 客户端ID
+
+```
+-- 若锁不存在：则新增锁，并设置锁重入计数为1、设置锁过期时间
+if (redis.call('exists', KEYS[1]) == 0) then
+    redis.call('hset', KEYS[1], ARGV[2], 1);
+    redis.call('pexpire', KEYS[1], ARGV[1]);
+    return nil;
+end;
+ 
+-- 若锁存在，且唯一标识也匹配：则表明当前加锁请求为锁重入请求，故锁重入计数+1，并再次设置锁过期时间
+if (redis.call('hexists', KEYS[1], ARGV[2]) == 1) then
+    redis.call('hincrby', KEYS[1], ARGV[2], 1);
+    redis.call('pexpire', KEYS[1], ARGV[1]);
+    return nil;
+end;
+ 
+-- 若锁存在，但唯一标识不匹配：表明锁是被其他线程占用，当前线程无权解他人的锁，直接返回锁剩余过期时间
+return redis.call('pttl', KEYS[1]);
+```
+
+**解锁lua脚本**
+
+KEYS[1] : 锁名
+
+KEYS[2] : 解锁消息PubSub频道
+
+ARGV[1] : 重入数量 , 0标识解锁消息.	
+
+ARGV[2] : 持有锁的有效时间,默认30s
+
+ARGV[3] : 唯一标识,获取锁时set的唯一值 , 客户端ID
+
+```
+-- 若锁不存在：则直接广播解锁消息，并返回1
+if (redis.call('exists', KEYS[1]) == 0) then
+    redis.call('publish', KEYS[2], ARGV[1]);
+    return 1; 
+end;
+ 
+-- 若锁存在，但唯一标识不匹配：则表明锁被其他线程占用，当前线程不允许解锁其他线程持有的锁
+if (redis.call('hexists', KEYS[1], ARGV[3]) == 0) then
+    return nil;
+end; 
+ 
+-- 若锁存在，且唯一标识匹配：则先将锁重入计数减1
+local counter = redis.call('hincrby', KEYS[1], ARGV[3], -1); 
+if (counter > 0) then 
+    -- 锁重入计数减1后还大于0：表明当前线程持有的锁还有重入，不能进行锁删除操作，但可以友好地帮忙设置下过期时期
+    redis.call('pexpire', KEYS[1], ARGV[2]); 
+    return 0; 
+else 
+    -- 锁重入计数已为0：间接表明锁已释放了。直接删除掉锁，并广播解锁消息，去唤醒那些争抢过锁但还处于阻塞中的线程
+    redis.call('del', KEYS[1]); 
+    redis.call('publish', KEYS[2], ARGV[1]); 
+    return 1;
+end;
+ 
+return nil;
+```
+
+
+
+### zookeeper
+
+zk是一种提供配置管理、分布式协同以及命名的中心化服务.
+
+zk本身并没有提供分布式锁的概念, 而是基于其节点特性提供的.
+
+Zookeeper的数据存储结构就像一棵树，这棵树由节点组成，这种节点叫做Znode。至于这些节点具体干什么用, 是由开发人员自己定义的.
+
+**Znode**分为四种类型 
+
+持久节点 （PERSISTENT） 默认的节点类型。创建节点的客户端与zookeeper断开连接后，该节点依旧存在 ;
+
+持久节点顺序节点（PERSISTENT_SEQUENTIAL） 在持久节点特性上, 按照访问时间的先后顺序进行顺序存储;
+
+临时节点（EPHEMERAL） 和持久节点相反，当创建节点的客户端与zookeeper断开连接后，临时节点会被删除
+
+**临时顺序节点**（EPHEMERAL_SEQUENTIAL） 结合和临时节点和顺序节点的特点：在创建节点时，Zookeeper 根据创建的时间顺序给该节点名称进行编号；当创建节点的客户端与zookeeper断开连接后，临时节点会被删除。
+
+
+
+Q:为什么是使用临时顺序节点？
+
+A:利用临时顺序节点可以避免“惊群效应”，当某一个客户端释放锁以后，其他客户端不会一 窝蜂的涌入争抢锁资源，而是按时间顺序一个一个来获取锁进行处理。
+
+![image-20211209225641605](picture/image-20211209225641605.png)
+
+- 每一个客户端在尝试获取锁时都自动由ZK创建该顺序节点的“子节点”，按0001、0002这样的编号标识访问顺序
+- 从第二个客户端开始，ZK不但创建0002子节点，还会监听前一个0001节点。当客户端1处理完毕或者其他原因释放0001节点后，ZK会通过Watch监听机制通知客户端2进行后续处理，以此保证处理的有序性，避免“惊群效应”产生。
+
+
+
+**通过`curator‐recipes`(Apache Curator:zk客户端框架)代码实现**
+
+```
+<dependency>
+	<groupId>org.apache.curator</groupId>
+	<artifactId>curator‐recipes</artifactId>
+	<version>5.2.0</version>
+</dependency>
+```
+
+模拟简单防止商品超卖, 强制将并行变为串行...(
+
+```java
+import org.apache.curator.RetryPolicy;
+import org.apache.curator.framework.CuratorFramework;
+import org.apache.curator.framework.CuratorFrameworkFactory;
+import org.apache.curator.framework.recipes.locks.InterProcessMutex;
+import org.apache.curator.retry.ExponentialBackoffRetry;
+import org.springframework.stereotype.Service;
+
+@Service
+public class WarehouseService {
+    public static int shoe = 10;
+
+    public int outOfWarehouseWithLock() throws Exception {
+        //设置ZK客户端重试策略, 如果无法获取锁资源, 则每隔5秒重试一次，最多重试10次
+        RetryPolicy policy = new ExponentialBackoffRetry(5000, 10);
+
+        //创建ZK客户端，连接到Zookeeper服务器
+        CuratorFramework client = CuratorFrameworkFactory.builder().connectString("192.168.31.103:2181").retryPolicy(policy).build();
+        //创建与Zookeeper服务器的连接
+        client.start();
+
+        //声明锁对象，本质就是ZK顺序临时节点
+        final InterProcessMutex mutex = new InterProcessMutex(client, "/locks/wh-shoe");
+        try {
+            //请求锁，创建锁
+            mutex.acquire();
+            //处理业务逻辑
+            if (WarehouseService.shoe > 0) {
+                Thread.sleep(1000);
+                //扣减库存
+                return --WarehouseService.shoe;
+            } else {
+                //库存不足，
+                throw new RuntimeException("运动鞋库存不足");
+            }
+        } finally {
+            //释放锁
+            mutex.release();
+        }
+    }
+
+    public int outOfWarehouse() throws Exception {
+        //处理业务逻辑
+        if (WarehouseService.shoe > 0) {
+            Thread.sleep(1000);
+            //扣减库存
+            return --WarehouseService.shoe;
+        } else {
+            throw new RuntimeException("运动鞋库存不足");
+        }
+    }
+}
+```
+
+> 可通过jmeter+zoolytic加入断点调试查看zk变化, 验证流程
+
+## **Paxos**选举算法
+
+Paxos算法是Lamport宗师提出的一种基于消息传递的分布式一致性算法，使其获得2013年图灵奖。
+
+在Zookeeper中，通过Paxos算法选举出主节点，同时保证集群数据的强一致性（CP)。
 
 # 负载均衡
 
@@ -1039,527 +1563,7 @@ Tinyid(滴滴) https://github.com/didi/tinyid/wiki/tinyid%E5%8E%9F%E7%90%86%E4%B
 
 
 
-# 高可用
 
-高可用描述的是一个系统在大部分时间都是可用的，可以为我们提供服务的。高可用代表系统即使在发生硬件故障或者系统升级的时候，服务仍然是可用的。
-
-原因:
-
-- 黑客攻击；
-- 硬件故障，比如服务器坏掉。
-- 并发量/用户请求量激增导致整个服务宕掉或者部分服务不可用。
-- 代码中的坏味道导致内存泄漏或者其他问题导致程序挂掉。
-- 网站架构某个重要的角色比如 Nginx 或者数据库突然不可用。
-- 自然灾害或者人为破坏
-- ...
-
-提高办法:
-
-- 注重代码质量,测试严格把关
-
-比较常见的内存泄漏、循环依赖都是对系统可用性极大的损害
-
-- 使用集群,减少单点故障
-- 限流
-- 超时和重试机制设置
-
-一旦用户请求超过某个时间的得不到响应，就抛出异常。在读取第三方服务的时候，尤其适合设置超时和重试机制。一些 RPC 框架都自带的超时重试的配置。如果不进行超时设置可能会导致请求响应速度慢，甚至导致请求堆积进而让系统无法再处理请求。重试的次数一般设为 3 次，再多次的重试没有好处，反而会加重服务器压力（部分场景使用失败重试机制会不太适合）。 
-
-- 熔断机制
-
-超时和重试机制设置之外，熔断机制也是很重要的。 熔断机制说的是系统自动收集所依赖服务的资源使用情况和性能指标，当所依赖的服务恶化或者调用失败次数达到某个阈值的时候就迅速失败，让当前系统立即切换依赖其他备用服务。 比较常用的流量控制和熔断降级框架是 Netflix 的 Hystrix 和 alibaba 的 Sentinel。
-
-- 异步调用
-
-异步调用的话我们不需要关心最后的结果，这样我们就可以用户请求完成之后就立即返回结果.
-
-- 使用缓存
-- 容灾备份
-
-容灾:将系统所产生的的所有重要数据多备份几份。
-
-备份:在异地建立两个完全相同的系统。当某个地方的系统突然挂掉，整个应用系统可以切换到另一个，这样系统就可以正常提供服务了。
-
-## 限流
-
-**限流算法**
-
-1. 固定窗口计数器算法;
-
- 固定窗口计数器算法规定了我们单位时间处理的请求数量
-
-![固定窗口计数器算法](picture/8ded7a2b90e1482093f92fff555b3615.png)
-
-**这种限流算法无法保证限流速率，因而无法保证突然激增的流量。**
-
-2.滑动窗口计数器算法;
-
-固定窗口计数器算法的升级版。
-
-滑动窗口计数器算法相比于固定窗口计数器算法的优化在于：**它把时间以一定比例分片** 。
-
-假设, 先把一分钟划分成6段! 也就是10s一个段!在第一段里,假如请求61次,那么直接触发了规则!肯定就过不去了!如果只请求了1次!则是正常的! 当时间走到第二个段里,即10s~20s这段范围里,我请求数不能超过总的限定条件,且当前段的请求数量 加上 之前段的总数量也不能超过总限定数量!
-
-很显然， **当滑动窗口的格子划分的越多，滑动窗口的滚动就越平滑，限流的统计就会越精确。**
-
-3.漏桶算法
-
-我们可以把发请求的动作比作成注水到桶中，我们处理请求的过程可以比喻为漏桶漏水。我们往桶中以任意速率流入水，以一定速率流出水。当水超过桶流量则丢弃，因为桶容量是不变的，保证了整体的速率。
-
-如果想要实现这个算法的话也很简单，准备一个队列用来保存请求，然后我们定期从队列中拿请求来执行就好了（和消息队列削峰/限流的思想是一样的）。![漏桶算法](picture/75938d1010138ce66e38c6ed0392f103.png)
-
-4.令牌桶算法
-
-和漏桶算法算法一样，主角还是桶。不过现在桶里装的是令牌了，请求在被处理之前需要拿到一个令牌，请求处理完毕之后将这个令牌丢弃（删除）。我们根据限流大小，按照一定的速率往桶里添加令牌。如果桶装满了，就不能继续往里面继续添加令牌了。 
-
-![令牌桶算法](picture/eca0e5eaa35dac938c673fecf2ec9a93.png)
-
-
-
-**单机限流工具**
-
-单机限流可以直接使用 Google Guava 自带的限流工具类 `RateLimiter` 。 `RateLimiter` 基于令牌桶算法，可以应对突发流量。
-
-除了最基本的令牌桶算法(平滑突发限流)实现之外，Guava 的`RateLimiter`还提供了 **平滑预热限流** 的算法实现。
-
-平滑突发限流就是按照指定的速率放令牌到桶里，而平滑预热限流会有一段预热时间，预热时间之内，速率会逐渐提升到配置的速率。
-
-```
-<dependency>
-    <groupId>com.google.guava</groupId>
-    <artifactId>guava</artifactId>
-    <version>31.0.1-jre</version>
-</dependency>
-```
-
-```
- // 1s 放 5 个令牌到桶里也就是 0.2s 放 1个令牌到桶里
-        RateLimiter rateLimiter = RateLimiter.create(5);
-        for (int i = 0; i < 10; i++) {
-            double sleepingTime = rateLimiter.acquire(1);
-            System.out.printf("get 1 tokens: %ss%n", sleepingTime);
-        }
-//输出
-get 1 tokens: 0.0s
-get 1 tokens: 0.188413s
-get 1 tokens: 0.197811s
-get 1 tokens: 0.198316s
-get 1 tokens: 0.19864s
-get 1 tokens: 0.199363s
-get 1 tokens: 0.193997s
-get 1 tokens: 0.199623s
-get 1 tokens: 0.199357s
-get 1 tokens: 0.195676s
-```
-
-平滑预热限流
-
-```
-// 1s 放 5 个令牌到桶里也就是 0.2s 放 1个令牌到桶里
-// 预热时间为3s,也就说刚开始的 3s 内发牌速率会逐渐提升到 0.2s 放 1 个令牌到桶里
-        RateLimiter rateLimiter = RateLimiter.create(5, 3, TimeUnit.SECONDS);
-        for (int i = 0; i < 20; i++) {
-            double sleepingTime = rateLimiter.acquire(1);
-            System.out.printf("get 1 tokens: %sds%n", sleepingTime);
-        }
-//输出
-get 1 tokens: 0.0s
-get 1 tokens: 0.561919s
-get 1 tokens: 0.516931s
-get 1 tokens: 0.463798s
-get 1 tokens: 0.41286s
-get 1 tokens: 0.356172s
-get 1 tokens: 0.300489s
-get 1 tokens: 0.252545s
-get 1 tokens: 0.203996s
-get 1 tokens: 0.198359s
-```
-
-单机限流工具还有Bucket4j和Resilience4j
-
-Spring Cloud Gateway 中自带的单机限流的早期版本就是基于 Bucket4j 实现的。后来，替换成了Resilience4j .
-
-Resilience4j 不仅提供限流，还提供了熔断、负载保护、自动重试等保障系统高可用开箱即用的功能。并且，Resilience4j 的生态也更好，很多网关都使用 Resilience4j 来做限流熔断的。
-
-
-
-**分布式限流工具**
-
-- 借助中间件限流: 如sentinel, 或使用redis手动实现(可配合lua脚本)限流逻辑
-- 网关限流
-
-netflix zuul
-
-spring cloud gateway
-
-kong
-
-apisix
-
-shenyu
-
-
-
-## 降级&熔断
-
-降级是从系统功能优先级的角度考虑如何应对系统故障。
-
-服务降级指的是当服务器压力剧增的情况下，根据当前业务情况及流量对一些服务和页面有策略的降级，以此释放服务器资源以保证核心任务的正常运行。
-
-熔断和降级是两个比较容易混淆的概念，两者的含义并不相同。
-
-降级的目的在于应对系统自身的故障，而熔断的目的在于应对当前系统依赖的外部系统或者第三方系统的故障。
-
-## Raft选举算法
-
-Raft 算法是分布式系统开发首选的共识算法。 主要在分布式集群架构下进行领导者（主节点）的确认。
-
-现在流行的组件 Etcd、Consul、Nacos、RocketMQ、Redis Sentinel 底层都是采用Raft算法来确 认集群中的主节点，再通过主节点向其他节点下发指令。
-
-**Raft角色**
-
-跟随者（Follower）：普通群众，默默接收和来自领导者的消息，当领导者心跳 信息超时的时候，就主动站出来，推荐自己当候选人。 
-
-候选人（Candidate）：候选人将向其他节点请求投票 RPC 消息，通知其他节点来投票，如果赢得了大多数投票选票，就晋升当领导者。 
-
-领导者（Leader）：霸道总裁，一切以我为准。处理写请求、管理日志复制和 不断地发送心跳信息，通知其他节点“我是领导者，我还活着，你们不要发起新的选举，不用找新领导来替代我”。
-
-**Raft选举过程**
-
-1.初始状态
-
-初始状态下，集群中所有节点都是跟随者的状态 , 任期（Term）都为 0
-
-Raft 算法实现了随机超时时间的特性，每个节点等待领导者节点心跳信息的超时时间间隔是随机的(防止所有节点同一时间向其他节点发起投票)。
-
-比如 A 节点等待超时的时间间隔 150 ms，B 节点 200 ms，C 节点 175 ms。 那么 a 先超时，最先因为没有等到领导者的心跳信息，发生超时。
-
-2.发起投票
-
-当 A 节点的超时时间到了后，A 节点成为候选者，并增加自己的任期编号，Term 值从 0 更新为 1，并给自己投了一票( , Vote Count = 1 ).
-
-3.成为领导者的简化过程
-
-```
-1. 节点 A 成为候选者后，向其他节点发送请求投票 RPC 信息，请它们选举自己为领导者。
-2. 节点 B 和 节点 C 接收到节点 A 发送的请求投票信息后，在编号为 1 的这届任期内，还没有进行过投票，就把选票投给节点 A，并增加自己的任期编号(更新为1)。
-3. 节点 A 收到 3 次投票，得到了大多数节点（n/2+1)的投票，从候选者成为本届任期内的新的领导者。
-4. 节点 A 作为领导者，固定的时间间隔给 节点 B 和节点 C 发送心跳信息，告诉节点 B 和 C，我是领导者。
-5. 节点 B 和节点 C 发送响应信息给节点 A，告诉节点 A 我是正常的。
-```
-
-4.领导者的任期解释
-
-英文单词是 term，领导者是有任期的。
-
-- 自动增加：跟随者在等待领导者心跳信息超时后，推荐自己为候选人，会增加自 己的任期号，如第二个过程时，节点 A 任期为 0，推举自己为候选人时，任期编号增加为 1。
-- 更新为较大值：当节点发现自己的任期编号比其他节点小时，会更新到较大的编号值。比如节点 A 的任期为 1，请求投票，投票消息中包含了节点 A 的任期编号， 且编号为 1，节点 B 收到消息后，会将自己的任期编号更新为 1。 
-- 恢复为跟随者：如果一个候选人或者领导者，发现自己的任期编号比其他节点 小，那么它会立即恢复成跟随者状态。这种场景出现在**分区错误恢复**后，任期为 3 的领导者受到任期编号为 4 的心跳消息，那么前者将立即恢复成跟随者状态。 
-- 拒绝消息：如果一个节点接收到较小的任期编号值的请求，那么它会直接拒绝这 个请求，比如任期编号为 6 的节点 A，收到任期编号为 5 的节点 B 的请求投票 RPC 消息，那么节点 A 会拒绝这个消息。
--  一个任期内，领导者一直都会领导者，直到自身出现问题（如宕机），或者网络问题（延迟），其他节点发起一轮新的选举。
-
-5.防止多个节点同时发起投票
-
-为了防止多个节点同时发起投票，会给每个节点分配一个随机的选举超时时间。这个时间 内，节点不能成为候选者，只能等到超时。比如上述例子，节点 A 先超时，先成为了候选 者。这种巧妙的设计，在大多数情况下只有一个服务器节点先发起选举，而不是同时发起选 举，减少了因选票瓜分导致选举失败的情况。
-
-6.触发新的一轮选举 如果领导者节点出现故障，则会触发新的一轮选举。当领导者节点 A 发生故 障，节点 B 和 节点 C 就会重新选举 Leader。
-
-```
-1. 节点 A 发生故障，节点 B 和节点 C 没有收到领导者节点 A 的心跳信息，等待超时。
-2. 节点 C (175ms) 先发生超时，节点 C 成为候选人。
-3. 节点 C 向节点 A 和 节点 B 发起请求投票信息。
-4. 节点 C 响应投票，将票投给了 C，而节点 A 因为发生故障了，无法响应 C 的投票请求。
-5. 节点 C 收到两票（大多数票数），成为领导者。
-6. 节点 C 向节点 A 和 B 发送心跳信息，节点 B 响应心跳信息，节点 A 不响应心跳信息。
-7. 节点 A 恢复后，收到节点 C 的高任期消息，自身将为跟随者，接收节点 C 的消息。
-```
-
-
-
-# 数据一致性
-
-## 分布式事务
-
-分布式事务的解决方案:
-
-**二阶段提交 2PC**
-
-实现了XA规范(定义了TM和RM)
-
-![image-20211205164829308](picture/image-20211205164829308.png)
-
-![image-20211205165027109](picture/image-20211205165027109.png)
-
-**TCC**
-
-Try-Confirm-Cancel
-
-**消息事务**
-
-实现最终一致性
-
-### Seata
-
-seata的设计为分布式事务设计理念中的二阶段提交.
-
-
-
-事务管理器（TM）：决定什么时候全局提交/回滚
-
-事务协调者（TC）：负责通知命令的中间件Seata-Server
-
-资源管理器（RM）：做具体事的工具人
-
-1.通过添加seata核心注解@GlobalTransactional注解开启全局事务 , TM通知TC向下通达给RM开启本地事务
-
-![image-20211205170142581](picture/image-20211205170142581.png)
-
-![image-20211205170117506](picture/image-20211205170117506.png)
-
-2.待本地事务都**提交**完成后,TM通过TC向RM下达全局事务处理结果.
-
-![image-20211205170519113](picture/image-20211205170519113.png)
-
-![image-20211205170857133](picture/image-20211205170857133.png)
-
-
-
-Q:如果事务中间阶段出了问题, 而在RM处理本地子事务时,处理完成后是直接写表提交, 在TC下达分支结果时,是如何实现回滚的?
-
-以主流的AT模式为例 , Seata AT模式下如何实现数据自动提交、回滚?
-
-seata AT通过在所有数据库增加一张UNDO_LOG表.
-
-> seata AT通过sql parser第三方jar包生成逆向sql , 存储在UNDO_LOG表中.  如:
->
-> insert into 订单表 values(1,...);   -->  delete from 订单表 where id = 1; 
->
-> update 会员积分表 set point = 50 where pid=1   --> update 会员积分表 set point = 40 where pid=1 
-
-如果收到TC下达的分支提交, 则删掉UNDO_LOG中对于的记录即可;
-
-如果收到TC下达的分支回滚, 执行UNDO_LOG中的**逆向SQL**,还原年数据.
-
-Q: Seata如何避免并发场景的脏读与脏写?
-
-利用**TC**自带的**分布式锁**完成:
-
-![image-20211205172341582](picture/image-20211205172341582.png)
-
-Q: 怎么使用Seata框架，来保证事务的隔离性？
-
-因seata一阶段本地事务已提交，为防止其他事务脏读脏写需要加强隔离。
-
-1.脏读select语句加for update，代理方法增加@GlobalLock+@Transactional或@GlobalTransaction
-
-2.脏写 必须使用@GlobalTransaction
-
-注：如果你查询的业务的接口没有GlobalTransactional包裹，也就是这个方法上压根没有分布式事务的
-需求，这时你可以在方法上标注@GlobalLock+@Transactional 注解，并且在查询语句上加 for update。
-如果你查询的接口在事务链路上外层有GlobalTransactional注解，那么你查询的语句只要加for update就
-行。设计这个注解的原因是在没有这个注解之前，需要查询分布式事务读已提交的数据，但业务本身不
-需要分布式事务。若使用GlobalTransactional注解就会增加一些没用的额外的rpc开销比如begin返回
-xid，提交事务等。GlobalLock简化了rpc过程，使其做到更高的性能。
-
-## 分布式锁
-
-在分布式系统下 ,由于每个服务部署在独立的机器, 运行的应用更是独立的进程, 传统的上锁因为只针对一个jvm中多个线程起到同步作用, 因此是无效的.
-
-分布式锁的主要实现方案:
-
-| 分类               | 方案                              | 实现原理                                                     | 优点                                                         | 缺点                                                         |
-| ------------------ | --------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ |
-| 基于数据库         | 基于mysql 表唯一索引              | 1.表增加唯一索引 2.加锁：执行insert语句，若报错，则表明加锁失败 3.解锁：执行delete语句 | 完全利用DB现有能力，实现简单                                 | 1.锁无超时自动失效机制，有死锁风险 2.不支持锁重入，不支持阻塞等待 3.操作数据库开销大，性能不高 |
-|                    | 基于MongoDB findAndModify原子操作 | 1.加锁：执行findAndModify原子命令查找document，若不存在则新增 2.解锁：删除document | 实现也很容易，较基于MySQL唯一索引的方案，性能要好很多        | 1.大部分公司数据库用MySQL，可能缺乏相应的MongoDB运维、开发人员 2.锁无超时自动失效机制 |
-| 基于分布式协调系统 | 基于ZooKeeper                     | 1.加锁：在/lock目录下创建临时有序节点，判断创建的节点序号是否最小。若是，则表示获取到锁；否则watch /lock目录下序号比自身小的前一个节点 2.解锁：删除节点 | 1.由zk保障系统高可用 2.Curator框架已原生支持系列分布式锁命令，使用简单 | 需单独维护一套zk集群，维保成本高                             |
-| 基于缓存           | 基于redis命令                     | 1. 加锁：执行setnx，若成功再执行expire添加过期时间 2. 解锁：执行delete命令 | 实现简单，相比数据库和分布式系统的实现，该方案最轻，性能最好 | 1.setnx和expire分2步执行，非原子操作；若setnx执行成功，但expire执行失败，就可能出现死锁 2.delete命令存在误删除非当前线程持有的锁的可能 3.不支持阻塞等待、不可重入 |
-|                    | 基于redis Lua脚本能力             | 1. 加锁：执行SET lock_name random_value EX seconds NX 命令  2. 解锁：执行Lua脚本，释放锁时验证random_value  -- ARGV[1]为random_value, KEYS[1]为lock_nameif redis.call("get", KEYS[1]) == ARGV[1] then  return redis.call("del",KEYS[1])else  return 0end |                                                              | 同上；实现逻辑上也更严谨，除了单点问题，生产环境采用用这种方案，问题也不大。不支持锁重入，不支持阻塞等待 |
-
-适用分布式锁有以下几个场景： 
-
-数据价值大，必须要保证一致性的。例如：金融业务系统间的转账汇款等。 
-
-并发量低但重要的业务系统。比如：各种大宗商品的分布式交易 
-
-总结：重要的但对并发要求不高的系统可以使用分布式锁，对于并发量高、数据价值小、 对一致性要求没那么高的系统可以进行最终一致性(BASE)处理，保证并发的前提下通过重 试、程序矫正、人工补录的方式进行处理。
-
-### Redission
-
-依赖lua和netty,  功能强大, 支持重入锁 , 以及支持单点模式&主从模式&哨兵模式&集群模式等.
-
-**加锁lua脚本**
-
-KEYS[1] : 锁名
-
-ARGV[1] : 持有锁的有效时间,默认30s
-
-ARGV[2] : 唯一标识,获取锁时set的唯一值 , 客户端ID
-
-```
--- 若锁不存在：则新增锁，并设置锁重入计数为1、设置锁过期时间
-if (redis.call('exists', KEYS[1]) == 0) then
-    redis.call('hset', KEYS[1], ARGV[2], 1);
-    redis.call('pexpire', KEYS[1], ARGV[1]);
-    return nil;
-end;
- 
--- 若锁存在，且唯一标识也匹配：则表明当前加锁请求为锁重入请求，故锁重入计数+1，并再次设置锁过期时间
-if (redis.call('hexists', KEYS[1], ARGV[2]) == 1) then
-    redis.call('hincrby', KEYS[1], ARGV[2], 1);
-    redis.call('pexpire', KEYS[1], ARGV[1]);
-    return nil;
-end;
- 
--- 若锁存在，但唯一标识不匹配：表明锁是被其他线程占用，当前线程无权解他人的锁，直接返回锁剩余过期时间
-return redis.call('pttl', KEYS[1]);
-```
-
-**解锁lua脚本**
-
-KEYS[1] : 锁名
-
-KEYS[2] : 解锁消息PubSub频道
-
-ARGV[1] : 重入数量 , 0标识解锁消息.	
-
-ARGV[2] : 持有锁的有效时间,默认30s
-
-ARGV[3] : 唯一标识,获取锁时set的唯一值 , 客户端ID
-
-```
--- 若锁不存在：则直接广播解锁消息，并返回1
-if (redis.call('exists', KEYS[1]) == 0) then
-    redis.call('publish', KEYS[2], ARGV[1]);
-    return 1; 
-end;
- 
--- 若锁存在，但唯一标识不匹配：则表明锁被其他线程占用，当前线程不允许解锁其他线程持有的锁
-if (redis.call('hexists', KEYS[1], ARGV[3]) == 0) then
-    return nil;
-end; 
- 
--- 若锁存在，且唯一标识匹配：则先将锁重入计数减1
-local counter = redis.call('hincrby', KEYS[1], ARGV[3], -1); 
-if (counter > 0) then 
-    -- 锁重入计数减1后还大于0：表明当前线程持有的锁还有重入，不能进行锁删除操作，但可以友好地帮忙设置下过期时期
-    redis.call('pexpire', KEYS[1], ARGV[2]); 
-    return 0; 
-else 
-    -- 锁重入计数已为0：间接表明锁已释放了。直接删除掉锁，并广播解锁消息，去唤醒那些争抢过锁但还处于阻塞中的线程
-    redis.call('del', KEYS[1]); 
-    redis.call('publish', KEYS[2], ARGV[1]); 
-    return 1;
-end;
- 
-return nil;
-```
-
-
-
-### zookeeper
-
-zk是一种提供配置管理、分布式协同以及命名的中心化服务.
-
-zk本身并没有提供分布式锁的概念, 而是基于其节点特性提供的.
-
-Zookeeper的数据存储结构就像一棵树，这棵树由节点组成，这种节点叫做Znode。至于这些节点具体干什么用, 是由开发人员自己定义的.
-
-**Znode**分为四种类型 
-
-持久节点 （PERSISTENT） 默认的节点类型。创建节点的客户端与zookeeper断开连接后，该节点依旧存在 ;
-
-持久节点顺序节点（PERSISTENT_SEQUENTIAL） 在持久节点特性上, 按照访问时间的先后顺序进行顺序存储;
-
-临时节点（EPHEMERAL） 和持久节点相反，当创建节点的客户端与zookeeper断开连接后，临时节点会被删除
-
-**临时顺序节点**（EPHEMERAL_SEQUENTIAL） 结合和临时节点和顺序节点的特点：在创建节点时，Zookeeper 根据创建的时间顺序给该节点名称进行编号；当创建节点的客户端与zookeeper断开连接后，临时节点会被删除。
-
-
-
-Q:为什么是使用临时顺序节点？
-
-A:利用临时顺序节点可以避免“惊群效应”，当某一个客户端释放锁以后，其他客户端不会一 窝蜂的涌入争抢锁资源，而是按时间顺序一个一个来获取锁进行处理。
-
-![image-20211209225641605](picture/image-20211209225641605.png)
-
-- 每一个客户端在尝试获取锁时都自动由ZK创建该顺序节点的“子节点”，按0001、0002这样的编号标识访问顺序
-- 从第二个客户端开始，ZK不但创建0002子节点，还会监听前一个0001节点。当客户端1处理完毕或者其他原因释放0001节点后，ZK会通过Watch监听机制通知客户端2进行后续处理，以此保证处理的有序性，避免“惊群效应”产生。
-
-
-
-**通过`curator‐recipes`(Apache Curator:zk客户端框架)代码实现**
-
-```
-<dependency>
-	<groupId>org.apache.curator</groupId>
-	<artifactId>curator‐recipes</artifactId>
-	<version>5.2.0</version>
-</dependency>
-```
-
-模拟简单防止商品超卖, 强制将并行变为串行...(
-
-```java
-import org.apache.curator.RetryPolicy;
-import org.apache.curator.framework.CuratorFramework;
-import org.apache.curator.framework.CuratorFrameworkFactory;
-import org.apache.curator.framework.recipes.locks.InterProcessMutex;
-import org.apache.curator.retry.ExponentialBackoffRetry;
-import org.springframework.stereotype.Service;
-
-@Service
-public class WarehouseService {
-    public static int shoe = 10;
-
-    public int outOfWarehouseWithLock() throws Exception {
-        //设置ZK客户端重试策略, 如果无法获取锁资源, 则每隔5秒重试一次，最多重试10次
-        RetryPolicy policy = new ExponentialBackoffRetry(5000, 10);
-
-        //创建ZK客户端，连接到Zookeeper服务器
-        CuratorFramework client = CuratorFrameworkFactory.builder().connectString("192.168.31.103:2181").retryPolicy(policy).build();
-        //创建与Zookeeper服务器的连接
-        client.start();
-
-        //声明锁对象，本质就是ZK顺序临时节点
-        final InterProcessMutex mutex = new InterProcessMutex(client, "/locks/wh-shoe");
-        try {
-            //请求锁，创建锁
-            mutex.acquire();
-            //处理业务逻辑
-            if (WarehouseService.shoe > 0) {
-                Thread.sleep(1000);
-                //扣减库存
-                return --WarehouseService.shoe;
-            } else {
-                //库存不足，
-                throw new RuntimeException("运动鞋库存不足");
-            }
-        } finally {
-            //释放锁
-            mutex.release();
-        }
-    }
-
-    public int outOfWarehouse() throws Exception {
-        //处理业务逻辑
-        if (WarehouseService.shoe > 0) {
-            Thread.sleep(1000);
-            //扣减库存
-            return --WarehouseService.shoe;
-        } else {
-            throw new RuntimeException("运动鞋库存不足");
-        }
-    }
-}
-```
-
-> 可通过jmeter+zoolytic加入断点调试查看zk变化, 验证流程
-
-## **Paxos**选举算法
-
-Paxos算法是Lamport宗师提出的一种基于消息传递的分布式一致性算法，使其获得2013年图灵奖。
-
-在Zookeeper中，通过Paxos算法选举出主节点，同时保证集群数据的强一致性（CP)。
 
 # 幂等性
 
