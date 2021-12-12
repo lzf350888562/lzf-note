@@ -1443,46 +1443,433 @@ public ReturnT<String> myAnnotationJobHandler(String param)throws Exception {
 
 # Bean
 
-## MapStruct
+随着系统模块分层不断细化，在Java日常开发中不可避免地涉及到各种对象的转换，如：DO、DTO、VO等等，编写映射转换代码是一个繁琐重复且还易错的工作，一个好的工具辅助，减轻了工作量、提升开发工作效率的同时还能减少bug的发生。
 
-实体映射工具类
+常用方案
+
+1.fastjson
+
+这种方案因为通过生成中间json格式字符串，然后再转化成目标对象，性能非常差，同时因为中间会生成json格式字符串，如果转化过多，gc会非常频繁，同时针对复杂场景支持能力不足，基本很少用。
+
+2.BeanUtil类
+
+BeanUtil.copyProperties()结合手写get、set: 对于简单的转换直接使用BeanUtil，复杂的转换自己手工写get、set。该方案的痛点就在于代码编写效率低、冗余繁杂还略显丑陋，并且BeanUtil因为使用了反射invoke去赋值性能不高。
+
+只能适合bean数量较少、内容不多、转换不频繁的场景。
+
+对于其他BeanUtils
+
+> 阿里规约中明确, 避免使用Apache BeanUtils进行属性copy, 这种方案因为用到反射的原因，同时本身设计问题，性能比较差.
+
+> 而spring.BeanUtils对apache的BeanUtils做了很多优化，整体性能提升不少，不过还是使用反射实现比不上原生代码处理，其次针对复杂场景支持能力不足。
+
+3.BeanCopier
+
+```
+BeanCopier copier = BeanCopier.create(CarDO.class, CarDTO.class, false); 
+copier.copy(do, dto, null);
+```
+
+这种方案动态生成一个要代理类的子类,其实就是通过字节码方式转换成性能最好的get和set方式,重要的开销在创建BeanCopier，整体性能接近原生代码处理，比BeanUtils要好很多，尤其在数据量很大时，但是针对复杂场景支持能力不足。
+
+4.Mapper框架
+
+Object Mapping 技术从大的角度来说分为两类，一类是运行期转换，另一类则是编译期转换：
+
+- 运行期反射调用 set/get 或者是直接对成员变量赋值。这种方式通过invoke执行赋值，实现时一般会采用beanutil, Javassist等开源库。运行期对象转换的代表主要是Dozer和ModelMaper。
+
+- 编译期动态生成 set/get 代码的class文件，在运行时直接调用该class的 set/get 方法。该方式实际上仍会存在 set/get 代码，只是不需要开发人员自己写了。这类的代表是：MapStruct,Selma,Orika。
+
+**分析**
+
+- 无论哪种Mapping框架，基本都是采用xml配置文件 or 注解的方式供用户配置，然后生成映射关系。
+
+- 编译期生成class文件方式需要DTO仍然有set/get方法，只是调用被屏蔽；而运行期反射方式在某些直接填充 field的方案中，set/get代码也可以省略。
+
+- 编译期生成class方式会有源代码在本地，方便排查问题。
+
+- 编译期生成class方式因为在编译期才出现java和class文件，所以热部署会受到一定影响。
+
+- 反射型由于很多内容是黑盒，在排查问题时，不如编译期生成class方式方便。参考GitHub上工程java-object-mapper-benchmark可以看出主要框架性能比较。
+
+- 反射型调用由于是在运行期根据映射关系反射执行，其执行速度会明显下降N个量级。
+
+- 通过编译期生成class代码的方式，本质跟直接写代码区别不大，但由于代码都是靠模板生成，所以代码质量没有手工写那么高，这也会造成一定的性能损失。
+
+![](picture/mappingframework.jpg)
+
+综合性能、成熟度、易用性、扩展性，mapstruct是比较优秀的一个框架。
+
+## MapStruct
 
 https://mapstruct.org/
 
-`@Mapper` 注解的 `componentModel` 属性用于指定自动生成的接口实现类的组件类型:
-
-- default: 这是默认的情况，mapstruct 不使用任何组件类型, 可以通过Mappers.getMapper(Class)方式获取自动生成的实例对象。
-- cdi: the generated mapper is an application-scoped CDI bean and can be retrieved via @Inject
-- spring: 生成的实现类上面会自动添加一个@Component注解，可以通过Spring的 @Autowired方式进行注入
-- jsr330: 生成的实现类上会添加@javax.inject.Named 和@Singleton注解，可以通过 @Inject注解获取
-
-**当映射的类型不一致时**
-
-,可以在mapper的方法上指定处理该类型映射的方法(静态)
+```
+<properties> 
+  <org.mapstruct.version>1.4.2.Final</org.mapstruct.version> 
+</properties> 
+... 
+<dependencies>    
+  <dependency>         
+    <groupId>org.mapstruct</groupId>         
+    <artifactId>mapstruct</artifactId>         
+    <version>${org.mapstruct.version}</version>     
+    </dependency> 
+</dependencies> 
+... 
+<build>     
+  <plugins>         
+      <plugin>             
+        <groupId>org.apache.maven.plugins</groupId>             
+        <artifactId>maven-compiler-plugin</artifactId>             
+        <version>3.8.1</version>             
+        <configuration>                 
+          <source>1.8</source> 
+          <!-- depending on your project -->                 
+        <target>1.8</target> 
+        <!-- depending on your project -->                 
+        <annotationProcessorPaths>                     
+        <path>                         
+          <groupId>org.mapstruct</groupId>                         
+          <artifactId>mapstruct-processor</artifactId>                         
+          <version>${org.mapstruct.version}</version>                     
+        </path>                    
+        <!-- other annotation processors -->                 
+        </annotationProcessorPaths>             
+      </configuration>         
+      </plugin>     
+    </plugins> 
+</build>
+```
 
 ```
-@Mappings({
-            @Mapping(target = "createTime", expression = "java(com.java.mmzsblog.util.DateTransform.strToDate(source.getCreateTime()))"),
-    })
-UserVO3 toConvertVO3(User source);
-
-public class DateTransform {
-    public static LocalDateTime strToDate(String str){
-        DateTimeFormatter df = DateTimeFormatter.ofPattern("yyy-MM-dd HH:mm:ss");
-        return LocalDateTime.parse("2018-01-12 17:07:05",df);
-    }
-
+@Data 
+public class Car {     
+    private String make;     
+    private int numberOfSeats;     
+    private CarType type; 
+}
+@Data 
+public class CarDTO {     
+    private String make;     
+    private int seatCount;     
+    private String type; 
 }
 ```
 
-**当字段名不一致时**
+> 与高版本Lombok使用需要增加lombok-mapstruct-binding这个依赖，最新版本lombok不兼容mapstruct
+
+1.**定义Mapper**
+
+@Mapper中描述映射，在编辑的时候mapstruct将会根据此描述生成实现类：
+
+- 当属性与其目标实体副本同名时，它将被隐式映射。
+
+- 当目标实体中的属性具有不同名称时，可以通过@Mapping注释指定其名称。
 
 ```
-@Mappings({
-            @Mapping(source = "id", target = "userId"),
-            @Mapping(source = "name", target = "userName")
-    })
+@Mapper 
+public interface CarMapper {     
+    @Mapping(source = "numberOfSeats", target = "seatCount")     
+    CarDTO CarToCarDTO(Car car); }
 ```
+
+2.**使用Mapper**
+
+通过Mappers 工厂生成静态实例使用。
+
+```
+@Mapper 
+public interface CarMapper {     
+    CarMapper INSTANCE = Mappers.getMapper(CarMapper.class);  
+
+    @Mapping(source = "numberOfSeats", target = "seatCount")     
+    CarDTO CarToCarDTO(Car car); 
+}
+
+Car car = new Car(...); 
+CarDTO carDTO = CarMapper.INSTANCE.CarToCarDTO(car);
+```
+
+getMapper会去load接口的Impl后缀的实现类:
+
+![](picture/mapstruct-01.jpg)
+
+通过生成spring bean注入使用，Mapper注解加上spring配置，会自动生成一个bean，直接使用bean注入即可访问:
+
+```
+@Mapper(componentModel = "spring") 
+public interface CarMapper {     
+    @Mapping(source = "numberOfSeats", target = "seatCount")     
+    CarDTO CarToCarDTO(Car car); 
+}
+```
+
+**自动生成的MapperImpl内容**
+
+> 如果配置了spring bean访问会在注解上自动加上@Component。
+
+![](picture/mapstruct-02.jpg)
+
+### 高阶使用
+
+1.**逆向映射**
+
+如果是双向映射，例如 从DO到DTO以及从DTO到DO，正向方法和反向方法的映射规则通常是相似的，并且可以通过切换源和目标来简单地逆转。
+
+使用注解@InheritInverseConfiguration 指示方法应继承相应反向方法的反向配置。
+
+```
+@Mapper 
+public interface CarMapper {     
+    CarMapper INSTANCE = Mappers.getMapper(CarMapper.class);    
+
+    @Mapping(source = "numberOfSeats", target = "seatCount")     
+    CarDTO CarToCarDTO(Car car);    
+
+    @InheritInverseConfiguration     
+    Car CarDTOToCar(CarDTO carDTO); 
+}
+```
+
+2.**更新bean映射**
+
+有些情况下不需要映射转换产生新的bean，而是更新已有的bean。
+
+```3
+@Mapper 
+public interface CarMapper {     
+    CarMapper INSTANCE = Mappers.getMapper(CarMapper.class);     
+
+    @Mapping(source = "numberOfSeats", target = "seatCount")     
+    void updateDTOFromCar(Car car, @MappingTarget CarDTO carDTO);
+ }
+```
+
+3.**集合映射**
+
+集合类型（List，Set，Map等）的映射以与映射bean类型相同的方式完成，即通过在映射器接口中定义具有所需源类型和目标类型的映射方法。MapStruct支持Java Collection Framework中的多种可迭代类型。
+
+生成的代码将包含一个循环，该循环遍历源集合，转换每个元素并将其放入目标集合。**如果在给定的映射器或其使用的映射器中找到用于集合元素类型的映射方法，则将调用此方法以执行元素转换**，如果存在针对源元素类型和目标元素类型的隐式转换，则将调用此转换。
+
+```
+@Mapper 
+public interface CarMapper {     
+    CarMapper INSTANCE = Mappers.getMapper(CarMapper.class); 
+
+    @Mapping(source = "numberOfSeats", target = "seatCount")     
+    CarDTO CarToCarDTO(Car car);     
+
+    List<CarDTO> carsToCarDtos(List<Car> cars);     
+
+    Set<String> integerSetToStringSet(Set<Integer> integers);     
+
+    @MapMapping(valueDateFormat = "dd.MM.yyyy")     
+    Map<String, String> longDateMapToStringStringMap(Map<Long, Date> source); 
+}
+```
+
+编译生成的实现类:
+
+![](picture/mapstruct-03.jpg)
+
+4.**多个源参数映射**(实用)
+
+MapStruct 还支持具有多个源参数的映射方法。例如，将多个实体组合成一个数据传输对象。
+
+在原案例新增一个Person对象，CarDTO中新增driverName属性，根据Person对象获得。
+
+```
+@Mapper 
+public interface CarMapper {     
+    CarMapper INSTANCE = Mappers.getMapper(CarMapper.class);     
+
+    @Mapping(source = "car.numberOfSeats", target = "seatCount")     
+    @Mapping(source = "person.name", target = "driverName")     
+    CarDTO CarToCarDTO(Car car, Person person); 
+}
+```
+
+![](picture/mapstruct-04.jpg)
+
+5.**默认值和常量映射**
+
+如果相应的源属性是null ，则可以指定默认值以将预定义值设置为目标属性。在任何情况下，都可以指定常量来设置这样的预定义值。默认值和常量被指定为字符串值。当目标类型是原始类型或装箱类型时，String 值将采用字面量，在这种情况下允许位/八进制/十进制/十六进制模式，只要它们是有效的文字即可。在所有其他情况下，常量或默认值会通过内置转换或调用其他映射方法进行类型转换，以匹配目标属性所需的类型。
+
+```
+@Mapper 
+public interface SourceTargetMapper {     
+    SourceTargetMapper INSTANCE = Mappers.getMapper( SourceTargetMapper.class );     
+
+    @Mapping(target = "stringProperty", source = "stringProp", defaultValue = "undefined")     
+    @Mapping(target = "longProperty", source = "longProp", defaultValue = "-1")     
+    @Mapping(target = "stringConstant", constant = "Constant Value")     
+    @Mapping(target = "integerConstant", constant = "14")     
+    @Mapping(target = "longWrapperConstant", constant = "3001")     
+    @Mapping(target = "dateConstant", dateFormat = "dd-MM-yyyy", constant = "09-01-2014")     
+    @Mapping(target = "stringListConstants", constant = "jack-jill-tom")     
+    Target sourceToTarget(Source s); 
+}
+```
+
+6.**自定义映射方法或映射器**(实用)
+
+在某些情况下，可能需要手动实现 MapStruct 无法生成的从一种类型到另一种类型的特定映射。
+
+可以在Mapper中定义默认实现方法，生成转换代码将调用相关方法：
+
+```
+@Mapper 
+public interface CarMapper {     
+    CarMapper INSTANCE = Mappers.getMapper(CarMapper.class);     
+
+    @Mapping(source = "numberOfSeats", target = "seatCount")     
+    @Mapping(source = "length", target = "lengthType")     
+    CarDTO CarToCarDTO(Car car);     
+
+    default String getLengthType(int length) {         
+        if (length > 5) {             
+            return "large";         
+        } else {             
+            return "small";         
+        }     
+    } 
+}
+```
+
+也可以定义其他映射器，如下案例Car中Date需要转换成DTO中的String：
+
+```
+public class DateMapper {     
+    public String asString(Date date) {         
+        return date != null ? new SimpleDateFormat( "yyyy-MM-dd" ).format( date ) : null;     
+    }     
+
+    public Date asDate(String date) {         
+        try {             
+            return date != null ? new SimpleDateFormat( "yyyy-MM-dd" ).parse( date ) : null;         
+        } catch ( ParseException e ) {             
+            throw new RuntimeException( e );         
+        }     
+    } 
+}
+
+
+@Mapper(uses = DateMapper.class) 
+public interface CarMapper {     
+    CarMapper INSTANCE = Mappers.getMapper(CarMapper.class);     
+
+    @Mapping(source = "numberOfSeats", target = "seatCount")     
+    CarDTO CarToCarDTO(Car car); 
+}
+```
+
+![](picture/mapstruct-05.jpg)
+
+**若遇到多个类似的方法调用时会出现模棱两可，需使用@qualifiedBy指定：**
+
+```
+@Mapper 
+public interface CarMapper {     
+    CarMapper INSTANCE = Mappers.getMapper(CarMapper.class);     
+
+    @Mapping(source = "numberOfSeats", target = "seatCount")     
+    @Mapping(source = "length", target = "lengthType", qualifiedByName = "newStandard")     
+    CarDTO CarToCarDTO(Car car);     
+
+    @Named("oldStandard")     
+    default String getLengthType(int length) {         
+        if (length > 5) {             
+            return "large";         
+        } else {             
+            return "small";         
+        }     
+    }     
+    @Named("newStandard")     
+    default String getLengthType2(int length) {         
+        if (length > 7) {             
+            return "large";         
+        } else {             
+            return "small";         
+        }     
+    } 
+}
+```
+
+
+
+7.**表达式自定义映射**
+
+通过表达式，可以包含来自多种语言的结构。
+
+目前仅支持 Java 作为语言。例如，此功能可用于调用构造函数，整个源对象都可以在表达式中使用。应注意仅插入有效的 Java 代码：MapStruct 不会在生成时验证表达式，但在编译期间生成的类中会显示错误.
+
+> 可以使用表达式方式实现上一点的自定义映射
+
+```
+@Data 
+@AllArgsConstructor 
+public class Driver {     
+    private String name;     
+    private int age; 
+}
+
+@Mapper 
+public interface CarMapper {     
+    CarMapper INSTANCE = Mappers.getMapper(CarMapper.class);     
+
+    @Mapping(source = "car.numberOfSeats", target = "seatCount")     
+    @Mapping(target = "driver", expression = "java( new com.alibaba.my.mapstruct.example4.beans.Driver(person.getName(), person.getAge()))")     
+    CarDTO CarToCarDTO(Car car, Person person); 
+}
+```
+
+默认表达式是默认值和表达式的组合：
+
+```
+@Mapper( imports = UUID.class )
+public interface SourceTargetMapper {     
+    SourceTargetMapper INSTANCE = Mappers.getMapper( SourceTargetMapper.class );     
+
+    @Mapping(target="id", source="sourceId", defaultExpression = "java( UUID.randomUUID().toString() )")     
+    Target sourceToTarget(Source s); 
+}
+```
+
+8.**装饰器自定义映射**(实用)
+
+在某些情况下，可能需要自定义生成的映射方法，例如在目标对象中设置无法由生成的方法实现设置的附加属性。
+
+实现起来也很简单，用装饰器模式实现映射器的一个抽象类，在映射器Mapper中添加注解@DecoratedWith指向装饰器类，使用时还是正常调用。
+
+```java
+@Mapper 
+@DecoratedWith(CarMapperDecorator.class) 
+public interface CarMapper {     
+    CarMapper INSTANCE = Mappers.getMapper(CarMapper.class);     
+
+    @Mapping(source = "numberOfSeats", target = "seatCount")     
+    CarDTO CarToCarDTO(Car car); 
+}
+
+
+public abstract class CarMapperDecorator implements CarMapper {     
+    private final CarMapper delegate;     
+    protected CarMapperDecorator(CarMapper delegate) {         
+        this.delegate = delegate;     
+    }     
+    @Override     
+    public CarDTO CarToCarDTO(Car car) {         
+        CarDTO dto = delegate.CarToCarDTO(car);         
+        dto.setMakeInfo(car.getMake() + " " + new SimpleDateFormat( "yyyy-MM-dd" ).format(car.getCreateDate()));         
+        return dto;     
+    } 
+}
+```
+
+
+
+
 
 
 

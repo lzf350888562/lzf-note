@@ -14,6 +14,10 @@ factoryBean实现
 
 # alibaba
 
+## nacos
+
+https://blog.csdn.net/cold___play/article/details/108032204
+
 ## sentinel
 
 实现原理:
