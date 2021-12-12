@@ -1,11 +1,3 @@
-
-
-
-
-
-
-
-
 # StringTable
 
 ## String的特性
@@ -107,10 +99,6 @@ intern(); //如果字符串常量池中没有对应的字符串的话，则在�
  *  深入剖析： StringBuilder的toString():
  *  对象6 ：new String("ab")
  *  强调一下，toString()的调用，在字符串常量池中，没有生成"ab"  因为toString的参数为变量
- 字符串常量池中，没有生成"ab
- 字符串常量池中，没有生成"ab
- 字符串常量池中，没有生成"ab
- 字符串常量池中，没有生成"ab
 ```
 
 ![image29](.\jvm-img\media1\image29.png)
@@ -215,11 +203,7 @@ String str2 = new String("hello");
 
 ![image76](.\jvm-img\media1\image76.png)
 
-### 标记阶段：可达性分析算法
-
-![image77](.\jvm-img\media1\image77.png)
-
-![image78](.\jvm-img\media1\image78.png)
+### 标记阶段：可达性分析算法![image78](.\jvm-img\media1\image78.png)
 
 ![image79](.\jvm-img\media1\image79.png)
 
@@ -645,15 +629,13 @@ ParallelGCThread默认值为CPU个数(核)
 
 ## G1回收器：区域化分代式
 
-### 区域分代化概述
-
 ![image227](.\jvm-img\media1\image227.png)
 
 ![image228](.\jvm-img\media1\image228.png)
 
 ![image229](.\jvm-img\media1\image229.png)
 
-### 优势
+
 
 ![image230](.\jvm-img\media1\image230.png)
 
@@ -665,13 +647,7 @@ ParallelGCThread默认值为CPU个数(核)
 
 ![image234](.\jvm-img\media1\image234.png)
 
-吞吐量 （m-n）/m
-
-### 缺点
-
-![image235](.\jvm-img\media1\image235.png)
-
-### 参数设置          
+![image235](.\jvm-img\media1\image235.png)     
 
 ![image236](.\jvm-img\media1\image236.png)
 
@@ -691,15 +667,9 @@ ParallelGCThread默认值为CPU个数(核)
 
 6.触发GC阈值
 
-### G1回收器常用操作步骤
-
 ![image237](.\jvm-img\media1\image237.png)
 
-### 使用场景
-
 ![image238](.\jvm-img\media1\image238.png)
-
-### Region使用介绍
 
 ![image239](.\jvm-img\media1\image239.png)
 
@@ -729,8 +699,6 @@ ParallelGCThread默认值为CPU个数(核)
 
 前面讲参数设置有触发并发GC的周期阈值设置 默认45% 这里指的就是并发标记+混合回收
 
-### Remembered Set
-
 G1的额外开销之一
 
 问题如：老年代中的对象指向新生代中的对象？
@@ -743,7 +711,7 @@ G1的额外开销之一
 
 ![image247](.\jvm-img\media1\image247.png)
 
-### 回收过程1:年轻代GC
+
 
 ![image248](.\jvm-img\media1\image248.png)
 
@@ -761,19 +729,17 @@ G1的额外开销之一
 
 ![image251](.\jvm-img\media1\image251.png)
 
-### 回收过程2:并发标记
+
 
 ![image252](.\jvm-img\media1\image252.png)
 
-### 回收过程3:混合回收
+
 
 ![image253](.\jvm-img\media1\image253.png)
 
 复制算法 无碎片
 
 ![image254](.\jvm-img\media1\image254.png)
-
-### Full GC、补充与优化
 
 ![image255](.\jvm-img\media1\image255.png)
 
@@ -782,8 +748,6 @@ G1的额外开销之一
 ![image257](.\jvm-img\media1\image257.png)
 
 ## 垃圾回收总结
-
-![image258](.\jvm-img\media1\image258.png)
 
 ![image259](.\jvm-img\media1\image259.png)
 
@@ -800,8 +764,6 @@ G1的额外开销之一
 ![image265](.\jvm-img\media1\image265.png)
 
 ## 日志分析
-
-![image266](.\jvm-img\media1\image266.png)
 
 ### 参数
 
@@ -848,8 +810,6 @@ jdk8为MetaSpace
 ![image280](.\jvm-img\media1\image280.png)
 
 ## 垃圾回收器的新发展
-
-![image281](.\jvm-img\media1\image281.png)
 
 ![image282](.\jvm-img\media1\image282.png)
 
