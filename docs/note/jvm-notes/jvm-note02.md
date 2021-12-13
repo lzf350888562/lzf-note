@@ -1,7 +1,5 @@
 # StringTable
 
-## String的特性
-
 ![image5](.\jvm-img\media1\image5.png)
 
 ![image6](.\jvm-img\media1\image6.png)
@@ -31,7 +29,7 @@ intern(); //如果字符串常量池中没有对应的字符串的话，则在�
 
 永久代垃圾回收频率低且PermSize默认较小
 
-## String的基本操作
+## String操作(intern)
 
 ![image17](.\jvm-img\media1\image17.png)
 
@@ -42,8 +40,6 @@ intern(); //如果字符串常量池中没有对应的字符串的话，则在�
 ```java
 因为toString方法的字符串也是通过双引号字符串返回的，所以其也在常量池里
 ```
-
-## 字符串的拼接操作
 
 ![image21](.\jvm-img\media1\image21.png)
 
@@ -73,13 +69,11 @@ intern(); //如果字符串常量池中没有对应的字符串的话，则在�
 
 ![image25](.\jvm-img\media1\image25.png)
 
-## intern()使用
-
 ![image27](.\jvm-img\media1\image27.png)
 
 ![image28](.\jvm-img\media1\image28.png)
 
-## new String问题（重要）
+
 
 ```
  * 题目：
@@ -105,15 +99,13 @@ intern(); //如果字符串常量池中没有对应的字符串的话，则在�
 
 ![image30](.\jvm-img\media1\image30.png)
 
-![image31](.\jvm-img\media1\image31.png)
-
-![image32](.\jvm-img\media1\image32.png)
-
 jdk6与jdk7的intern区别
 
 ![image33](.\jvm-img\media1\image33.png)
 
-![image34](.\jvm-img\media1\image34.png)
+jdk6下![image34](.\jvm-img\media1\image34.png)
+
+jdk7下
 
 ![image35](.\jvm-img\media1\image35.png)
 
@@ -127,7 +119,7 @@ jdk6与jdk7的intern区别
 
 ![image40](.\jvm-img\media1\image40.png)
 
-![image41](.\jvm-img\media1\image41.png)
+StringTable垃圾回收
 
 ![image42](.\jvm-img\media1\image42.png)
 
@@ -150,10 +142,6 @@ String str2 = new String("hello");
 ![image47](.\jvm-img\media1\image47.png)
 
 # 垃圾回收概述
-
-## 什么是垃圾？面试题
-
-![image51](.\jvm-img\media1\image51.png)
 
 ![image52](.\jvm-img\media1\image52.png)
 
@@ -281,7 +269,7 @@ String str2 = new String("hello");
 
 ![image103](.\jvm-img\media1\image103.png)
 
-### 清除阶段：标记-压缩（整理）算法
+### 清除阶段：标记-整理算法
 
 ![image105](.\jvm-img\media1\image105.png)
 
@@ -323,9 +311,7 @@ String str2 = new String("hello");
 
 ![image121](.\jvm-img\media1\image121.png)
 
-## 垃圾回收相关概念
-
-### System.gc()
+## 垃圾回收
 
 ![image126](.\jvm-img\media1\image126.png)
 
@@ -335,11 +321,7 @@ System.runFinalization();//强制调用失去引用的对象的finalize()方法
 
 ![image127](.\jvm-img\media1\image127.png)
 
-![image128](.\jvm-img\media1\image128.png)
-
-![image129](.\jvm-img\media1\image129.png)
-
-### 内存溢出
+### 内存溢出与内存泄漏
 
 ![image130](.\jvm-img\media1\image130.png)
 
@@ -347,13 +329,9 @@ System.runFinalization();//强制调用失去引用的对象的finalize()方法
 
 ![image132](.\jvm-img\media1\image132.png)
 
-### 内存泄漏
-
 ![image133](.\jvm-img\media1\image133.png)
 
 ![image134](.\jvm-img\media1\image134.png)
-
-### 内存泄漏举例
 
 ![image135](.\jvm-img\media1\image135.png)
 
@@ -361,23 +339,9 @@ System.runFinalization();//强制调用失去引用的对象的finalize()方法
 
 ### Stop The World
 
-**可达性分析**
-
 ![](.\jvm-img\media1\image137.png)
 
 ![image138](.\jvm-img\media1\image138.png)
-
-### 垃圾回收的并行与并发
-
-![image140](.\jvm-img\media1\image140.png)
-
-![image141](.\jvm-img\media1\image141.png)
-
-![image142](.\jvm-img\media1\image142.png)
-
-![image143](.\jvm-img\media1\image143.png)
-
-![image144](.\jvm-img\media1\image144.png)
 
 ### 安全点和安全区域
 
@@ -385,23 +349,17 @@ System.runFinalization();//强制调用失去引用的对象的finalize()方法
 
 ![image147](.\jvm-img\media1\image147.png)
 
-马 驿站 安全点
-
 ![image148](.\jvm-img\media1\image148.png)
 
 ![image149](.\jvm-img\media1\image149.png)
 
-
-
-![image150](.\jvm-img\media1\image150.png)
+### 引用
 
 ![image151](.\jvm-img\media1\image151.png)
 
-引用关系存在的情况下
+
 
 ![image152](.\jvm-img\media1\image152.png)
-
-### 强引用-不回收
 
 ![image153](.\jvm-img\media1\image153.png)
 
@@ -411,13 +369,13 @@ System.runFinalization();//强制调用失去引用的对象的finalize()方法
 
 ![image156](.\jvm-img\media1\image156.png)
 
-### 软引用-不足即回收
+
 
 ![image158](.\jvm-img\media1\image158.png)
 
 ![image159](.\jvm-img\media1\image159.png)
 
-### 弱引用-下次GC即回收
+
 
 ![image161](.\jvm-img\media1\image161.png)
 
@@ -429,19 +387,17 @@ WeakHashMap:Entry继承自WeakReference，内存不足即回收，可用于缓�
 
 
 
-### 虚引用
+
 
 ![image164](.\jvm-img\media1\image164.png)
 
 ![image165](.\jvm-img\media1\image165.png)
 
-### 终结器引用
+
 
 ![image167](.\jvm-img\media1\image167.png)
 
 # 垃圾回收器
-
-## GC分类与性能指标
 
 ![image172](.\jvm-img\media1\image172.png)
 
@@ -461,7 +417,7 @@ WeakHashMap:Entry继承自WeakReference，内存不足即回收，可用于缓�
 
 ![image177](.\jvm-img\media1\image177.png)
 
-### 吞吐量和暂停时间
+
 
 ![image178](.\jvm-img\media1\image178.png)
 
@@ -475,37 +431,11 @@ WeakHashMap:Entry继承自WeakReference，内存不足即回收，可用于缓�
 
 ![image182](.\jvm-img\media1\image182.png)
 
-## 不同垃圾收集器概述
-
-![image184](.\jvm-img\media1\image184.png)
-
-![image185](.\jvm-img\media1\image185.png)
-
-CMS第一款并发GC 目前jdk已经移除
-
-ZGC未来可期
-
-ParallelGC jdk8默认
-
-G1 jdk9默认
-
-![image186](.\jvm-img\media1\image186.png)
-
-![image187](.\jvm-img\media1\image187.png)
-
-![image188](.\jvm-img\media1\image188.png)
-
-![image189](.\jvm-img\media1\image189.png)
-
-### 组合关系
-
 ![image190](.\jvm-img\media1\image190.png)
 
 ![image191](.\jvm-img\media1\image191.png)
 
 ![image192](.\jvm-img\media1\image192.png)
-
-### 查看默认的GC
 
 ```java
 *  -XX:+PrintCommandLineFlags 查看命令行相关参数，包含使用的垃圾收集器
@@ -575,7 +505,7 @@ G1 jdk9默认
 
 ![image208](.\jvm-img\media1\image208.png)
 
-### 参数设置
+
 
 ![image209](.\jvm-img\media1\image209.png)
 
@@ -599,8 +529,6 @@ G1 jdk9默认
 
 初始标记和重新标记都有STW
 
-### 工作原理(重要)
-
 ![image216](.\jvm-img\media1\image216.png)
 
 ![image217](.\jvm-img\media1\image217.png)
@@ -609,11 +537,11 @@ G1 jdk9默认
 
 ![image219](.\jvm-img\media1\image219.png)
 
-### 为什么不进行标记-压缩？
+
 
 ![image220](.\jvm-img\media1\image220.png)
 
-### 优缺点(致命缺点)
+
 
 ![image221](.\jvm-img\media1\image221.png)
 
@@ -680,8 +608,6 @@ ParallelGCThread默认值为CPU个数(核)
 ![image241](.\jvm-img\media1\image241.png)
 
 ![image242](.\jvm-img\media1\image242.png)
-
-### 回收过程
 
 ![image243](.\jvm-img\media1\image243.png)
 
@@ -764,8 +690,6 @@ G1的额外开销之一
 ![image265](.\jvm-img\media1\image265.png)
 
 ## 日志分析
-
-### 参数
 
 ![image267](.\jvm-img\media1\image267.png)
 

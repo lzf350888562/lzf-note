@@ -1,33 +1,5 @@
 #  JVM与Java体系结构
 
-默认虚拟机（java -version ）：Java HotSpot(TM) 64-Bit Server VM (build 9.0.4+11, mixed mode)
-
-**java:跨平台语言**
-
-java程序 -->
-
-字节码文件 -->
-
-win版jvm/linux版jvm/Mac版jvm
-
-write once,run anywhere
-
-**jvm:跨语言的平台**
-
-kotlin/clojure/groovy/scala/jython/jruby/javascript -->
-
-各自的编译器 -->
-
-字节码文件 -->
-
-java虚拟机  只关心字节码文件
-
-(java7发布:通过JSR-292规范基本实现在java虚拟机平台上允许非java语言编写的和程序)
-
-> **字节码**:平常说的java字节码指的是用java语言编译成的字节码，准确的说任何能在jvm平台上直执行的字节码格式都一样，所以应该统称为jvm字节码
-
-java**虚拟机解释**
-
 java虚拟机就是二进制字节码的运行环境，负责装在字节码到其内部，解释、编译为对应平台上的机器指令执行。每一条java指令，java虚拟机规范中都由详细定义，如怎么取操作数，怎么处理操作数，处理结果放在哪。
 
 特点
@@ -41,16 +13,6 @@ java虚拟机就是二进制字节码的运行环境，负责装在字节码到�
 **jvm整体结构**
 
 ![jvm整体结构](.\jvm-img\jvm整体结构.jpg)
-
-多线程共享堆和方法区
-
-每个线程独享虚拟机栈、本地方法栈、程序计数器
-
-执行引擎：翻译字节码（解释执行）+JIT编译器（编译执行）
-
-二次编译：将字节码编译成机器指令.
-
-电脑只能执行机器指令，jvm由执行引擎完成。
 
 ![jvm架构模型](.\jvm-img\jvm架构模型.png)
 
