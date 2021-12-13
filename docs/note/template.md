@@ -1,6 +1,6 @@
+# 基础
 
-
-# 枚举定义模板
+## 枚举定义模板
 
 ```
 public enum ExampleEnum {
@@ -26,7 +26,7 @@ public enum ExampleEnum {
 
 ```
 
-# 集合(数组)常量
+## 集合(数组)常量
 
 普通集合常量即便定义为final也可通过集合方法进行修改, 包括Arrays.asList方法生成的内部ArrayList不能执行add/remove/clear方法,但是可以set方法,也属于可变集合对象
 
@@ -85,60 +85,7 @@ public final class ExampleHelper {
 
 由于每次返回的是一个克隆数组，即便修改了克隆数组的常量值，也不会导致原始数组常量值的修改。
 
-# 查看程序进程信息
-
-```
-public static void main(String[] args) {
-		// 获取 Java 线程管理 MXBean
-	ThreadMXBean threadMXBean = ManagementFactory.getThreadMXBean();
-		// 不需要获取同步的 monitor 和 synchronizer 信息，仅获取线程和线程堆栈信息
-		ThreadInfo[] threadInfos = threadMXBean.dumpAllThreads(false, false);
-		// 遍历线程信息，仅打印线程 ID 和线程名称信息
-		for (ThreadInfo threadInfo : threadInfos) {
-			System.out.println("[" + threadInfo.getThreadId() + "] " + threadInfo.getThreadName());
-		}
-	}
-```
-
-
-
-# 根据线程ID获取线程
-
-```
-public static Thread findThread(long threadId) {
-    ThreadGroup group = Thread.currentThread().getThreadGroup();
-    while(group != null) {
-        Thread[] threads = new Thread[(int)(group.activeCount() * 1.2)];
-        int count = group.enumerate(threads, true);
-        for(int i = 0; i < count; i++) {
-            if(threadId == threads[i].getId()) {
-                return threads[i];
-            }
-        }
-        group = group.getParent();
-    }
-    return null;
-}
-```
-
-
-
-# 时间格式转换
-
-```
-public static String convert(String inDate){
-		String formatPattern = "yyyy-MM-dd HH:mm:ss";
-		ZonedDateTime zdt  = ZonedDateTime.parse(inDate);
-		LocalDateTime localDateTime = zdt.toLocalDateTime();
-		DateTimeFormatter formatter = DateTimeFormatter.ofPattern(formatPattern);
-		String outDate = formatter.format(localDateTime.plusHours(8));
-		return outDate;
-	}
-```
-
-
-
-# 原生序列化
+## 原生序列化
 
 java序列化二进制流的方式
 
@@ -218,7 +165,72 @@ public class SerializeUtils {
 
 
 
+# 日期时间
 
+## 时间格式转换
+
+```
+public static String convert(String inDate){
+		String formatPattern = "yyyy-MM-dd HH:mm:ss";
+		ZonedDateTime zdt  = ZonedDateTime.parse(inDate);
+		LocalDateTime localDateTime = zdt.toLocalDateTime();
+		DateTimeFormatter formatter = DateTimeFormatter.ofPattern(formatPattern);
+		String outDate = formatter.format(localDateTime.plusHours(8));
+		return outDate;
+	}
+```
+
+## 获取最近几天日期
+
+```
+public void get(int days){
+	for(int i= days-1; i>=0; i--){
+		Calendar calendar = Calendar.getInstance();
+		calendar.set(Calendar.DAY_OF_YEAR,Calendar.get(Calendar.DAY_OF_YEAR)-i);
+		Dcalendar.getTime();
+	}
+}
+```
+
+
+
+# 线程
+
+## 查看程序进程信息
+
+```
+public static void main(String[] args) {
+		// 获取 Java 线程管理 MXBean
+	ThreadMXBean threadMXBean = ManagementFactory.getThreadMXBean();
+		// 不需要获取同步的 monitor 和 synchronizer 信息，仅获取线程和线程堆栈信息
+		ThreadInfo[] threadInfos = threadMXBean.dumpAllThreads(false, false);
+		// 遍历线程信息，仅打印线程 ID 和线程名称信息
+		for (ThreadInfo threadInfo : threadInfos) {
+			System.out.println("[" + threadInfo.getThreadId() + "] " + threadInfo.getThreadName());
+		}
+	}
+```
+
+
+
+## 根据线程ID获取线程
+
+```
+public static Thread findThread(long threadId) {
+    ThreadGroup group = Thread.currentThread().getThreadGroup();
+    while(group != null) {
+        Thread[] threads = new Thread[(int)(group.activeCount() * 1.2)];
+        int count = group.enumerate(threads, true);
+        for(int i = 0; i < count; i++) {
+            if(threadId == threads[i].getId()) {
+                return threads[i];
+            }
+        }
+        group = group.getParent();
+    }
+    return null;
+}
+```
 
 
 
