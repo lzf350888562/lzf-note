@@ -204,6 +204,45 @@ a.com以受害者的名义执行了act=xx。
 
 但token和cookie都不能避免**跨站脚本攻击（Cross Site Scripting）XSS** ,XSS 中攻击者会用各种方式将恶意代码注入到其他用户的页面中
 
+### 防止XSS
+
+XSS攻击通常指的是利用网页开发时留下的漏洞, 通过巧妙的方法注入恶意指令代码到网页, 使用户加载并执行攻击者恶意制造的网页程序.
+
+比如攻击者在提交的表单中输入
+
+```html
+<script>
+	window.location=http://假网站.com/login.html;
+</script>
+```
+
+假网站的登录页面UI与主站完全相同, 而安全警惕性不高的用户通常不会考虑原因, 就再登录一次, 最后造成大量敏感数据失窃.
+
+可通过对特殊字符进行转义解决.
+
+```
+&lt;script&gt;
+	window.location=http://假网站.com/login.html;
+&lt;/script&gt;
+```
+
+Q:什么时候进行XSS过滤呢?
+
+A:
+
+1.一定不要相信客户端数据, 表单欺诈
+
+2.一定要在服务端做转义符转换和有效性校验(验证码)
+
+org.springframework.web.util.HtmlUtils 提供了转义符转换功能
+
+```
+//转义符转换
+String str = HtmlUtils.htmlEscape(str);
+//反向转化
+String str = HtmlUtils.htmlescape(str);
+```
+
 
 
 ## JWT
@@ -309,6 +348,8 @@ JWT不设置过期时间行不行？
 存在重复生成JWT的问题, 两个access_token都过期且refresh_token都没过期的请求同时访问,会生成两组不同的JWT, 存在逻辑问题 , 但不影响使用.
 
 ![image-20211206220120405](picture/image-20211206220120405.png)
+
+
 
 
 

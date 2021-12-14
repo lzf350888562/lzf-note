@@ -137,74 +137,31 @@ import ResizeMixin from './mixin/ResizeHandler'
 
 为.env文件中的内容
 
-# nextTick
+## proxy
 
-如果你在Vue生命周期的created()/mounted()钩子函数进行的DOM操作一定要放在Vue.nextTick()的回调函数中。原因是什么呢，原因是在created()/mounted()钩子函数执行的时候DOM 其实并未进行任何渲染，而此时进行DOM操作无异于徒劳，所以此处一定要将DOM操作的js代码放进Vue.nextTick()的回调函数中。
-
-# 组件注册
-
-局部:
-
-```html
-import countTo from 'vue-count-to';
-export default {
-  components: { countTo },
-  data () {
-    return {
-      startVal: 0,
-      endVal: 2020
+```
+proxyObj['/ws'] = {
+    ws: true,
+    target: "ws://localhost:8081"
+};
+proxyObj['/'] = {
+    ws: false,
+    target: 'http://localhost:8081',
+    changeOrigin: true,
+    pathRewrite: {
+        '^/': ''
     }
-  }
+}
+module.exports = {
+    devServer: {
+        host: 'localhost',
+        port: 8080,
+        proxy: proxyObj
+    }
 }
 ```
 
-全局:(main.js)
 
-```js
-import countTo from 'vue-count-to'
-Vue.component('countTo', countTo)
-```
-
-# async/await
-
-**async**
-
-async 函数返回的是一个promise 对象，如果要获取到promise 返回值，我们应该用then 方法
-
-```
-async function timeout() {
-    return 'hello world'
-}
-timeout().then(result => {
-    console.log(result);
-})
-console.log('虽然在后面，但是我先执行');
-```
-
-**await**
-
-它后面可以放任何表达式，不过更多的是放一个返回promise 对象的表达式。
-
-```
-function doubleAfter2seconds(num) {
-    return new Promise((resolve, reject) => {
-        setTimeout(() => {
-            resolve(2 * num)
-        }, 2000);
-    } )
-}
-```
-
-```
-async function testResult() {
-    let first = await doubleAfter2seconds(30);
-    let second = await doubleAfter2seconds(50);
-    let third = await doubleAfter2seconds(30);
-    console.log(first + second + third);
-}
-```
-
-这俩关键字也可以用在生命周期函数上面,如create和mounted
 
 
 
@@ -304,6 +261,75 @@ import request from '@/utils/xxx'
     data: data
   })
 ```
+
+# nextTick
+
+如果你在Vue生命周期的created()/mounted()钩子函数进行的DOM操作一定要放在Vue.nextTick()的回调函数中。原因是什么呢，原因是在created()/mounted()钩子函数执行的时候DOM 其实并未进行任何渲染，而此时进行DOM操作无异于徒劳，所以此处一定要将DOM操作的js代码放进Vue.nextTick()的回调函数中。
+
+# 组件注册
+
+局部:
+
+```html
+import countTo from 'vue-count-to';
+export default {
+  components: { countTo },
+  data () {
+    return {
+      startVal: 0,
+      endVal: 2020
+    }
+  }
+}
+```
+
+全局:(main.js)
+
+```js
+import countTo from 'vue-count-to'
+Vue.component('countTo', countTo)
+```
+
+# async/await
+
+**async**
+
+async 函数返回的是一个promise 对象，如果要获取到promise 返回值，我们应该用then 方法
+
+```
+async function timeout() {
+    return 'hello world'
+}
+timeout().then(result => {
+    console.log(result);
+})
+console.log('虽然在后面，但是我先执行');
+```
+
+**await**
+
+它后面可以放任何表达式，不过更多的是放一个返回promise 对象的表达式。
+
+```
+function doubleAfter2seconds(num) {
+    return new Promise((resolve, reject) => {
+        setTimeout(() => {
+            resolve(2 * num)
+        }, 2000);
+    } )
+}
+```
+
+```
+async function testResult() {
+    let first = await doubleAfter2seconds(30);
+    let second = await doubleAfter2seconds(50);
+    let third = await doubleAfter2seconds(30);
+    console.log(first + second + third);
+}
+```
+
+这俩关键字也可以用在生命周期函数上面,如create和mounted
 
 
 

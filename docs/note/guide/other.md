@@ -183,6 +183,145 @@ redis分片下, 商品缓存均匀分布在redis分片 但是用户访问可能�
 
 时间戳不存在时区问题
 
+# 业务需求
+
+## 前后端分离开发中动态菜单实现
+
+1.**后端动态返回(常用)**
+
+用户登录后后端数据基于RBAC获取菜单列表json返回给前端, 前端根据json动态渲染 .
+
+```
+[
+    {
+        "id":2,
+        "path":"/home",
+        "component":"Home",
+        "name":"员工资料",
+        "iconCls":"fa fa-user-circle-o",
+        "children":[
+            {
+                "id":null,
+                "path":"/emp/basic",
+                "component":"EmpBasic",
+                "name":"基本资料",
+                "iconCls":null,
+                "children":[
+
+                ],
+                "meta":{
+                    "keepAlive":false,
+                    "requireAuth":true
+                }
+            }
+        ],
+        "meta":{
+            "keepAlive":false,
+            "requireAuth":true
+        }
+    }
+]
+```
+
+在前端的二次处理主要是把 component 属性的字符串值转为对象。 
+
+处理后端返回的路由json
+
+```
+export const formatRoutes = (routes) => {
+    let fmRoutes = [];
+    routes.forEach(router => {
+        let {
+            path,
+            component,
+            name,
+            meta,
+            iconCls,
+            children
+        } = router;
+        if (children && children instanceof Array) {
+            children = formatRoutes(children);
+        }
+        let fmRouter = {
+            path: path,
+            name: name,
+            iconCls: iconCls,
+            meta: meta,
+            children: children,
+            component(resolve) {
+                if (component.startsWith("Home")) {
+                    require(['../views/' + component + '.vue'], resolve);
+                } else if (component.startsWith("Emp")) {
+                    require(['../views/emp/' + component + '.vue'], resolve);
+                } else if (component.startsWith("Per")) {
+                    require(['../views/per/' + component + '.vue'], resolve);
+                } else if (component.startsWith("Sal")) {
+                    require(['../views/sal/' + component + '.vue'], resolve);
+                } else if (component.startsWith("Sta")) {
+                    require(['../views/sta/' + component + '.vue'], resolve);
+                } else if (component.startsWith("Sys")) {
+                    require(['../views/sys/' + component + '.vue'], resolve);
+                }
+            }
+        }
+        fmRoutes.push(fmRouter);
+    })
+    return fmRoutes;
+}
+```
+
+添加路由到router
+
+```
+ let fmtRoutes = formatRoutes(data);
+router.addRoutes(fmtRoutes);
+```
+
+
+
+> 若依, ELADMIN, 微人事等项目均采用此方式
+
+2.**前端动态渲染**
+
+直接在前端把所有页面都在路由表里边定义好，然后在 meta 属性中定义每一个页面需要哪些角色才能访问，例如下面这样：
+
+```
+[
+    {
+        "id":2,
+        "path":"/home",
+        "component":Home,
+        "name":"员工资料",
+        "iconCls":"fa fa-user-circle-o",
+        "children":[
+            {
+                "id":null,
+                "path":"/emp/basic",
+                "component":EmpBasic,
+                "name":"基本资料",
+                "iconCls":null,
+                "children":[
+
+                ],
+                "meta":{
+                    "keepAlive":false,
+                    "requireAuth":true,
+                    "roles":['admin','user']
+                }
+            }
+        ],
+        "meta":{
+            "keepAlive":false,
+            "requireAuth":true
+        }
+    }
+]
+```
+
+这样定义表示当前登录用户需要具备 admin 或者 user 角色，才可以访问 EmpBasic 组件，当然这里不是说我这样定义了就行，这个定义只是一个标记，在项目首页中，我会遍历这个数组做菜单动态渲染，然后根据当前登录用户的角色，再结合当前组件需要的角色，来决定是否把当前组件所对应的菜单项渲染出来。
+
+> 弊端就是菜单和角色的关系在前端代码中写死了
+
 # 规约
 
 ## 为什么不使用外键
@@ -380,45 +519,6 @@ ssi_types text/html;
 生成静态页面,动态数据部分发起Ajax异步查询
 
 
-
-# 防止XSS
-
-XSS攻击通常指的是利用网页开发时留下的漏洞, 通过巧妙的方法注入恶意指令代码到网页, 使用户加载并执行攻击者恶意制造的网页程序.
-
-比如攻击者在提交的表单中输入
-
-```html
-<script>
-	window.location=http://假网站.com/login.html;
-</script>
-```
-
-假网站的登录页面UI与主站完全相同, 而安全警惕性不高的用户通常不会考虑原因, 就再登录一次, 最后造成大量敏感数据失窃.
-
-可通过对特殊字符进行转义解决.
-
-```
-&lt;script&gt;
-	window.location=http://假网站.com/login.html;
-&lt;/script&gt;
-```
-
-Q:什么时候进行XSS过滤呢?
-
-A:
-
-1.一定不要相信客户端数据, 表单欺诈
-
-2.一定要在服务端做转义符转换和有效性校验(验证码)
-
-org.springframework.web.util.HtmlUtils 提供了转义符转换功能
-
-```
-//转义符转换
-String str = HtmlUtils.htmlEscape(str);
-//反向转化
-String str = HtmlUtils.htmlescape(str);
-```
 
 
 
