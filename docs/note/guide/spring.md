@@ -231,6 +231,8 @@ invokeInitMethods(xxx) 调用用户自定义init方法
 applyBeanPostProcessorsBeforeInitialization(existingBean ,beanName)  -->
 ```
 
+
+
 ### 循环依赖
 
 ioc中
@@ -269,13 +271,37 @@ private final Map<String, Object> earlySingletonObjects = new ConcurrentHashMap<
 
 而使用第三级缓存原因在于使用aop代理问题
 
-## PropertySource
 
-用于存放key-value对象的抽象，子类需要实现getProperty(String name)返回对应的Value方法，其中value可以是任何类型不局限在字符串
+
+## Enviroment
+
+为用户提供方便的服务接口，用于配置属性源并从中解析属性。
+
+### PropertySource
+
+用于存放key-value对象的抽象，子类需要实现getProperty(String name)返回对应的Value方法，其中value可以是任何类型不局限在字符串.
+
+StandardEnvironment配置了两个PropertySource对象 - 一个表示JVM系统属性集`System.getProperties（）`，另一个表示系统环境变量集`System.getenv（）`。
 
 ![](picture/spring-propertySource.webp)
 
-## PropertyResolver（源码）
+如果想要集成到此搜索中的自定义属性源。为此，请实现并实例化你自己的 PropertySource，并将其添加到当前环境的 PropertySource 集合中:
+
+```java
+ConfigurableApplicationContext ctx = new GenericApplicationContext();
+MutablePropertySources sources = ctx.getEnvironment().getPropertySources();
+sources.addFirst(new MyPropertySource());
+```
+
+通过@PropertySource添加配置源
+
+```
+@PropertySource("classpath:/com/${my.placeholder:default/path}/app.properties")
+```
+
+并且, @PropertySource资源位置中存在的任何 ${...} 占位符都将根据已针对环境注册的属性源集进行解析. 如果my.placeholder 存在于已注册的某个属性源（例如，系统属性或环境变量）中，则该占位符将解析为相应的值。如果不是，则默认/路径用作默认值。如果未指定默认值，并且无法解析属性，则会引发非法参数异常。
+
+## PropertyResolver
 
 以`StringValueResolver`为引子，去剖析它的底层依赖逻辑：`PropertyResolver`和`Environment`
 

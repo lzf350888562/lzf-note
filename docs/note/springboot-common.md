@@ -241,7 +241,7 @@ public class RsaProperties {
 }
 ```
 
-## ConfigurationProperties
+## @ConfigurationProperties
 
 **模块装配技术**
 
@@ -440,6 +440,20 @@ public class MyEventListener implements ApplicationListener<MyEvent> {
     }
 }
 ```
+
+**将一个事件的结果作为另一个事件发布**
+
+如需发布多个事件 , 可以将返回格式改为集合或数组
+
+```
+@EventListener
+public ListUpdateEvent handleBlockedListEvent(BlockedListEvent event) {
+    // notify appropriate parties via notificationAddress and
+    // then publish a ListUpdateEvent...
+}
+```
+
+> 可以根据需要注册任意数量的事件侦听器，但默认情况下，事件侦听器是同步接收事件的。这意味着 publishEvent（） 方法会阻塞，直到所有侦听器都完成对事件的处理。如果需要其他事件发布策略，ApplicationEventMulticaster 接口和 SimpleApplicationEventMulticaster 实现。
 
 ## 深入
 
@@ -923,7 +937,7 @@ public @interface ComponentScan {  
 
 所以除了使用`@ComponentScans`来配置多扫描规则外，我们还可以通过多次使用`@ComponentScan`来指定多个不同的扫描规则。
 
-## 自定义扫描策略
+### 自定义扫描策略
 
 自定义扫描策略需要我们实现`org.springframework.core.type.filter.TypeFilter`接口
 
@@ -982,6 +996,10 @@ public class WebConfig {
 2. `prototype`：多实例，IOC容器启动的时候并不会去创建对象，而是在每次获取的时候才会去调用方法创建对象；
 3. `request`：一个请求对应一个实例；
 4. `session`：同一个session对应一个实例。
+
+> 若要为范围解析提供自定义策略，可以实现 ScopeMetadataResolver 接口。请务必包含默认的 no-arg 构造函数。
+>
+> 在@ComponentScan的scope-resolver中指定
 
 **懒加载**
 

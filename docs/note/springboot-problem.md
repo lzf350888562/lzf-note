@@ -241,7 +241,7 @@ public class ErrorPageConfig implements ErrorPageRegistrar {
 
 
 
-# 多环境
+# 多环境配置
 
 在命令行方式启动Spring Boot应用时，连续的两个减号`--`就是对`application.properties`中的属性值进行赋值的标识。(不常用,通常只用来指定spring环境)
 
@@ -344,6 +344,54 @@ spring:
       on-profile: "prod-mq"
 mq: prod-mq.didispace.com
 ```
+
+**激活当前配置的其他方式**(允许多个同时激活)
+
+1.
+
+```
+AnnotationConfigApplicationContext ctx = new AnnotationConfigApplicationContext();
+ctx.getEnvironment().setActiveProfiles("development");
+```
+
+2.
+
+```
+-Dspring.profiles.active="profile1,profile2"
+```
+
+
+
+## @Profile
+
+@Profile注释允许您指示当一个或多个指定的配置文件处于活动状态时，组件符合注册条件。
+
+```
+@Configuration
+@Profile("development")
+```
+
+```
+@Bean
+@Profile("development")
+```
+
+> xml文件可在beans标签中指定profile属性
+
+**获取当前激活的配置文件**
+
+```
+AnnotationConfigApplicationContext ctx = new AnnotationConfigApplicationContext();
+ctx.getEnvironment().setActiveProfiles("development");
+```
+
+**指定默认激活配置**
+
+```
+@Profile("default")
+```
+
+如果没有配置文件处于活动状态，则此配置项激活。如果启用了任何配置文件，则默认配置文件不适用。
 
 # 异常处理机制
 
@@ -818,4 +866,24 @@ sudo ln -s /var/yourapp/yourapp.jar /etc/init.d/yourapp
 
 - 应用在进行延迟初始化的时候，HTTP请求的处理会需要更长的时间
 - 原本可能在启动期出现的错误，将延迟到启动的运行期间出现
+
+# 冷门
+
+>  @Inject 可代替 @Autowired,  `@Named` or `@ManagedBean`可代替@Component , 这三个注解均来自于JSR-330的**javax.inject**包
+
+>依赖注入配置时,通过required=false属性 , @Nullable 和 java8的Optional方式, 可以达到不必须依赖的效果.
+
+> JSR-330的@Singleton 相当于 @Scope("singleton") , 因为是默认, 所以无用
+
+> 在spring配置类中, 可以用@ImportResource注解导入xml文件配置
+
+>通过@ComponentScan的nameGenerator指定BeanNameGenerator可实现自定义 Bean 命名策略
+
+> 手动注册组件
+
+```java
+AnnotationConfigApplicationContext ctx = new AnnotationConfigApplicationContext();
+ctx.register(SomeConfig.class, StandaloneDataConfig.class, JndiDataConfig.class);
+ctx.refresh();
+```
 
