@@ -256,6 +256,10 @@ Office Tool Plus :Office部署
 
 [全能在线搜题](http://so.jszkk.com/)
 
+[视频管理系统](https://hub.fastgit.org/user-xiangpeng/yaoqishan)
+
+[物流管理系统](https://gitee.com/jian_bo_bai/cable__xinrun_logistics?_from=gitee_search)
+
 ### OpenSource
 
 电商合辑:

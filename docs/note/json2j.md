@@ -284,6 +284,26 @@ public class User implements Serializable {
 	}
 ```
 
+编程方式实现:
+
+```
+	@RequestMapping("getuser")
+	@ResponseBody
+	public User getUser() {
+		User user = new User();
+		user.setUserName("mrbird");
+		//下面的不输出
+		user.setAge(26);
+		user.setPassword("123456");
+		user.setBirthday(new Date());
+		MappingJacksonValue value = new MappingJacksonValue(user);
+        value.setSerializationView(User.UView.class);
+		return user;
+	}
+```
+
+
+
 ## 自定义读取json
 
 读取某个属性

@@ -1273,3 +1273,50 @@ public class DefaultAopProxyFactory implements AopProxyFactory, Serializable {
 
 
 
+被`DispatcherServlet`检测的bean:
+
+**1.HanderMapping**
+
+两个主要的 HandlerMapping 实现是 RequestMappingHandlerMapping（支持@RequestMapping带注释的方法）和 SimpleUrlHandlerMapping（它维护 URI 路径模式到处理程序的显式注册）。
+
+编程方式注册handler方法
+
+```
+@Configuration
+public class MyConfig {
+
+    @Autowired
+    public void setHandlerMapping(RequestMappingHandlerMapping mapping, UserHandler handler) 
+            throws NoSuchMethodException {
+
+        RequestMappingInfo info = RequestMappingInfo
+                .paths("/user/{id}").methods(RequestMethod.GET).build(); 
+
+        Method method = UserHandler.class.getMethod("getUser", Long.class); 
+
+        mapping.registerMapping(info, handler, method); 
+    }
+}
+```
+
+**2.HanderAdapter**
+
+帮助 DispatcherServlet 调用映射到请求的处理程序，而不管该处理程序的实际调用方式如何。例如，调用带注解的控制器需要解析注解。HandlerAdapter 的主要目的是保护 DispatcherServlet 免受此类细节的影响。
+
+**3.HandlerExceptionResolver**
+
+解决异常的策略，可能将其映射到处理程序、HTML 错误视图或其他目标。
+
+**4.ViewResolver**
+
+Resolve logical `String`-based view names returned from a handler to an actual `View` with which to render to the response. 
+
+5.LocalResolver
+
+6.ThemeResolver
+
+**7.MultipartResolver**
+
+Abstraction for parsing a multi-part request (for example, browser form file upload) with the help of some multipart parsing library
+
+8.FlashMapManager

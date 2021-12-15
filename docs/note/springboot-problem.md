@@ -872,6 +872,8 @@ sudo ln -s /var/yourapp/yourapp.jar /etc/init.d/yourapp
 >  @Inject 可代替 @Autowired,  `@Named` or `@ManagedBean`可代替@Component , 这三个注解均来自于JSR-330的**javax.inject**包
 
 >依赖注入配置时,通过required=false属性 , @Nullable 和 java8的Optional方式, 可以达到不必须依赖的效果.
+>
+>同样,  这三种方式也使用与MVC, required=false可与 @RequestParam、@RequestHeader等结合使用。
 
 > JSR-330的@Singleton 相当于 @Scope("singleton") , 因为是默认, 所以无用
 
@@ -887,3 +889,15 @@ ctx.register(SomeConfig.class, StandaloneDataConfig.class, JndiDataConfig.class)
 ctx.refresh();
 ```
 
+> HttpEntity< T > 与@RequestBody功能相同:
+>
+> ```
+> @PostMapping("/accounts")
+> public void handle(HttpEntity<Account> entity) 
+> 
+> 等价于
+> @PostMapping("/accounts")
+> public void handle(@RequestBody Account account)
+> ```
+>
+> 

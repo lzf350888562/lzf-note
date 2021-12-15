@@ -2089,6 +2089,31 @@ SampleClass sample = (SampleClass) enhancer.create();
    ```
    
 
+> pointcut表达式也支持更直观的操作, 如
+>
+> ```
+> @Pointcut("com.xyz.myapp.CommonPointcuts.dataAccessOperation() && args(account,..)")
+> private void accountDataAccessOperation(Account account) {}
+> 
+> @Before("accountDataAccessOperation(account)")
+> public void validateAccount(Account account) {
+>     // ...
+> }
+> ```
+>
+> args（account,..） 部分有两个用途。首先，它将匹配限制为仅那些方法执行，其中方法至少采用一个参数，并且传递给该参数的是 Account 的实例。其次，它通过 account 参数使实际的 Account 对象可用于advice。
+>
+> 又或者
+>
+> ```
+> @Before("com.xyz.lib.Pointcuts.anyPublicMethod() && @annotation(auditable)")
+> public void audit(Auditable auditable) {
+>     AuditCode code = auditable.value();
+> }
+> ```
+>
+> 
+
 JointPoint使用
 
 ```
@@ -2096,10 +2121,12 @@ JointPoint使用
 Signature signature = joinPoint.getSignature();
 MethodSignature methodSignature = (MethodSignature) signature;
 Method method = methodSignature.getMethod();
-//通过joinPoint获取类
+//获取目标对象
 joinPoint.getTarget().getClass()
 //通过joinPoint获取方法参数 s
 joinPoint.getArgs()
+//获取代理对象
+joinPoint.getThis():
 ```
 
 ## 日志AOP

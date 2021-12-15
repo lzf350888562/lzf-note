@@ -189,6 +189,8 @@ OLAP联机分析处理:
 
  --> 数据仓库  如hive 采用 hash索引
 
+--> clickhoust/druid/kylin
+
 OLTP联机事务处理:
 
 为了支撑业务系统的需要,必须在极短时间内返回对应的结果

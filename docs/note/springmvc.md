@@ -248,7 +248,11 @@ public class ServletUtils
 
 在SpringBootApplication上使用@ServletComponentScan注解后，Servlet、Filter、Listener可以直接通过@WebServlet、@WebFilter、@WebListener注解自动注册，无需其他代码。
 
-# @InitBinder
+# 类型转换
+
+默认情况下，支持简单类型（整数、长整型、日期等）。可以通过 WebDataBinder或通过将Formatters(Converter)注册来自定义类型转换。
+
+## @InitBinder
 
 作用：
 
@@ -284,42 +288,7 @@ public void initBinder(WebDataBinder binder)
 }
 ```
 
-# spring-session-data-redis
-
-https://docs.spring.io/spring-session/docs/current/reference/html5/guides/boot-redis.html
-
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-data-redis</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.session</groupId>
-            <artifactId>spring-session-data-redis</artifactId>
-        </dependency>
-
-分布式session共享整合框架
-
-在项目启动类上添加如下注解,新版本可以不加了
-
-```
-@EnableRedisHttpSession
-```
-
-注解的主要作用是注册一个SessionRepositoryFilter，这个Filter会拦截到所有的请求，对Session进行操作，注入SessionRepositoryFilter的代码在RedisHttpSessionConfiguration类的父类SpringHttpSessionConfiguration中。注册SessionRepositoryFilter时需要一个SessionRepository参数，这个参数是在RedisHttpSessionConfiguration中被注入进入的。
-
-请求进来的时候拦截器会先将request和response拦截住，然后将这两个对象转换成Spring内部的包装类SessionRepositoryRequestWrapper和SessionRepositoryResponseWrapper对象。SessionRepositoryRequestWrapper类重写了原生的getSession方法。
-
-查看getSession方法可以看到,当调用SessionRepositoryRequestWrapper对象的getSession方法拿Session的时候，会先从当前请求的属性中查找.CURRENT_SESSION属性，如果能拿到直接返回，这样操作能减少Redis操作，提升性能。
-
-最后SessionRepositoryFilter的doFilterInternal方法最后有一个finally代码块，这个代码块 `wrappedRequest.commitSession();`的功能就是将Session同步到Redis。
-
-总结
-
-当请求进来的时候，SessionRepositoryFilter会先拦截到请求，将request和Response对象转换成SessionRepositoryRequestWrapper和SessionRepositoryResponseWrapper。后续当第一次调用request的getSession方法时，会调用到SessionRepositoryRequestWrapper的getSession方法。这个方法的逻辑是先从request的属性中查找，如果找不到；再查找一个key值是"SESSION"的cookie，通过这个cookie拿到sessionId去redis中查找，如果查不到，就直接创建一个RedisSession对象，同步到Redis中（同步的时机根据配置来）。
-
-
-
-# Converter与ConverterFactory
+## Converter与ConverterFactory
 
 类型转换器,spring自带了很多消息转换器,也可以自定义, 将转换器注册到ioc容器中即可生效,不需要WebMvcConfigurer.
 
@@ -392,6 +361,8 @@ public interface ConverterFactory<S, R> {
 **内容协商**机制是指客户端和服务器端就响应的资源内容进行交涉，然后提供给客户端最为适合的资源。内容协商会以响应资源的语言、字符集、编码方式等作为判断的基准。HTTP请求头中Content-Type，Accept等内容就是内容协商判断的标准。在Spring Boot中，一个完整的内容协商过程如下图所示：
 
 ![](picture/contentNegotiation.png)
+
+> @RequestBody和@ResponseBody都是通过HttpMessageConverter对请求体转换(序列化)和转换为响应体(反序列化)的.
 
 核心组件:
 
@@ -1711,3 +1682,39 @@ public FilterRegistrationBean xssFilterRegistrationBean() {
 
 
 
+# spring-session-data-redis
+
+https://docs.spring.io/spring-session/docs/current/reference/html5/guides/boot-redis.html
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.session</groupId>
+            <artifactId>spring-session-data-redis</artifactId>
+        </dependency>
+
+分布式session共享整合框架
+
+在项目启动类上添加如下注解,新版本可以不加了
+
+```
+@EnableRedisHttpSession
+```
+
+注解的主要作用是注册一个SessionRepositoryFilter，这个Filter会拦截到所有的请求，对Session进行操作，注入SessionRepositoryFilter的代码在RedisHttpSessionConfiguration类的父类SpringHttpSessionConfiguration中。注册SessionRepositoryFilter时需要一个SessionRepository参数，这个参数是在RedisHttpSessionConfiguration中被注入进入的。
+
+请求进来的时候拦截器会先将request和response拦截住，然后将这两个对象转换成Spring内部的包装类SessionRepositoryRequestWrapper和SessionRepositoryResponseWrapper对象。SessionRepositoryRequestWrapper类重写了原生的getSession方法。
+
+查看getSession方法可以看到,当调用SessionRepositoryRequestWrapper对象的getSession方法拿Session的时候，会先从当前请求的属性中查找.CURRENT_SESSION属性，如果能拿到直接返回，这样操作能减少Redis操作，提升性能。
+
+最后SessionRepositoryFilter的doFilterInternal方法最后有一个finally代码块，这个代码块 `wrappedRequest.commitSession();`的功能就是将Session同步到Redis。
+
+总结
+
+当请求进来的时候，SessionRepositoryFilter会先拦截到请求，将request和Response对象转换成SessionRepositoryRequestWrapper和SessionRepositoryResponseWrapper。后续当第一次调用request的getSession方法时，会调用到SessionRepositoryRequestWrapper的getSession方法。这个方法的逻辑是先从request的属性中查找，如果找不到；再查找一个key值是"SESSION"的cookie，通过这个cookie拿到sessionId去redis中查找，如果查不到，就直接创建一个RedisSession对象，同步到Redis中（同步的时机根据配置来）。
+
+
+
+# 
