@@ -401,6 +401,27 @@ public interface ConverterFactory<S, R> {
     }
 ```
 
+官方案例
+
+```
+@Configuration
+@EnableWebMvc
+public class WebConfiguration implements WebMvcConfigurer {
+
+    @Override
+    public void configureMessageConverters(List<HttpMessageConverter<?>> converters) {
+        Jackson2ObjectMapperBuilder builder = new Jackson2ObjectMapperBuilder()
+                .indentOutput(true)
+                .dateFormat(new SimpleDateFormat("yyyy-MM-dd"))
+                .modulesToInstall(new ParameterNamesModule());
+        converters.add(new MappingJackson2HttpMessageConverter(builder.build()));
+        converters.add(new MappingJackson2XmlHttpMessageConverter(builder.createXmlMapper(true).build()));
+    }
+}
+```
+
+
+
 ### xml内容协商
 
 ```
@@ -989,7 +1010,7 @@ public class WebConfig extends WebMvcConfigurerAdapter {
     private TimeInterceptor timeInterceptor;
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
-        registry.addInterceptor(timeInterceptor);
+        registry.addInterceptor(timeInterceptor).addPathPatterns("/**").excludePathPatterns("/admin/**");
     }
 ```
 

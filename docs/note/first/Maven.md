@@ -1,6 +1,21 @@
-## maven私服
+# 标签
 
-### 私服说明 
+## Classfilier
+
+```
+<dependency>  
+    <groupId>net.sf.json-lib</groupId>   
+    <artifactId>json-lib</artifactId>   
+    <version>2.2.2</version>  
+    <classifier>jdk13</classifier>    
+</dependency>
+```
+
+
+
+# maven私服
+
+## 私服说明 
 
 maven仓库分为本地仓库和远程仓库，而远程仓库又分为maven中央仓库、其他远程仓库和私服（私有服务器）。其中，中央仓库是由maven官方提供的，而私服就需要我们自己搭建了。
 
@@ -8,7 +23,7 @@ maven私服就是公司局域网内的maven远程仓库，每个员工的电脑�
 
 nexus 是一个maven仓库管理器（其实就是一个软件），nexus可以充当maven私服，同时nexus还提供强大的仓库管理、构件搜索等功能。
 
-### 搭建maven私服
+## 搭建maven私服
 
 ①下载nexus
 
@@ -64,7 +79,7 @@ nexus仓库类型与安装目录对应关系
 
 ![1559551752012](.\img\图片22.png)
 
-### 将项目发布到maven私服
+## 将项目发布到maven私服
 
 maven私服是搭建在公司局域网内的maven仓库，公司内的所有开发团队都可以使用。例如技术研发团队开发了一个基础组件，就可以将这个基础组件打成jar包发布到私服，其他团队成员就可以从私服下载这个jar包到本地仓库并在项目中使用。
 
@@ -104,7 +119,7 @@ maven私服是搭建在公司局域网内的maven仓库，公司内的所有开�
 
 ![1559551977984](.\img\图片23.png)
 
-### 从私服下载jar到本地仓库
+## 从私服下载jar到本地仓库
 
 前面我们已经完成了将本地项目打成jar包发布到maven私服，下面我们就需要从maven私服下载jar包到本地仓库。
 
@@ -151,13 +166,13 @@ maven私服是搭建在公司局域网内的maven仓库，公司内的所有开�
 </activeProfiles>
 ```
 
-## 将第三方jar安装到本地仓库和maven私服
+# 将第三方jar安装到本地仓库和maven私服
 
 在maven工程的pom.xml文件中配置某个jar包的坐标后，如果本地的maven仓库不存在这个jar包，maven工具会自动到配置的maven私服下载，如果私服中也不存在，maven私服就会从maven中央仓库进行下载。
 
 但是并不是所有的jar包都可以从中央仓库下载到，比如常用的Oracle数据库驱动的jar包在中央仓库就不存在。此时需要到Oracle的官网下载驱动jar包，然后将此jar包通过maven命令安装到我们本地的maven仓库或者maven私服中，这样在maven项目中就可以使用maven坐标引用到此jar包了。
 
-### 将第三方jar安装到本地仓库
+## 将第三方jar安装到本地仓库
 
 ①下载Oracle的jar包（略）
 
@@ -171,7 +186,7 @@ maven私服是搭建在公司局域网内的maven仓库，公司内的所有开�
 
 ![1559552325997](.\img\图片24.png)
 
-### 6.2 将第三方jar安装到maven私服
+## 将第三方jar安装到maven私服
 
 ①下载Oracle的jar包（略）
 

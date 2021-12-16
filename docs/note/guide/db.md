@@ -1070,7 +1070,19 @@ InnoDB的修改数据的基本流程:  当我们想要修改DB上某一行数据
 
 另外，`MVCC` 的实现依赖于：**隐藏字段、Read View、undo log**。
 
+## 慢查询日志
 
+为了定位sql的性能瓶颈, 我们需要开启mysql的慢查询日志, 把超过指定时间的sql语句, 单独记录下来, 方便以后分析和定位问题.
+
+开启慢查询可通过 `set命令` 或 `my.cnf配置文件` 来设置下列属性:
+
+```
+show_query_log = ON
+show_query_log_file = /usr/local/mysql/log/show.log
+long_query_time = 2
+```
+
+如果某条sql执行时间超过2s, 会自动记录到文件中.
 
 ## ngram全文检索
 

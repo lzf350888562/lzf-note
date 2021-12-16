@@ -2906,7 +2906,7 @@ try {
 }
 ```
 
-
+> CompletableFuture同样支持返回值.
 
 
 

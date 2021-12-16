@@ -867,6 +867,10 @@ sudo ln -s /var/yourapp/yourapp.jar /etc/init.d/yourapp
 - 应用在进行延迟初始化的时候，HTTP请求的处理会需要更长的时间
 - 原本可能在启动期出现的错误，将延迟到启动的运行期间出现
 
+> 还可以使用 SpringApplicationBuilder 上的 lazyInitialization 方法或 SpringApplication 上的 setLazyInitialization 方法以编程方式启用惰性初始化。
+
+> 如果要禁用某些 Bean 的延迟初始化，同时对应用程序的其余部分使用延迟初始化，则可以使用 @Lazy（false） 注释将其 lazy 属性显式设置为 false。
+
 # 冷门
 
 >  @Inject 可代替 @Autowired,  `@Named` or `@ManagedBean`可代替@Component , 这三个注解均来自于JSR-330的**javax.inject**包

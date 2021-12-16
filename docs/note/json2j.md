@@ -1,23 +1,5 @@
 # fastjson
 
-自定义转换,控制字段的排序，日期显示格式，序列化标记等
-
-```
-//默认情况FastJson库可以序列化 Java bean 实体,但我们可以使用serialize指定字段不序列化。
-@JSONField(name="AGE", serialize=false)
-private int age;
-//使用ordinal参数指定字段的顺序
-@JSONField(name="LAST NAME", ordinal = 2)
-private String lastName;
-@JSONField(name="FIRST NAME", ordinal = 1)
-private String firstName;
- //format 参数用于格式化 date 属性。
-@JSONField(name="DATE OF BIRTH", format="dd/MM/yyyy", ordinal = 3)
-private Date dateOfBirth;
-//不进行序列化
-@JSONField(serialize = false)
-```
-
 BeanToArray序列化
 
 ```
@@ -42,6 +24,24 @@ FastJson 在进行操作时，是根据 getter 和 setter 的方法进行的，�
 注意反序列化时为对象时，必须要有默认无参的构造函数，否则会报异常:
 
 FastJson默认是会将没赋值的属性不进行序列化
+
+## @JSONField
+
+```
+//默认情况FastJson库可以序列化 Java bean 实体,但我们可以使用serialize指定字段不序列化。
+@JSONField(name="AGE", serialize=false)
+private int age;
+//使用ordinal参数指定字段的顺序
+@JSONField(name="LAST NAME", ordinal = 2)
+private String lastName;
+@JSONField(name="FIRST NAME", ordinal = 1)
+private String firstName;
+ //format 参数用于格式化 date 属性。
+@JSONField(name="DATE OF BIRTH", format="dd/MM/yyyy", ordinal = 3)
+private Date dateOfBirth;
+//不进行序列化 相当于jackson的@JsonIgnore
+@JSONField(serialize = false)
+```
 
 
 

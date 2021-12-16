@@ -613,7 +613,11 @@ public void onTransactionChange(ApplicationEvent event){
 }
 ```
 
+# 启动后执行
 
+实现ApplicationRunner或CommandLineRunner接口. 方法在SpringApplication.run完成之前调用
+
+源码在`SpringApplication`的callRunners方法中执行;
 
 # Bean生命周期
 
@@ -789,11 +793,7 @@ postProcessBeanFactory 方法 -->
 
 源码解析https://mrbird.cc/%E6%B7%B1%E5%85%A5%E7%90%86%E8%A7%A3BeanFactoryPostProcessor-BeanDefinitionRegistryPostProcessor.html
 
-# 启动后执行
 
-实现ApplicationRunner或CommandLineRunner接口.
-
-源码在`SpringApplication`的callRunners方法中执行;
 
 # Spring组件注册
 
@@ -1073,8 +1073,21 @@ context.getRegistry()获取的是BeanDefinitionRegistry,包含一些和Bean有�
 | @ConditionalOnResource       | 当前classpath是否存在某个资源文件     |
 | @ConditionalOnProperty       | 当前jvm是否包含某个系统属性为某个值   |
 | @ConditionalOnWebApplication | 当前spring context是否是web应用程序   |
+| @ConditionalOnExpression     | SpEL                                  |
 
+当@ConditionalOnBean和@ConditionalOnMissingBean放置在@Bean方法上时，目标类型默认为该方法的返回类型，如下面的示例所示：
 
+```
+@Configuration(proxyBeanMethods = false)
+public class MyAutoConfiguration {
+
+    @Bean
+    @ConditionalOnMissingBean
+    public SomeService someService() {
+        return new SomeService();
+    }
+}
+```
 
 @**Profile**
 
@@ -1477,11 +1490,11 @@ public class PersonBeanRegiser implements ImportBeanDefinitionRegistrar {
 
 # 自动装配
 
-## 模式注解
+**模式注解**
 
 Stereotype Annotation俗称为模式注解，Spring中常见的模式注解有`@Service`，`@Repository`，`@Controller`等，它们都“派生”自`@Component`注解。
 
-我们都知道，凡是被`@Component`标注的类都会被Spring扫描并纳入到IOC容器中，那么由`@Component`派生的注解所标注的类也会被扫描到IOC容器中.
+凡是被`@Component`标注的类都会被Spring扫描并纳入到IOC容器中，那么由`@Component`派生的注解所标注的类也会被扫描到IOC容器中.
 
 @component具有派生性和层次性:即如果自定义注解上标注了@Component或标注了Spring自带的模式注解,则标注了该自定义注解的类也会被注入到IOC容器中/
 
@@ -1550,7 +1563,7 @@ public class TestEnableBootstap {
 }
 ```
 
-### 接口编程
+### ImportSelecter接口编程
 
 通过接口编程的方式来实现`@Enable`模块驱动。Spring中，基于接口编程方式的有`@EnableCaching`注解，查看其源码：
 
