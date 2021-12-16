@@ -116,9 +116,7 @@ Weex UI -移动端
 
 [Spring中文文档](https://www.springcloud.cc/)
 
-[Spring Cloud Stream 中文文档](https://m.wang1314.com/doc/webapp/topic/20971999.html)
-
-[Spring Secutiry 中文文档](https://www.springcloud.cc/spring-security-zhcn.htmls) 
+[Spring Secutiry 中文文档](https://www.springcloud.cc/spring-security-zhcn.html) 
 
 [Spring cloud alibaba](https://hub.fastgit.org/alibaba/spring-cloud-alibaba/wiki) 
 
@@ -251,8 +249,6 @@ Office Tool Plus :Office部署
 [人力资源管理系统](https://hub.fastgit.org/lenve/vhr )
 
 [电商](https://hub.fastgit.org/macrozheng/mall)
-
-[博客](https://hub.fastgit.org/halo-dev/halo)
 
 [SSM权限项目](https://github.com/baichengzhou/SpringMVC-Mybatis-Shiro-redis-0.2)
 
