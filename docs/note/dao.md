@@ -59,7 +59,7 @@ public JdbcTemplate secondaryJdbcTemplate(
 
 ## AbstractRoutingDataSource
 
-继承该抽象类, 实现其detemineCurrentLookupKey方法可以实现动态数据源, 该方法返回的dataSourceName即每次请求数据库都会先获取的数据源名称, 一般与ThreadLocal< String> 一起使用, 将当前dataSourceName设置其中, 提供额外的接口修改其值(注解)
+继承该抽象类, 实现其detemineCurrentLookupKey方法可以实现动态数据源, 该方法返回的dataSourceName即每次请求数据库都会先获取的数据源名称, 一般与ThreadLocal< String>和Map 一起使用, 将当前dataSourceName设置到ThreadLocal, 提供额外的接口修改其值(注解),  并将索引数据源以kv形式存于Map.
 
 # JPA
 

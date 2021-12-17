@@ -322,7 +322,7 @@ springboot引入其他配置文件方式(与EnvironmentPostProcessor的区别)
 
 ## Binder
 
-springboot 1.x 获取属性必须通过Environment:
+springboot 1.x 获取属性必须通过Environment提供的接口:
 
 ```
   //判断是否包含键值
@@ -1408,7 +1408,7 @@ public class MyImportBeanDefinitionRegistrar implements ImportBeanDefinitionRegi
 @Import({MyImportBeanDefinitionRegistrar.class})
 ```
 
-> 通常通过BeanDefinitionBuilder生成BeanDefinition
+> 通常通过BeanDefinitionBuilder生成BeanDefinition , 可见[BeanDefinitionRegistry注册](#BeanDefinitionRegistry注册)
 
 ## FactoryBean注册组件
 
@@ -1465,7 +1465,7 @@ System.out.println(cherryFactoryBean.getClass());
 
 里面定义了字符串 FACTORY_BEAN_PREFIX = "&"
 
-## BeanDefinitionRegistry
+## BeanDefinitionRegistry注册
 
 手动注册
 
@@ -1503,7 +1503,7 @@ public class PersonBeanRegiser implements BeanFactoryAware {
 }
 ```
 
-方式二:
+方式二(**导入组件常用方式**):
 
 ```
 @Component
@@ -1518,6 +1518,52 @@ public class PersonBeanRegiser implements ImportBeanDefinitionRegistrar {
         registry.registerBeanDefinition("person", builder.getBeanDefinition());
     }   
 }
+```
+
+对于复杂的有依赖的BeanDefinition, 见下:
+
+### BeanDefinitionBuilder
+
+**以ElasticSearch通过一个工厂类RestClientBeanBuilder(自定义)来提供RestClient和RestHighLevelClient工厂方法为例**.
+
+```java
+//依赖非bean: 假如要注册的RestClientBeanBuilder构造函数需要传入一个Properties对象
+Properties properties = ....;
+BeanDefinitionBuilder builder = BeanDefinitionBuilder.genericBeanDefinition(RestClientBeanBuilder.class,()->{new RestClientBeanBuilder(properties)});
+BeanDefinition beanDefinition = builder.getBeanDefinition();
+// 设置为主优先级
+beanDefinition.setPrimary(true);
+// 注册
+registry.registryBeanBefinition("restClientBeanBuilder",beanDefinition);
+
+//依赖bean: 假如要注册的RestClientBuilder需要依赖RestClientBeanBuilder这个bean的工厂方法
+BeanDefinitionBuilder builder1 = BeanDefinitionBuilder.genericBeanDefinition(RestClientBuilder.class);
+// 注册该beanDefinition依赖的bean名称
+builder1.addDependsOn("restClientBeanBuilder");
+// 注册该beanDefinition在依赖的bean中的方法,即RestClientBeanBuilder的restClientBuilder方法. 和依赖的bean名称
+builder1.setFactoryMethodOnBean("restClientBuilder","restClientBeanBuilder");
+BeanDefinition beanDefinition1 = builder1.getBeanDefinition();
+registry.registryBeanBefinition("restClientBuilder",beanDefinition1);
+
+//依赖bean: 假如要注册的RestClient需要依赖RestClientBeanBuilder这个bean的工厂方法 且方法中使用到了restClientBuilder这个bean
+BeanDefinitionBuilder builder2 = BeanDefinitionBuilder.genericBeanDefinition(RestClient.class);
+// 注册该beanDefinition依赖的bean名称
+builder2.addDependsOn("restClientBeanBuilder");
+builder2.addDependsOn("restClientBuilder");
+// 注册该beanDefinition在依赖的bean中的方法,即RestClientBeanBuilder的restClient方法. 和依赖的bean名称
+builder2.setFactoryMethodOnBean("restClient","restClientBeanBuilder");
+BeanDefinition beanDefinition2 = builder2.getBeanDefinition();
+registry.registryBeanBefinition("restClient",beanDefinition2);
+
+//依赖bean: 假如要注册的RestHighLevelClient需要依赖RestClientBeanBuilder这个bean的工厂方法 且方法中使用到了restClientBuilder这个bean
+BeanDefinitionBuilder builder3 = BeanDefinitionBuilder.genericBeanDefinition(RestHighLevelClient.class);
+// 注册该beanDefinition依赖的bean名称
+builder3.addDependsOn("restClientBeanBuilder");
+builder2.addDependsOn("restClientBuilder");
+// 注册该beanDefinition在依赖的bean中的方法,即RestClientBeanBuilder的restClientBeanBuilder方法. 和依赖的bean名称
+builder3.setFactoryMethodOnBean("restHighLevelClient","restClientBeanBuilder" )
+BeanDefinition beanDefinition3 = builder3.getBeanDefinition();
+registry.registryBeanBefinition("builder",beanDefinition3);
 ```
 
 
