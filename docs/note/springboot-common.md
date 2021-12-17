@@ -320,6 +320,40 @@ springboot引入其他配置文件方式(与EnvironmentPostProcessor的区别)
 
 该注解可与配合上面的@Configuration等一起使用
 
+## Binder
+
+springboot 1.x 获取属性必须通过Environment:
+
+```
+  //判断是否包含键值
+  boolean containsProperty(String key);  
+  //获取属性值，如果获取不到返回null
+  String getProperty(String key);  
+  //获取属性值，如果获取不到返回缺省值
+  String getProperty(String key, String defaultValue); 
+  //获取属性对象；其转换和Converter有关，会根据sourceType和targetType查找转换器
+  <T> T getProperty(String key, Class<T> targetType);
+```
+
+springboot 2.x引入Binder用于对象与多个属性的绑定:
+
+```
+  //绑定对象
+  MailPropertiesC propertiesC = Binder.get(environment) //首先要绑定配置器
+      //再将属性绑定到对象上
+      .bind( "kaka.cream.mail-c", Bindable.of(MailPropertiesC.class) ).get(); //再获取实例
+      
+  //绑定Map
+  Map<String,Object> propMap = Binder.get(environment)
+      .bind( "fish.jdbc.datasource",Bindable.mapOf(String.class, Object.class) ).get();
+      
+  //绑定List
+  List<String> list = Binder.get(environment)
+      .bind( "kaka.cream.list",Bindable.listOf(String.class) ).get();	
+```
+
+
+
 # 事件模型
 
 在Spring Boot 2.0中对事件模型做了一些增强，主要就是增加了`ApplicationStartedEvent`事件，所以在2.0版本中所有的事件按执行的先后顺序如下：
@@ -1374,7 +1408,7 @@ public class MyImportBeanDefinitionRegistrar implements ImportBeanDefinitionRegi
 @Import({MyImportBeanDefinitionRegistrar.class})
 ```
 
-其他BeanDefinition的实现类需要自查资料.
+> 通常通过BeanDefinitionBuilder生成BeanDefinition
 
 ## FactoryBean注册组件
 

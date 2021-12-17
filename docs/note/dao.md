@@ -57,6 +57,10 @@ public JdbcTemplate secondaryJdbcTemplate(
 2. `@Primary`注解指定了主数据源，就是当我们不特别指定哪个数据源的时候，就会使用这个Bean
 3. 后两个Bean是每个数据源对应的`JdbcTemplate`。可以看到这两个`JdbcTemplate`创建的时候，分别注入了`primaryDataSource`数据源和`secondaryDataSource`数据源
 
+## AbstractRoutingDataSource
+
+继承该抽象类, 实现其detemineCurrentLookupKey方法可以实现动态数据源, 该方法返回的dataSourceName即每次请求数据库都会先获取的数据源名称, 一般与ThreadLocal< String> 一起使用, 将当前dataSourceName设置其中, 提供额外的接口修改其值(注解)
+
 # JPA
 
 ```
