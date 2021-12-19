@@ -301,6 +301,119 @@ sources.addFirst(new MyPropertySource());
 
 并且, @PropertySource资源位置中存在的任何 ${...} 占位符都将根据已针对环境注册的属性源集进行解析. 如果my.placeholder 存在于已注册的某个属性源（例如，系统属性或环境变量）中，则该占位符将解析为相应的值。如果不是，则默认/路径用作默认值。如果未指定默认值，并且无法解析属性，则会引发非法参数异常。
 
+## PropertySourceLocator
+
+除了通过PropertySources和@PropertySource添加Property以外,
+
+springcloud提供了PropertySourceLocator接口支持扩展自定义配置加载到spring Environment中。
+
+即我们可以扩展PropertySourceLocator让spring读取我们自定义的配置文件，然后使用@Value注解即可读取到配置文件中的属性了.
+
+假设需要读取classpath下的my.json文件配置加载到spring环境变量中
+
+```
+public class JsonPropertySourceLocator implements PropertySourceLocator {
+    private final static String DEFAULT_LOCATION = "classpath:my.json";
+
+    @Override
+    public PropertySource<?> locate(Environment environment) {
+        // TODO 微服务配置中心实现形式即可在这里远程RPC加载配置到spring环境变量中
+        // 读取classpath下的my.json解析
+        ResourceLoader resourceLoader = new DefaultResourceLoader(getClass().getClassLoader());
+        Resource resource = resourceLoader.getResource(DEFAULT_LOCATION);
+        if (resource == null) {
+            return null;
+        }
+
+        return new MapPropertySource("myJson", mapPropertySource(resource));
+    }
+
+	//读取resource转换为map
+	private Map<String, Object> mapPropertySource(Resource resource) {
+
+        Map<String, Object> result = new HashMap<>();
+        // 获取json格式的Map
+        Map<String, Object> fileMap = JSONObject.parseObject(readFile(resource), Map.class);
+        // 组装嵌套json
+        processorMap("", result, fileMap);
+	}
+}
+```
+
+在classpath下META-INF/spring.factories文件定义 org.springframework.cloud.bootstrap.BootstrapConfiguration=自定义JsonPropertySourceLocator
+
+**使用这种方式非常灵活，只要在locate方法最后返回一个MapPropertySource对象即可，至于我们如何获取属性，这些我们都可以自己控制，例如我们实现从数据库读取配置来组装MapPropertySource，或者可以实现远程配置中心功能**
+
+### 数据库获取多个属性源
+
+如果要加载数据库中单个配置文件, 可在locate方法中创建一个实现自EnumerablePropertySource< JdbcTemplate>的类作为范围值, 通过传入jdbcTemplate给EnumerablePropertySource并通过其加载数据库中的配置文件进行缓存, 实现抽象方法以提供接口.
+
+如果要加载数据库中多个配置文件, 可在locate方法中创建一个CompositePropertySource对象作为返回值, 该对象表示多个PropertySource的组合, 提供了addPropertySource方法, 可创建多个实现自EnumerablePropertySource< JdbcTemplate>的类加入CompositePropertySource.
+
+## EnvironmentPostProcessor
+
+EnvironmentPostProcessor为环境后置处理器,可以在**创建应用程序上下文之前**，添加或者修改环境配置(通过PropertySources)。
+
+EnvironmentPostProcessor接口实现代表：ConfigFileApplicationListener
+
+SpringBoot支持动态的读取文件，留下的扩展接口org.springframework.boot.env.EnvironmentPostProcessor。这个接口是spring包下的，使用这个进行配置文件的集中管理，而不需要每个项目都去配置配置文件。这种方法也是springboot框架留下的一个扩展
+
+简单使用:
+
+1.编写自定义配置文件custom.propertis，并放到resource目录下:
+
+```
+file.size=1111
+```
+
+2.编写自定义的加载类CustomEnvironmentPostProcessor,实现EnvironmentPostProcessor接口,重写postProcessEnvironment方法
+
+```
+public class CustomEnvironmentPostProcessor implements EnvironmentPostProcessor {
+    private final Properties properties = new Properties();
+    /**
+     * 用户自定义配置文件列表
+     */
+    private String[] profiles = {
+            "custom.properties",
+    };
+
+    @Override
+    public void postProcessEnvironment(ConfigurableEnvironment environment, SpringApplication application) {
+
+        for (String profile : profiles) {
+            Resource resource = new ClassPathResource(profile);
+            //将自定义配置文件属性加入到环境
+            environment.getPropertySources().addLast(loadProfiles(resource));
+        }
+    }
+    private PropertySource<?> loadProfiles(Resource resource) {
+        if (!resource.exists()) {
+            throw new IllegalArgumentException("file" + resource + "not exist");
+        }
+        try {
+            properties.load(resource.getInputStream());
+            return new PropertiesPropertySource(resource.getFilename(), properties);
+        } catch (IOException ex) {
+            throw new IllegalStateException("load resource exception" + resource, ex);
+        }
+    }
+}
+```
+
+3.在META-INF下创建spring.factories，并且引入CustomEnvironmentPostProcessor 类
+
+```
+org.springframework.boot.env.EnvironmentPostProcessor=\
+org.yujuan.springbootlearning.processor.CustomEnvironmentPostProcessor
+```
+
+4.验证
+
+通过@value 直接引入或者上下文调用
+
+通常在实际使用时,会根据需求给该自定义类加上@Order或实现Ordered接口(实现getOrder方法)来指定其在所有实现其接口的类中的执行顺序.如需要让应用先加载完一些配置属性后再执行可将顺序延后.
+
 ## PropertyResolver
 
 以`StringValueResolver`为引子，去剖析它的底层依赖逻辑：`PropertyResolver`和`Environment`
@@ -1114,116 +1227,9 @@ public static <T> T toBean(Map<String, Object> map, Class<T> beanType) {
 
 
 
-## EnvironmentPostProcessor
 
-EnvironmentPostProcessor为环境后置处理器,可以在**创建应用程序上下文之前**，添加或者修改环境配置。
 
-EnvironmentPostProcessor接口实现代表：ConfigFileApplicationListener
 
-SpringBoot支持动态的读取文件，留下的扩展接口org.springframework.boot.env.EnvironmentPostProcessor。这个接口是spring包下的，使用这个进行配置文件的集中管理，而不需要每个项目都去配置配置文件。这种方法也是springboot框架留下的一个扩展
-
-简单使用:
-
-1.编写自定义配置文件custom.propertis，并放到resource目录下:
-
-```
-file.size=1111
-```
-
-2.编写自定义的加载类CustomEnvironmentPostProcessor,实现EnvironmentPostProcessor接口,重写postProcessEnvironment方法
-
-```
-public class CustomEnvironmentPostProcessor implements EnvironmentPostProcessor {
-    private final Properties properties = new Properties();
-    /**
-     * 用户自定义配置文件列表
-     */
-    private String[] profiles = {
-            "custom.properties",
-    };
-
-    @Override
-    public void postProcessEnvironment(ConfigurableEnvironment environment, SpringApplication application) {
-
-        for (String profile : profiles) {
-            Resource resource = new ClassPathResource(profile);
-            //将自定义配置文件属性加入到环境
-            environment.getPropertySources().addLast(loadProfiles(resource));
-        }
-    }
-    private PropertySource<?> loadProfiles(Resource resource) {
-        if (!resource.exists()) {
-            throw new IllegalArgumentException("file" + resource + "not exist");
-        }
-        try {
-            properties.load(resource.getInputStream());
-            return new PropertiesPropertySource(resource.getFilename(), properties);
-        } catch (IOException ex) {
-            throw new IllegalStateException("load resource exception" + resource, ex);
-        }
-    }
-}
-```
-
-3.在META-INF下创建spring.factories，并且引入CustomEnvironmentPostProcessor 类
-
-```
-org.springframework.boot.env.EnvironmentPostProcessor=\
-org.yujuan.springbootlearning.processor.CustomEnvironmentPostProcessor
-```
-
-4.验证
-
-通过@value 直接引入或者上下文调用
-
-通常在实际使用时,会根据需求给该自定义类加上@Order或实现Ordered接口(实现getOrder方法)来指定其在所有实现其接口的类中的执行顺序.如需要让应用先加载完一些配置属性后再执行可将顺序延后.
-
-## PropertySourceLocator
-
-springcloud提供了PropertySourceLocator接口支持扩展自定义配置加载到spring Environment中。
-
-即我们可以扩展PropertySourceLocator让spring读取我们自定义的配置文件，然后使用@Value注解即可读取到配置文件中的属性了.
-
-假设需要读取classpath下的my.json文件配置加载到spring环境变量中
-
-```
-public class JsonPropertySourceLocator implements PropertySourceLocator {
-    private final static String DEFAULT_LOCATION = "classpath:my.json";
-
-    @Override
-    public PropertySource<?> locate(Environment environment) {
-        // TODO 微服务配置中心实现形式即可在这里远程RPC加载配置到spring环境变量中
-        // 读取classpath下的my.json解析
-        ResourceLoader resourceLoader = new DefaultResourceLoader(getClass().getClassLoader());
-        Resource resource = resourceLoader.getResource(DEFAULT_LOCATION);
-        if (resource == null) {
-            return null;
-        }
-
-        return new MapPropertySource("myJson", mapPropertySource(resource));
-    }
-
-	//读取resource转换为map
-	private Map<String, Object> mapPropertySource(Resource resource) {
-
-        Map<String, Object> result = new HashMap<>();
-        // 获取json格式的Map
-        Map<String, Object> fileMap = JSONObject.parseObject(readFile(resource), Map.class);
-        // 组装嵌套json
-        processorMap("", result, fileMap);
-	}
-}
-```
-
-在classpath下META-INF/spring.factories文件定义 org.springframework.cloud.bootstrap.BootstrapConfiguration=自定义JsonPropertySourceLocator
-
-**使用这种方式非常灵活，只要在locate方法最后返回一个MapPropertySource对象即可，至于我们如何获取属性，这些我们都可以自己控制，例如我们实现从数据库读取配置来组装MapPropertySource，或者可以实现远程配置中心功能**
-
-### 数据库获取多个属性源
-
-如果要加载数据库中单个配置文件, 可在locate方法中创建一个实现自EnumerablePropertySource< JdbcTemplate>的类作为范围值, 通过传入jdbcTemplate给EnumerablePropertySource并通过其加载数据库中的配置文件进行缓存, 实现抽象方法以提供接口.
-
-如果要加载数据库中多个配置文件, 可在locate方法中创建一个CompositePropertySource对象作为返回值, 该对象表示多个PropertySource的组合, 提供了addPropertySource方法, 可创建多个实现自EnumerablePropertySource< JdbcTemplate>的类加入CompositePropertySource.
 
 
 

@@ -307,7 +307,7 @@ public class SpringBootPlusConfig {
 
 ## @PropertySource
 
-springboot引入其他配置文件方式(与EnvironmentPostProcessor的区别)
+springboot引入其他配置文件方式(与的区别)
 
 ```
 @PropertySource("classpath:your.properties")
@@ -319,6 +319,8 @@ springboot引入其他配置文件方式(与EnvironmentPostProcessor的区别)
 3.encoding：指定读取属性文件所使用的编码，我们通常使用的是UTF-8。
 
 该注解可与配合上面的@Configuration等一起使用
+
+> 引入配置文件还可通过PropertySources或PropertySourceLocator或EnvironmentPostProcessor(本质也是通过PropertySources)完成
 
 ## Binder
 

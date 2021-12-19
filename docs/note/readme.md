@@ -222,6 +222,10 @@ Office Tool Plus :Office部署
 - [面试题解](https://hub.fastgit.org/liyupi/free-programming-resources/blob/main/面试合集/面试题解.md)
 - [优秀面经](https://hub.fastgit.org/liyupi/free-programming-resources/blob/main/面试合集/优秀面经.md)
 
+## Other
+
+[wechaty](http://wechaty.js.org/) 微信聊天机器人  (+ 微信对话开放平台 实现自动恢复)
+
 # Demo
 
 ## JAVA
@@ -382,8 +386,6 @@ slides http://www.briancavalier.com/code/slides/#0
 slidy https://www.w3.org/Talks/Tools/Slidy2/#(1)
 Perkele.js http://kpuputti.github.io/perkele.js/
 ```
-
-
 
 ## go
 
