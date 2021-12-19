@@ -1566,7 +1566,7 @@ BeanDefinition beanDefinition3 = builder3.getBeanDefinition();
 registry.registryBeanBefinition("builder",beanDefinition3);
 ```
 
-
+> 这种方式适合当需要根据多个Property注册多套client方案.
 
 # 自动装配
 

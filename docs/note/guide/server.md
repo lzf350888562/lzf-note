@@ -287,6 +287,8 @@ Apache Curator(https://curator.apache.org/)是一个比较完善的ZooKeeper客�
 
 3.提供ZooKeeper各种应用场景(recipe， 比如：分布式锁服务、集群领导选举、共享 计数器、缓存机制、分布式队列等)的抽象封装
 
+
+
 ## 安装
 
 **centos手动安装**
