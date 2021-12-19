@@ -279,3 +279,114 @@ aliSmsService.send("java");
  **CGLIB 动态代理是通过生成一个被代理类的子类来拦截被代理类的方法调**用，因此不能代理声明为 final 类型的类和方法。
 
 就二者的效率来说，大部分情况都是 JDK 动态代理更优秀，随着 JDK 版本的升级，这个优势更加明显。
+
+## 单例模式
+
+**懒汉式**
+
+线程安全与线程不安全区别于synchironized锁 , 加锁导致很大的性能开销，并且加锁其实只需要在第一次初始化的时候用到，之后的调用都没必要再进行加锁。
+
+```
+public class Singleton {  
+    private static Singleton instance;  
+    private Singleton (){}  
+    public static (synchronized) Singleton getInstance() {  
+    if (instance == null) {  
+        instance = new Singleton();  
+    }  
+    return instance;  
+    }  
+}
+```
+
+**饿汉式**
+
+```
+public class Singleton {  
+    private static Singleton instance = new Singleton();  
+    private Singleton (){}  
+    public static Singleton getInstance() {  
+    return instance;  
+    }  
+}
+```
+
+**双检索**
+
+对饿汉式的优化:先判断对象是否已经被初始化，再决定要不要加锁。
+
+```
+public class Singleton {  
+    private volatile static Singleton singleton;  
+    private Singleton (){}  
+    public static Singleton getSingleton() {  
+    if (singleton == null) {  
+        synchronized (Singleton.class) {  
+        if (singleton == null) {  
+            singleton = new Singleton();  
+        }  
+        }  
+    }  
+    return singleton;  
+    }  
+}
+```
+
+>  执行双重检查是因为，如果多个线程同时了通过了第一次判空检查，并且其中一个线程首先通过了第二次检查并实例化了对象，那么剩余通过了第一次检查的线程就不会再去实例化对象。
+
+**静态内部类**
+
+只有显式调用 getInstance 方法时，才会显式装载 SingletonHolder 类，从而实例化 instance
+
+```
+public class Singleton {  
+    private static class SingletonHolder {  
+    private static final Singleton INSTANCE = new Singleton();  
+    }  
+    private Singleton (){}  
+    public static final Singleton getInstance() {  
+    return SingletonHolder.INSTANCE;  
+    }  
+}
+```
+
+**枚举**
+
+结合了以上所有方式的优点 ,并且防止反序列化生成对象.
+
+```
+public enum Singleton {  
+    INSTANCE;  
+    public void whateverMethod() {  
+    }  
+}
+```
+
+### 为什么双检锁需要volatile
+
+问题出在` singleton = new Singleton(); `这一行, 其可以分为三个步骤:
+
+1. 分配内存空间
+2. 初始化对象
+3. 将对象指向刚分配的内存空间
+
+但是有些编译器为了性能的原因，可能会将第二步和第三步进行**重排序**，顺序就成了：
+
+1. 分配内存空间
+2. 将对象指向刚分配的内存空间
+3. 初始化对象
+
+重排序后，两个线程发生了以下调用：
+
+| Time | Thread A                  | Thread B                                  |
+| :--- | :------------------------ | :---------------------------------------- |
+| T1   | 检查到`singleton`为空     |                                           |
+| T2   | 获取锁                    |                                           |
+| T3   | 再次检查到`singleton`为空 |                                           |
+| T4   | 为`singleton`分配内存空间 |                                           |
+| T5   | 将`singleton`指向内存空间 |                                           |
+| T6   |                           | 检查到`singleton`不为空                   |
+| T7   |                           | 访问`singleton`（此时对象还未完成初始化） |
+| T8   | 初始化`singleton`         |                                           |
+
+在这种情况下，T7时刻线程B对`uniqueSingleton`的访问，访问的是一个**初始化未完成**的对象。
