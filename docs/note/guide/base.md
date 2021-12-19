@@ -70,7 +70,7 @@ BitMap通常用来去重 & 取两个集合的交集或并集等.
 
 # IO
 
-## io模型
+**io模型**
 
 为了保证操作系统的稳定性和安全性，一个进程的地址空间划分为 **用户空间（User space）** 和 **内核空间（Kernel space ）** 。
 
@@ -85,11 +85,11 @@ BitMap通常用来去重 & 取两个集合的交集或并集等.
 > 1. 内核等待 I/O 设备准备好数据
 > 2. 内核将数据从内核空间拷贝到用户空间。
 
-### bio
+## bio
 
 ![](picture/6a9e704af49b4380bb686f0c96d33b81tplv-k3u1fbpfcp-watermark.image)
 
-### nio
+## nio
 
 Java 中的 NIO 是 **I/O 多路复用模型** 还是 同步非阻塞 IO 模型。
 
@@ -115,7 +115,7 @@ Java 中的 NIO ，有一个非常重要的**选择器 ( Selector )** 的概念�
 
 ![img](picture/0f483f2437ce4ecdb180134270a00144tplv-k3u1fbpfcp-watermark.image)
 
-### aio
+## aio
 
 AIO 也就是 NIO 2。Java 7 中引入了 NIO 的改进版 NIO 2,它是异步 IO 模型。
 
@@ -390,3 +390,453 @@ public enum Singleton {
 | T8   | 初始化`singleton`         |                                           |
 
 在这种情况下，T7时刻线程B对`uniqueSingleton`的访问，访问的是一个**初始化未完成**的对象。
+
+## 工厂模式
+
+角色
+
+- 抽象产品角色(都有)
+- 具体产品角色(都有)
+- 抽象工厂角色(工厂方法模式和抽象工厂模式有)
+- 具体工厂角色(都有)
+- 上下文角色(都有)——调用工厂获取对象
+
+**简单工厂模式**
+
+抽象产品
+
+```
+public interface Cpu {
+    void calculate();
+}
+```
+
+具体产品
+
+```
+public class ACpu implements Cpu {
+    @Override
+    public void calculate() {
+        System.out.println("this is A cpu");
+    }
+}
+
+public class BCpu implements Cpu {
+    @Override
+    public void calculate() {
+        System.out.println("this is B cpu");
+    }
+}
+```
+
+具体工厂
+
+> 创建哪种具体产品类型代码在工厂内部逻辑，如果需要新增具体产品，需要修改工厂类方法, 不符合开-闭原则    
+
+```
+public class CpuFactory {
+    public static Cpu createCpu(Class classType) {
+        if (classType.getName().equals(ACpu.class.getName())) {
+            return new ACpu();
+        } else if (classType.getName().equals(BCpu.class.getName())) {
+            return new BCpu();
+        }
+        return null;
+    }
+}
+```
+
+**工厂方法模式**
+
+> 具体的工厂负责创建具体的产品，工厂内部的逻辑只负责创建对应对象，决定生成什么产品的逻辑在外部客户端，客户端通过选择使用具体工厂，间接决定了生成什么产品。
+
+抽象产品
+
+```
+public interface Cpu {
+    void calculate();
+}
+```
+
+具体产品
+
+```
+public class ACpu implements Cpu {
+    @Override
+    public void calculate() {
+        System.out.println("this is A cpu");
+    }
+}
+
+public class BCpu implements Cpu {
+    @Override
+    public void calculate() {
+        System.out.println("this is B cpu");
+    }
+}
+```
+
+抽象工厂
+
+```
+public interface CpuFactory {
+    Cpu createCpu();
+}
+```
+
+具体工厂
+
+```
+public class ACpuFactory implements CpuFactory{
+    @Override
+    public  Cpu createCpu() {
+        return new ACpu();
+    }
+}
+
+public class BCpuFactory implements CpuFactory {
+    @Override
+    public Cpu createCpu() {
+        return new BCpu();
+    }
+}
+```
+
+常见的数据库连接工厂，SqlSessionFactory，抽象产品是一个数据库连接，具体产品至于是oracle提供的，还是mysql提供的，我并不需要关心，因为都能让我通过sql来操作数据。
+
+### 抽象工厂模式
+
+抽象工厂模式下，以产品族维度来建厂，一个厂里有多个创建方法，每个创建方法负责创建一个产品线(产品族)
+
+抽象产品
+
+```
+public interface Cpu {
+    void calculate();
+}
+
+public interface Mainboard {
+    void installCpu();
+}
+```
+
+具体产品
+
+```
+public class ACpu implements Cpu {
+    @Override
+    public void calculate() {
+        System.out.println("this is A cpu");
+    }
+}
+
+public class BCpu implements Cpu {
+    @Override
+    public void calculate() {
+        System.out.println("this is B cpu");
+    }
+}
+
+public class AMainboard implements Mainboard {
+    @Override
+    public void installCpu() {
+        System.out.println("this is A mainboard");
+    }
+}
+
+public class BMainboard implements Mainboard {
+    @Override
+    public void installCpu() {
+        System.out.println("this is B mainboard");
+    }
+}
+```
+
+抽象工厂
+
+```
+public interface AbatractFactory {
+    Cpu createCpu();
+    Mainboard createMainboard();
+}
+```
+
+具体工厂
+
+```
+public class AFactory implements AbatractFactory {
+    @Override
+    public Cpu createCpu() {
+        return new ACpu();
+    }
+    @Override
+    public Mainboard createMainboard() {
+        return new AMainboard();
+    }
+}
+
+public class BFactory implements AbatractFactory {
+    @Override
+    public Cpu createCpu() {
+        return new BCpu();
+    }
+    @Override
+    public Mainboard createMainboard() {
+        return new BMainboard();
+    }
+}
+```
+
+> 抽象工厂模式分离了接口和实现 , 并使得使切换产品族变得容易.
+>
+> 但缺点是不太容易扩展新的产品:  每给产品族添加新产品时，就要在抽象工厂中添加新产品创建方法，同时要给所有的具体工厂增加接口。
+
+## 装饰模式
+
+![](picture/decorator01.jpg)
+
+角色：
+
+- Component：抽象构件
+- ConcreteComponent：具体构件
+- Decorator：抽象装饰类
+- ConcreteDecorator：具体装饰类
+
+> - 优点：比继承更加灵活（继承是耦合度很大的静态关系），可以动态的为对象增加职责，可以通过使用不同的装饰器组合为对象扩展N个新功能，而不会影响到对象本身。
+>
+> - 缺点：当一个对象的装饰器过多时，会产生很多的装饰类小对象和装饰组合策略，增加系统复杂度，增加代码的阅读理解成本。
+
+> 适用场景:
+>
+> - 适合需要通过配置（如：diamond）来动态增减对象功能的场景。
+>
+> - 适合一个对象需要N种功能排列组合的场景（如果用继承，会使子类数量爆炸式增长）, 如InputStream.
+
+> 注意: 一个装饰类的接口必须与被装饰类的接口保持相同，对于客户端来说无论是装饰之前的对象还是装饰之后的对象都可以一致对待。
+
+抽象构件:
+
+```
+interface  Component{
+    public void operation();
+}
+```
+
+具体构件:
+
+```
+class ConcreteComponent implements Component{
+    public ConcreteComponent(){
+        System.out.println("创建具体构件角色");       
+    }   
+    public void operation(){
+        System.out.println("调用具体构件角色的方法operation()");           
+    }
+}
+```
+
+抽象装饰(为抽象类, 需要通过构造函数传入被装饰类对象)
+
+```
+class Decorator implements Component{
+    private Component component;   
+    public Decorator(Component component){
+        this.component=component;
+    }   
+    public void operation(){
+        component.operation();
+    }
+}
+```
+
+具体装饰
+
+```
+class ConcreteDecorator extends Decorator{
+    public ConcreteDecorator(Component component){
+        super(component);
+    }   
+    public void operation(){
+        super.operation();
+        addBehavior();
+    }
+    public void addBehavior(){
+        System.out.println("为具体构件角色增加额外的功能addBehavior()");           
+    }
+}
+```
+
+使用
+
+```
+public static void main(String[] args){
+    Component component = new ConcreteComponent();
+    component.operation();
+    System.out.println("---------------------------------");
+    Component decorator = new ConcreteDecorator(component);
+    decorator.operation();
+}
+```
+
+> 个人觉得与JDK动态代理类似
+
+## 策略模式
+
+![](picture/stragegy01.jpg)
+
+角色:
+
+- Context: 环境类
+- Strategy: 抽象策略类
+- ConcreteStrategy: 具体策略类
+
+> - 优点：策略模式提供了对“开闭原则”的完美支持，用户可以在不修改原有系统的基础上选择算法或行为。干掉复杂难看的if-else。
+>
+> - 缺点：调用时，必须提前知道都有哪些策略模式类，才能自行决定当前场景该使用何种策略。
+
+> 适用场景: 一个系统需要动态地在几种可替换算法中选择一种。不希望使用者关心算法细节，将具体算法封装进策略类中。
+
+抽象策略
+
+```
+interface Strategy{   
+    public void algorithm();    //策略方法
+}
+```
+
+具体策略
+
+```
+class ConcreteStrategyA implements Strategy{
+    public void algorithm(){
+        System.out.println("具体策略A的策略方法被访问！");
+    }
+}
+
+class ConcreteStrategyB implements Strategy{
+  public void algorithm(){
+      System.out.println("具体策略B的策略方法被访问！");
+  }
+}
+```
+
+环境类
+
+```
+class Context{
+    private Strategy strategy;
+    public Strategy getStrategy(){
+        return strategy;
+    }
+    public void setStrategy(Strategy strategy){
+        this.strategy=strategy;
+    }
+    public void algorithm(){
+        strategy.algorithm();
+    }
+}
+```
+
+使用
+
+```
+public static void main(String[] args){
+    Context context = new Context();
+    Strategy strategyA = new ConcreteStrategyA();
+    context.setStrategy(strategyA);
+    context.algorithm();
+    System.out.println("-----------------");
+    Strategy strategyB = new ConcreteStrategyB();
+    context.setStrategy(strategyB);
+    context.algorithm();
+}
+```
+
+## 观察者模式
+
+![](picture/observe.jpg)
+
+角色： 
+
+- Subject：抽象目标
+- ConcreteSubject：具体目标
+- Observer：抽象观察者
+- ConcreteObserver：具体观察者
+
+> - 优点：将复杂的串行处理逻辑变为单元化的独立处理逻辑，被观察者只是按照自己的逻辑发出消息，不用关心谁来消费消息，每个观察者只处理自己关心的内容。逻辑相互隔离带来简单清爽的代码结构。
+>
+> - 缺点：观察者较多时，可能会花费一定的开销来发消息，但这个消息可能仅一个观察者消费。
+
+> 适用场景: 适用于一对多的的业务场景，一个对象发生变更，会触发N个对象做相应处理的场景。例如：订单调度通知，任务状态变化等。
+
+抽象目标
+
+```
+abstract class Subject{
+    protected List<Observer> observerList = new ArrayList<Observer>();   
+    public void add(Observer observer){  		//增加观察者方法
+        observers.add(observer);
+    }    
+    public void remove(Observer observer){   	//删除观察者方法
+        observers.remove(observer);
+    }   
+    public abstract void notify(); 				//通知观察者方法
+}
+```
+
+具体目标
+
+```
+class ConcreteSubject extends Subject{
+   private Integer state;
+   public void setState(Integer state){
+        this.state = state;  
+        notify();				// 状态改变通知观察者
+    }
+    public void notify(){
+        System.out.println("具体目标状态发生改变...");
+        System.out.println("--------------");       
+        for(Observer obs:observers){
+            obs.process();
+        }
+    }          
+}
+```
+
+抽象观察者
+
+```
+interface Observer{
+    void process(); //具体的处理
+}
+```
+
+具体观察者
+
+```
+class ConcreteObserverA implements Observer{
+    public void process(){
+        System.out.println("具体观察者A处理！");
+    }
+}
+
+class ConcreteObserverB implements Observer{
+    public void process(){
+        System.out.println("具体观察者B处理！");
+    }
+}
+```
+
+使用
+
+```
+public static void main(String[] args){
+    Subject subject = new ConcreteSubject();
+    Observer obsA = new ConcreteObserverA();
+    Observer obsb = new ConcreteObserverB();
+    subject.add(obsA);
+    subject.add(obsB);
+    subject.setState(0);
+}
+```
+

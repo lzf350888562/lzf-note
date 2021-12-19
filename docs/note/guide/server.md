@@ -269,6 +269,190 @@ Java -jar -XX:+UseG1GC -Xms2G -Xmx2G -Xss256k
 5) 虚拟机栈默认采用一个线程分配1M空间, 因为局部变量表不保存对象(指针) ,多余(不涉及复杂业务运算)且内存压力大, 采用`-Xss`设置为128k/256k即可, 不建议超过256k , 如超过考虑其他优化, 特别是代码;
 6) G1一般不设置新生代大小 , G1的新生代是动态调整的.
 
+## 类加载隔离
+
+在实现类加载隔离的前提下, 注意两个JVM类加载器理论:
+
+> 双亲委派机制的具体逻辑实现在loadClass()中:先委托给父类加载  如果父类加载失败, 会调用自己的findClass()方法来完成加载, 这样既不影响用户按照自己的意愿去加载类, 又可以保证新写出来的类加载器是复合双亲委派规则的.	--深入理解Java虚拟机
+
+> JVM 提供了一种类加载传导规则:  JVM 会选择当前类的类加载器来加载所有该类的引用的类。
+
+定义两个类, TestA 会打印自己的类加载器，然后调用 TestB 打印它的类加载器，我们预期是让类加载器 MyClassLoaderParentFirst 能够在加载了 TestA 之后，让 TestB 也自动由 MyClassLoaderParentFirst 来进行加载
+
+```
+public class TestA {
+    public static void main(String[] args) {
+        TestA testA = new TestA();
+        testA.hello();
+    }
+    public void hello() {
+        System.out.println("TestA: " + this.getClass().getClassLoader());
+        TestB testB = new TestB();
+        testB.hello();
+    }
+}
+
+public class TestB {
+    public void hello() {
+        System.out.println("TestB: " + this.getClass().getClassLoader());
+    }
+}
+```
+
+1.如果通过重写`findClass()`:
+
+```
+public class MyClassLoaderParentFirst extends ClassLoader{
+    private Map<String, String> classPathMap = new HashMap<>();
+
+    public MyClassLoaderParentFirst() {
+        classPathMap.put("com.java.loader.TestA", "/Users/hansong/IdeaProjects/OhMyJava/CodeRepository/target/classes/com/java/loader/TestA.class");
+        classPathMap.put("com.java.loader.TestB", "/Users/hansong/IdeaProjects/OhMyJava/CodeRepository/target/classes/com/java/loader/TestB.class");
+    }
+
+    //重写findClass 方法，这个方法先根据文件路径加载 class 文件，然后调用 defineClass 获取 Class 对象。
+    @Override
+    public Class<?> findClass(String name) throws ClassNotFoundException {
+        String classPath = classPathMap.get(name);
+        File file = new File(classPath);
+        if (!file.exists()) {
+            throw new ClassNotFoundException();
+        }
+        byte[] classBytes = getClassData(file);
+        if (classBytes == null || classBytes.length == 0) {
+            throw new ClassNotFoundException();
+        }
+        return defineClass(classBytes, 0, classBytes.length);
+    }
+
+    private byte[] getClassData(File file) {
+        try (InputStream ins = new FileInputStream(file); ByteArrayOutputStream baos = new
+                ByteArrayOutputStream()) {
+            byte[] buffer = new byte[4096];
+            int bytesNumRead = 0;
+            while ((bytesNumRead = ins.read(buffer)) != -1) {
+                baos.write(buffer, 0, bytesNumRead);
+            }
+            return baos.toByteArray();
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return new byte[] {};
+    }
+}
+```
+
+最后写一个 main 方法调用自定义的类加载器findClass方法加载 TestA，然后通过反射调用 TestA 的 main 方法打印类加载器的信息:
+
+```
+public class MyTest {
+    public static void main(String[] args) throws Exception {
+        MyClassLoaderParentFirst myClassLoaderParentFirst = new MyClassLoaderParentFirst();
+        Class testAClass = myClassLoaderParentFirst.findClass("com.java.loader.TestA");
+        Method mainMethod = testAClass.getDeclaredMethod("main", String[].class);
+        mainMethod.invoke(null, new Object[]{args});
+    }
+}
+```
+
+输出结果为:
+
+```
+TestA: com.java.loader.MyClassLoaderParentFirst@1d44bcfa
+TestB: sun.misc.Launcher$AppClassLoader@18b4aac2
+```
+
+执行的结果并没有如我们期待，TestA 确实是 MyClassLoaderParentFirst 加载的，但是 TestB 还是 AppClassLoader 加载的。这是为什么呢？
+
+因为**JVM 在触发类加载时调用的是 ClassLoader.loadClass 方法**(先委托给父类加载, 父类查询不到则调用自己的findClass进行加载)。
+
+所以在这里, JVM 确实使用了MyClassLoaderParentFirst 来加载 TestB，但是因为双亲委派的机制，TestB 被委托给了 MyClassLoaderParentFirst 的父加载器 AppClassLoader 进行加载。
+
+> Q: 为什么MyClassLoaderParentFirst 的父加载器是 AppClassLoader？
+>
+> A: 因为我们定义的 main 方法类默认情况下都是由 JDK 自带的 AppClassLoader 加载的，根据类加载传导规则，main 类引用的 MyClassLoaderParentFirst 也是由加载了 main 类的AppClassLoader 来加载。由于 MyClassLoaderParentFirst 的父类是 ClassLoader，ClassLoader 的默认构造方法会自动设置父加载器的值为 AppClassLoader。
+>
+> ```
+> protected ClassLoader() {
+>     this(checkCreateClassLoader(), getSystemClassLoader());
+> }
+> ```
+
+
+
+2.如果通过重写`loadClass()`:
+
+由于重写 findClass 方法会受到双亲委派机制的影响导致 TestB 被 AppClassLoader 加载，不符合类隔离的目标，所以我们只能重写 loadClass 方法来破坏双亲委派机制: 
+
+```
+public class MyClassLoaderCustom extends ClassLoader {
+    private ClassLoader jdkClassLoader;
+    private Map<String, String> classPathMap = new HashMap<>();
+
+    public MyClassLoaderCustom(ClassLoader jdkClassLoader) {
+        this.jdkClassLoader = jdkClassLoader;
+        classPathMap.put("com.java.loader.TestA", "/Users/hansong/IdeaProjects/OhMyJava/CodeRepository/target/classes/com/java/loader/TestA.class");
+        classPathMap.put("com.java.loader.TestB", "/Users/hansong/IdeaProjects/OhMyJava/CodeRepository/target/classes/com/java/loader/TestB.class");
+    }
+
+    @Override
+    protected Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
+        Class result = null;
+        try {
+            //这里要使用 JDK 的类加载器加载 java.lang 包里面的类
+            result = jdkClassLoader.loadClass(name);
+        } catch (Exception e) {
+            //忽略
+        }
+        if (result != null) {
+            return result;
+        }
+        String classPath = classPathMap.get(name);
+        File file = new File(classPath);
+        if (!file.exists()) {
+            throw new ClassNotFoundException();
+        }
+
+        byte[] classBytes = getClassData(file);
+        if (classBytes == null || classBytes.length == 0) {
+            throw new ClassNotFoundException();
+        }
+        return defineClass(classBytes, 0, classBytes.length);
+    }
+
+    private byte[] getClassData(File file) { //省略 }
+}
+```
+
+因为重写了 loadClass 方法也就是意味着所有类包括 java.lang 包里面的类都会通过 MyClassLoaderCustom 进行加载，但类隔离的目标不包括这部分 JDK 自带的类，所以我们用 ExtClassLoader 来加载 JDK 的类( 通过调用方法传入其类的加载器的父类加载器).
+
+```
+public class MyTest {
+    public static void main(String[] args) throws Exception {
+        //这里取AppClassLoader的父加载器也就是ExtClassLoader作为MyClassLoaderCustom的jdkClassLoader
+        MyClassLoaderCustom myClassLoaderCustom = new MyClassLoaderCustom(Thread.currentThread().getContextClassLoader().getParent());
+        Class testAClass = myClassLoaderCustom.loadClass("com.java.loader.TestA");
+        Method mainMethod = testAClass.getDeclaredMethod("main", String[].class);
+        mainMethod.invoke(null, new Object[]{args});
+    }
+}
+```
+
+输出结果为:
+
+```
+TestA: com.java.loader.MyClassLoaderCustom@1d44bcfa
+TestB: com.java.loader.MyClassLoaderCustom@1d44bcfa
+```
+
+通过重写了 loadClass 方法，成功让 TestB 也使用MyClassLoaderCustom 加载到了 JVM 中。
+
+> 总结下来, 要实现类加载隔离, 可通过自定义类加载器破坏双亲委派机制，然后利用类加载传导规则实现了不同模块。
+
+
+
 
 
 # Zookeeper

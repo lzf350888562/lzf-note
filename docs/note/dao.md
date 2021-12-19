@@ -1147,6 +1147,8 @@ public class SecondaryConfig {
 
 ## MyBatis Dynamic SQL
 
+> 目前动态Sql主要有: MyBatis Plus < MyBatis Dynamic SQL < Fluent MyBatis < JOOQ(收费)。
+
 https://mybatis.org/mybatis-dynamic-sql/docs
 
 https://blog.csdn.net/zhongguoyu27/article/details/115833914

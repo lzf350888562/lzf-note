@@ -198,15 +198,17 @@ GCEasy
 
 [docsify](https://www.code-nav.cn/rd/?rid=79550af26016dd3b01eb463c6ec11b09)：文档网站生成
 
-webify: 应用托管,静态网页.
+webify: 应用托管,静态网页, 类似vscode的live功能.
 
-NATAOO: 内网穿透
+NATAOO: 内网穿透 , 配合webify可实现外网静态网站
 
 [serve](https://www.npmjs.com/package/serve): 实现web服务器
 
 [Draw.io](https://www.code-nav.cn/rd/?rid=1526e12a601636a10183dff553bfa5bf)：在线图表绘制
 
 Office Tool Plus :Office部署
+
+StarUML: 开源简洁的UML图编辑软件
 
 [BootCDN](https://www.code-nav.cn/rd/?rid=79550af260194b2802471c2d458d9190)：前端开源项目 CDN 加速服务
 
