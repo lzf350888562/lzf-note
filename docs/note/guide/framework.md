@@ -311,7 +311,7 @@ jwt根据验证签名的时机划分 , 认证方式有:
 
 > 在两种方案中, 高并发环境下如何构建高可用的认证中心也是需要思考的问题
 
-### 无状态的JWT如何实现续签
+### 续签
 
 JWT不设置过期时间行不行？
 
@@ -361,19 +361,17 @@ SSO(Single Sign On)即单点登录说的是用户登陆多个子系统的其中�
 
 ![SSO系统设计-登录时序图](picture/sso-login-sequence.png-kbrb.png)
 
-用户登录后AuthToken保存在Cookie中。 domain=test.com 浏览器会将domain设置成 .test.com， 这样访问所有*.test.com的web站点，都会将AuthToken携带到服务器端。 然后通过SSO服务，完成对用户状态的校验/用户登录信息的获取 ----- 著作权归Guide哥所有。 链接: https://javaguide.cn/system-design/security/sso-intro/#_3%E3%80%81%E7%94%A8%E6%88%B7%E7%99%BB%E5%BD%95-%E7%99%BB%E5%BD%95%E6%A0%A1%E9%AA%8C
+用户登录后AuthToken保存在Cookie中。 domain=test.com 浏览器会将domain设置成 .test.com， 这样访问所有*.test.com的web站点，都会将AuthToken携带到服务器端。 然后通过SSO服务，完成对用户状态的校验/用户登录信息的获取.
 
 ## OAuth2
 
 OAuth 是一个行业的标准授权协议，主要用来授权第三方应用获取有限的权限。
 
-实际上它就是一种授权机制，它的最终目的是为第三方应用颁发一个有时效性的令牌 Token，使得第三方应用能够通过该令牌获取相关的资源。
+实际上它就是一种授权机制，它的最终目的是**为第三方应用颁发一个有时效性的令牌 Token**，使得第三方应用能够通过该令牌获取相关的资源。
 
-OAuth 2.0 比较常用的场景就是第三方登录，当你的网站接入了第三方登录的时候一般就是使用的 OAuth 2.0 协议。
+**OAuth 2.0 **规定了四种获得令牌的流程:
 
-另外，现在 OAuth 2.0 也常见于支付场景（微信支付、支付宝支付）和开发平台（微信开放平台、阿里开放平台等等）。
-
-[OAuth 2.0 的一个简单解释](http://www.ruanyifeng.com/blog/2019/04/oauth_design.html)
+1.授权码 : 指的是第三方应用先申请一个授权码，然后再用该码获取令牌。
 
 [10 分钟理解什么是 OAuth 2.0 协议](https://deepzz.com/post/what-is-oauth2-protocol.html)
 

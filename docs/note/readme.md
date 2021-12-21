@@ -116,8 +116,6 @@ Weex UI -移动端
 
 [Spring中文文档](https://www.springcloud.cc/)
 
-[Spring Secutiry 中文文档](https://www.springcloud.cc/spring-security-zhcn.html) 
-
 [Spring cloud alibaba](https://hub.fastgit.org/alibaba/spring-cloud-alibaba/wiki) 
 
 ## 数据库
@@ -203,6 +201,8 @@ webify: 应用托管,静态网页, 类似vscode的live功能.
 NATAOO: 内网穿透 , 配合webify可实现外网静态网站
 
 [serve](https://www.npmjs.com/package/serve): 实现web服务器
+
+[Tabby](https://tabby.sh/) 免费开源远程连接工具
 
 [Draw.io](https://www.code-nav.cn/rd/?rid=1526e12a601636a10183dff553bfa5bf)：在线图表绘制
 

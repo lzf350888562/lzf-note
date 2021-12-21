@@ -1179,13 +1179,13 @@ beanFactory.addEmbeddedValueResolver(strVal -> getEnvironment().resolvePlacehold
 **server.port=${port:8080}**
 那我们启动参数可以变短了，这样写就成：--port=9090。相信了解了上面原理的小伙伴，理解这个小技巧是非常简单的事咯~~~
 
-**${port:8080}表示没有port这个key，就用8080。 有这个key就用对应的值~*（冒号作分隔）*
+${port:8080}表示没有port这个key，就用8080。 有这个key就用对应的值~（冒号作分隔）
 
 ## PropertyAccessor
 
 博客https://blog.csdn.net/f641385712/article/details/95481552?utm_medium=distribute.pc_relevant.none-task-blog-2~default~baidujs_title~default-0.no_search_link&spm=1001.2101.3001.4242
 
-属性访问器PropertyAccessor**接口的作用是`存/取`Bean对象的属性。
+属性访问器PropertyAccessor接口的作用是`存/取`Bean对象的属性。
 
 使用DirectFieldAccessor对属性赋值。
 
@@ -1330,3 +1330,13 @@ Resolve logical `String`-based view names returned from a handler to an actual `
 Abstraction for parsing a multi-part request (for example, browser form file upload) with the help of some multipart parsing library
 
 8.FlashMapManager
+
+## AntPathMatcher和PathPattern
+
+修改默认策略
+
+```
+spring.mvc.pathmatch.matching-strategy=path-pattern-parser
+```
+
+https://blog.csdn.net/f641385712/article/details/118031407

@@ -128,40 +128,7 @@ objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES,false);
 
 
 
-### 指定序列化器
 
-```
-public class UserSerializer extends JsonSerializer<User> {
-	@Override
-	public void serialize(User user, JsonGenerator generator, SerializerProvider provider)
-			throws IOException, JsonProcessingException {
-		generator.writeStartObject();
-		generator.writeStringField("user-name", user.getUserName());
-		generator.writeEndObject();
-	}
-}
-
-public class UserDeserializer extends JsonDeserializer<User> {
-	@Override
-	public User deserialize(JsonParser parser, DeserializationContext context)
-			throws IOException, JsonProcessingException {
-		JsonNode node = parser.getCodec().readTree(parser);
-		String userName = node.get("user-name").asText();
-		User user = new User();
-		user.setUserName(userName);
-		return user;
-	}
-}
-```
-
-注解
-
-```
-@JsonSerialize(using = UserSerializer.class)
-@JsonDeserialize (using = UserDeserializer.class)
-```
-
-也可以单独对某个属性指定序列化器
 
 ### @JsonName
 
@@ -205,7 +172,71 @@ public class Account {
 }
 ```
 
+## 指定序列化器
 
+```
+public class UserSerializer extends JsonSerializer<User> {
+	@Override
+	public void serialize(User user, JsonGenerator generator, SerializerProvider provider)
+			throws IOException, JsonProcessingException {
+		generator.writeStartObject();
+		generator.writeStringField("user-name", user.getUserName());
+		generator.writeEndObject();
+	}
+}
+
+public class UserDeserializer extends JsonDeserializer<User> {
+	@Override
+	public User deserialize(JsonParser parser, DeserializationContext context)
+			throws IOException, JsonProcessingException {
+		JsonNode node = parser.getCodec().readTree(parser);
+		String userName = node.get("user-name").asText();
+		User user = new User();
+		user.setUserName(userName);
+		return user;
+	}
+}
+```
+
+注解
+
+```
+@JsonSerialize(using = UserSerializer.class)
+@JsonDeserialize (using = UserDeserializer.class)
+```
+
+也可以单独对某个属性指定序列化器
+
+> 在SpringBoot中, 可通过@JsonComponent进行配置:
+>
+> ```
+> @JsonComponent
+> public class MyJsonComponent {
+>     public static class Serializer extends JsonSerializer<MyObject> {
+> 
+>         @Override
+>         public void serialize(MyObject value, JsonGenerator jgen, SerializerProvider serializers) throws IOException {
+>             jgen.writeStringField("name", value.getName());
+>             jgen.writeNumberField("age", value.getAge());
+>         }
+>     }
+> 
+>     public static class Deserializer extends JsonDeserializer<MyObject> {
+> 
+>         @Override
+>         public MyObject deserialize(JsonParser jsonParser, DeserializationContext ctxt)
+>                 throws IOException, JsonProcessingException {
+>             ObjectCodec codec = jsonParser.getCodec();
+>             JsonNode tree = codec.readTree(jsonParser);
+>             String name = tree.get("name").textValue();
+>             int age = tree.get("age").intValue();
+>             return new MyObject(name, age);
+>         }
+>     }
+> }
+> ```
+>
+> 
 
 ## **Date类型的属性转换**
 

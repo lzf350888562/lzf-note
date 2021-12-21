@@ -252,7 +252,74 @@ public class ServletUtils
 
 默认情况下，支持简单类型（整数、长整型、日期等）。可以通过 WebDataBinder或通过将Formatters(Converter)注册来自定义类型转换。
 
-## @InitBinder
+## WebDataBinder
+
+### ConfigurableWebBindingInitializer
+
+通过`PropertyEditorRegistrar`(函数式接口)注册自定义属性编辑器(PropertyEditor) .
+
+```
+public class StringEditor extends PropertyEditorSupport {
+    @Override
+    public void setAsText(String text) throws IllegalArgumentException {
+        if (text == null) {
+            setValue(null);
+        }  else {
+            setValue(HtmlUtils.htmlEscape(text));
+        }
+    }
+}
+```
+
+```
+public class DateEditor extends PropertyEditorSupport {
+    private final String[] datePatterns;
+
+    public DateEditor() {
+        this(new String[]{"yyyy", "yyyy-MM", "yyyyMM", "yyyy/MM", "yyyy-MM-dd", "yyyyMMdd", "yyyy/MM/dd", "yyyy-MM-dd HH:mm:ss", "yyyyMMddHHmmss", "yyyy/MM/dd HH:mm:ss"});
+    }
+
+    public DateEditor(String[] datePatterns) {
+        this.datePatterns = datePatterns;
+    }
+    @Override
+    public void setAsText(String text) {
+        if (text == null) {
+            setValue(null);
+        } else {
+            try {
+                setValue(DateUtils.parseDate(text.trim(), datePatterns));
+            } catch (ParseException e) {
+                setValue(null);
+            }
+        }
+    }
+}
+```
+
+注册
+
+```
+@Configuration
+public class WebBindingInitializerConfiguration {
+
+    @Bean
+    public ConfigurableWebBindingInitializer configurableWebBindingInitializer(FormattingConversionService mvcConversionService, Validator mvcValidator) {
+        ConfigurableWebBindingInitializer initializer = new ConfigurableWebBindingInitializer();
+        initializer.setConversionService(mvcConversionService);
+        initializer.setValidator(mvcValidator);
+        initializer.setPropertyEditorRegistrar(propertyEditorRegistry -> {
+            propertyEditorRegistry.registerCustomEditor(String.class, new StringEditor());
+            propertyEditorRegistry.registerCustomEditor(Date.class, new DateEditor());
+        });
+        return initializer;
+    }
+}
+```
+
+
+
+### @InitBinder
 
 作用：
 
@@ -420,7 +487,7 @@ public class WebConfiguration implements WebMvcConfigurer {
 }
 ```
 
-
+> 如果需要覆盖磨人的converter,  可直接注入HttpMessageConverters
 
 ### xml内容协商
 

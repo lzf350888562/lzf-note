@@ -114,13 +114,15 @@ classpath:/public/
 
 举例：我们可以在`src/main/resources/`目录下创建`static`，在该位置放置一个图片文件。启动程序后，尝试访问`http://localhost:8080/D.jpg`。如能显示图片，配置成功。
 
+> 默认映射/**, 可修改为: `spring.mvc.static-path-pattern=/resources/`
+
+通过`WebMvcConfigurer` 的 `addResourceHandlers` 方法可以修改此行为.
+
 模板文件在
 
 ```
 classpath:/resources/template/
 ```
-
-
 
 ## 模板引擎
 
@@ -442,7 +444,11 @@ public class UserController {
 
 可以改变要返回的两者信息:
 
-在resource/template下添加500.html文件
+添加resource/template/500.html文件;
+
+添加resource/public/error/404.html文件;
+
+添加resource/public/error/5xx.html文件;
 
 创建异常处理类
 

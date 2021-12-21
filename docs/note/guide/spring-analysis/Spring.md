@@ -421,7 +421,7 @@ protected <T> T getProperty(String key, Class<T> targetValueType, boolean resolv
 
 很明显了，就是从System.getProperty和System.getenv获取，但是由于环境变量是无法自定义的，所以其实此处只能通过System.setProperty指定。
 
-注意，classpath:XXX这种写法的classpath前缀到目前为止还没有被处理。
+>  注意，classpath:XXX这种写法的classpath前缀到目前为止还没有被处理。
 
 ## refresh
 
@@ -523,7 +523,7 @@ public void validateRequiredProperties() {
 
 requiredProperties是通过setRequiredProperties方法设置的，保存在一个list里面，默认是空的，也就是不需要校验任何属性。
 
-### BeanFactory创建
+### BeanFactory创建  
 
 由obtainFreshBeanFactory调用AbstractRefreshableApplicationContext.refreshBeanFactory:
 
