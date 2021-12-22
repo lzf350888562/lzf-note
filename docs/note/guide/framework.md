@@ -629,7 +629,7 @@ https://oauth.example.com/token?grant_type=client_credentials&client_id=CLIENT_I
 
 ### Authentication
 
-Subject.login -->  SecurityManager.login(token) -->	Authenticator.login(token)  
+Subject.login -->  SecurityManager.login(token) -->	Authenticator.doAuthenticate(token)   --> Realm.getAuthenticationInfo(token)
 
 **AuthenticationToken**
 
@@ -819,7 +819,9 @@ SecurityManager 实现默认使用 ModularRealmAuthorizer 实例。ModularRealmA
 
 2.如果 Realm方法导致异常，则该异常将作为授权异常传播到Subject调用方。
 
-> Q: 我们通常自定义实现了Realm接口的实例也能进行授权操作, 它是会转换为Authorizer接口实例吗?
+> Q: 我们通常自定义的Realm实例与Authorizer接口实例有啥关系?
+>
+> A: 如果要让Realm支持授权操作, 需要实现Realm的抽象子类AuthorizingRealm, 该抽象类实现了Authorizer接口的方法, 并以模板设计模式方式提供了子类实现的getAuthorizationInfo(token)方法用于获取授权信息, 在实现的Authorizer接口的方法中进行调用.
 
 
 
@@ -843,4 +845,47 @@ Realm 用于将访问特定于应用程序的安全数据(例如用户、角色�
 
 在 Realm 执行认证之前，会调用其 support 方法。如果返回值为 true，则只有这样才会调用其 getAuthenticationInfo（token） 方法。
 
-support方法检查所提交令牌的类型（接口或类），以查看它是否可以处理它。
+support方法检查是否支持处理所提交令牌的类型.()
+
+如果支持, Authenticator 将调用Realm的 getAuthenticationInfo（token） 方法 , 对token中的principal 与 数据源中查找到的账户数据(凭据)进行匹配, 如果匹配, 则返回一个`AuthenticationInfo`实例 , 该实例即**按Shiro理解的格式封装账户数据**.   如果不匹配, 可抛出shiro认证异常.
+
+> 通常开发者习惯继承Realm子类AuthorizingRealm实现通用的身份验证和授权工作流
+
+**Credentials Matching**
+
+在Realm的认证中, 需要对账户凭证数据进行匹配 . 为了提供可扩展性,  `AuthenticatingRealm`和他的子类提供了`CredentialsMatcher`用于比较凭证.
+
+Shiro提供了`SimpleCredentialsMatcher`和子类`HashedCredentialsMatcher`开箱即用.
+
+Shiro 的所有开箱即用的 Realm 实现都默认使用 SimpleCredentialsMatcher。
+
+`SimpleCredentialsMatcher `对存储的帐户凭据与身份验证令牌中提交的内容执行简单的直接相等性检查。  
+
+`HashedCredentialsMatcher`在`SimpleCredentialsMatcher`上增加了加密哈希策略(前提需要对凭据进行数据存储前进行了单向哈希处理), shiro提供了支持多种哈希算法的子类供使用, 如使用SHA-256方式
+
+```
+//入库
+String hashedPasswordBase64 = new Sha256Hash(plainTextPassword, salt, 1024).toBase64();
+User user = new User(username, hashedPasswordBase64);
+user.setPasswordSalt(salt);
+userDAO.create(user);
+//对应的凭证匹配器为
+org.apache.shiro.authc.credential.Sha256CredentialsMatcher
+```
+
+ 
+
+
+
+也可以自定义实现.
+
+通过下列方式进行设置
+
+```
+AuthenticatingRealm.setCredentialsMatcher(customMatcher)
+```
+
+
+
+
+
