@@ -633,7 +633,7 @@ Subject.login -->  SecurityManager.login(token) -->	Authenticator.login(token)
 
 **AuthenticationToken**
 
-
+`UsernamePasswordToken`
 
 **RemenberMe**
 
@@ -702,8 +702,145 @@ checkRole(String roleName), checkRoles(Collection<String> roleNames) 和 checkRo
 如果subject分配了指定参数中的角色,则静默返回, 否则异常.
 ```
 
+权限检查(基于权限的授权与应用程序的原始功能密切相关,且代码有改动时修改粒度更细):
+
+执行权限检查可通过`org.apache.shiro.authz.Permission `接口的实例，并将其传递给接受权限实例的 isPersmited 方法。如:
+
+```
+currentUser.isPermitted(new PrinterPermission("laserjet4400n", "print"))
+```
+
+```
+isPermitted(Permission p)和isPermittedAll(Collection<Permission> perms),如果subject包含指定的permission实例的权限汇总,则返回true;
+isPermittedAll(List<Permission> perms)返回方法参数中满足isPermitted(Permission p)的结果数组
+```
+
+基于对象的权限过于"沉重", 可使用通过字符串的方式表示权限实例,下面方式与上述基于对象的权限方式效果相同
+
+```
+currentUser.isPermitted("printer:print:laserjet4400n")
+```
+
+该方式其实是由`org.apache.shiro.authz.permission.WildcardPermission`实现,相当于
+
+```
+currentUser.isPermitted(new WildcardPermission("printer:print:laserjet4400n"))
+```
+
+> Q: 为什么要对字符串权限转换为WildcardPermission对象?
+>
+> 因为权限检查是通过隐含逻辑, 而不是简单的字符串相等性检查来评估的。比如支持*通配符检查
+>
+> 关于通配符权限字符串的使用, 具体见官方https://shiro.apache.org/permissions.html
+
+权限断言:
+
+```
+checkPermission(Permission p)
+checkPermission(String perm)
+checkPermissions(Collection<Permission> perms)
+checkPermissions(String... perms)
+如果subject分配了指定参数中的权限,则静默返回, 否则异常
+```
+
 2.**java注解方式**
 
+`@RequiresAuthentication`：表示当前Subject已经通过login进行了身份验证；即 Subject. isAuthenticated() 返回 true
 
+```
+//注解相当于以下方法内代码
+if (!SecurityUtils.getSubject().isAuthenticated()) {
+        throw new AuthorizationException(...);
+}
+```
+
+`@RequiresGuest`：表示当前Subject没有**身份验证**或通过**记住我**登录过, 即游客身份。
+
+```
+PrincipalCollection principals = SecurityUtils.getSubject().getPrincipals();
+if (principals != null && !principals.isEmpty()) {
+    throw new AuthorizationException(...);
+}
+```
+
+`@RequiresPermissions`:  表示要求当前subject具有一个或多个权限才能执行带批注的方法, 可通过logical属性指定与还是或
+
+```
+@RequiresPermissions("account:create")
+//相当于方法内代码
+ Subject currentUser = SecurityUtils.getSubject();
+if (!subject.isPermitted("account:create")) {
+    throw new AuthorizationException(...);
+}
+```
+
+```
+@RequiresPermissions (value={“user:a”, “user:b”},logical= Logical.OR)：表示当前 Subject 需要权限 user:a 或user:b。
+```
+
+`@RequiresRoles`与`@RequiresPermissions`类似
+
+`@RequiresUser`：表示当前 Subject 已经身份验证或者通过记住我登录的。
+
+```
+PrincipalCollection principals = SecurityUtils.getSubject().getPrincipals();
+if (principals == null || principals.isEmpty()) {
+    throw new AuthorizationException(...);
+}
+```
 
 3.**JSP/GSP 标签**
+
+见https://shiro.apache.org/web.html#Web-taglibrary的JSP/GSP Tag Library章节
+
+
+
+流程:
+
+代码调用hasRole,isPermitted...变体(如果有, 如注解 )  -->  Subject.hasRole,isPermitted.....   -->
+
+SecurityManager.hasRole,isPermitted... (实现了Authorizer接口)-->
+
+SecurityManager方法内部委托给Authorizer实例(默认为ModularRealmAuthorizer)调用, 它支持在任何授权操作期间协调一个或多个 Realm 实例。 -->
+
+ModularRealmAuthorizer再委托给其内部的实现了Authorizer的Realm实例集合调用
+
+
+
+**ModularRealmAuthorizer** 
+
+SecurityManager 实现默认使用 ModularRealmAuthorizer 实例。ModularRealmAuthorizer 同样支持具有单个 Realm 和具有多个 Realm 的应用程序。
+
+对于任何授权操作，ModularRealmAuthorizer 将循环访问其内部 Realm 集合，并按迭代顺序与每个 Realm 进行交互(如果没实现Authorizer接口则跳过)。
+
+在Realm的处理过程中:
+
+1.如果 Realm 的 hasRole* 或 isPersmited* 变体方法返回true，则Realm方法立即返回true，并且所有剩余的 Realm 都将短路。这意味着只要一个Realm允许即可。
+
+2.如果 Realm方法导致异常，则该异常将作为授权异常传播到Subject调用方。
+
+> Q: 我们通常自定义实现了Realm接口的实例也能进行授权操作, 它是会转换为Authorizer接口实例吗?
+
+
+
+**PermissionResolver**
+
+在使用字符串权限方法的时候, 需要PermissionResolver来将字符串转换为Permission实例.  所有Realm的实现内部默认为用来处理`WildcardPermission`字符串格式的`WildcardPermissionResolver`
+
+如果想要自定义权限语法并创建对应的`PermissionResolver`实现, 为了让所有已配置的Realm实例都支持该语法, 可配置全局`PermissionResolver` 到`securityManager.authorizer.permissionResolver`上, 为了让Realm实例中使用此`PermissionResolver`, 还必须要给Realm实现`PermissionResolverAware`接口.
+
+>  也可以单独为某个Realm指定`PermissionResolver` .
+
+
+
+> 最后, 如果你的应用程序使用多个Realm来执行授权，并且 ModularRealmAuthorizer 的默认简单基于迭代的短路授权行为不适合您的需要，则您可能希望创建一个自定义Authorizer并相应地配置 SecurityManager。
+
+### Realm
+
+Realm 用于将访问特定于应用程序的安全数据(例如用户、角色和权限)数据转换为 Shiro 理解的格式. Realm通常与数据源(jdbc,文件io等数据访问api)具有一对一的相关性. 所以Realm本质上是一个特定于安全性的 DAO
+
+**Realm Authentication**
+
+在 Realm 执行认证之前，会调用其 support 方法。如果返回值为 true，则只有这样才会调用其 getAuthenticationInfo（token） 方法。
+
+support方法检查所提交令牌的类型（接口或类），以查看它是否可以处理它。
