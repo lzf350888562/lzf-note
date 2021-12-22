@@ -3841,11 +3841,11 @@ Shiro为我们实现的过滤器:
 
 注意:使用注解需要在配置类中加入
 @Bean
-    public AuthorizationAttributeSourceAdvisor authorizationAttributeSourceAdvisor(SecurityManager securityManager) {
-        AuthorizationAttributeSourceAdvisor authorizationAttributeSourceAdvisor = new AuthorizationAttributeSourceAdvisor();
-        authorizationAttributeSourceAdvisor.setSecurityManager(securityManager);
-        return authorizationAttributeSourceAdvisor;
-    }
+public AuthorizationAttributeSourceAdvisor authorizationAttributeSourceAdvisor(SecurityManager securityManager) {
+    AuthorizationAttributeSourceAdvisor authorizationAttributeSourceAdvisor = new AuthorizationAttributeSourceAdvisor();
+    authorizationAttributeSourceAdvisor.setSecurityManager(securityManager);
+    return authorizationAttributeSourceAdvisor;
+}
 ```
 
 ## 认证
@@ -6178,7 +6178,7 @@ public class AnyRolesAuthorizationFilter  extends AuthorizationFilter {
 }
 ```
 
-## 工具类
+## SecurityUtils
 
 ```
 public class ShiroUtils {

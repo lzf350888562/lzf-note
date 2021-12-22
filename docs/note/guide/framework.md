@@ -622,3 +622,88 @@ https://oauth.example.com/token?grant_type=client_credentials&client_id=CLIENT_I
 ```
 
 如果授权服务器验证成功，那么将直接返回令牌 token，改客户端已被授权。
+
+## shiro
+
+
+
+### Authentication
+
+Subject.login -->  SecurityManager.login(token) -->	Authenticator.login(token)  
+
+**AuthenticationToken**
+
+
+
+**RemenberMe**
+
+- **Remembered**: A remembered `Subject` is not anonymous and has a known identity (i.e. `subject.`[`getPrincipals()`](https://shiro.apache.org/static/current/apidocs/org/apache/shiro/subject/Subject.html#getPrincipals--) is non-empty). But this identity is remembered from a previous authentication during a **previous** session. A subject is considered remembered if `subject.`[`isRemembered()`](https://shiro.apache.org/static/current/apidocs/org/apache/shiro/subject/Subject.html#isRemembered--) returns `true`.
+- **Authenticated**: An authenticated `Subject` is one that has been successfully authenticated (i.e. the `login` method was invoked without throwing an exception) *during the Subject’s current session*. A subject is considered authenticated if `subject.`[`isAuthenticated()`](https://shiro.apache.org/static/current/apidocs/org/apache/shiro/subject/Subject.html#isAuthenticated--) returns `true`.
+
+Remenbered的标识使系统知道该用户可能是谁，但实际上，无法绝对保证记住的主题是否代表预期的用户。一旦Subject通过身份验证，他们就不再被视为仅被记住，因为他们的身份将在**当前会话期间**得到验证。
+
+因此，尽管应用程序的许多部分仍然可以基于Remenbered的主体（如自定义视图）执行特定于用户的逻辑，但在用户通过执行成功的身份验证尝试合法地验证其身份之前，它通常不应执行高度敏感的操作。
+
+> Authenticated和Remenbered经过身份验证的状态是互斥的 - 一个为 true 的值表示另一个状态为 false 值，反之亦然。
+
+由于 Web 应用程序中 remenbered 的身份通常与 Cookie 一起保留，并且 Cookie 只能在提交响应正文之前删除，因此强烈建议在调用 subject.logout（） 后立即将最终用户重定向到新的视图或页面。这保证了任何与安全相关的 Cookie 都会按预期删除。这是对HTTP cookie功能的限制，而不是Shiro的限制。
+
+
+
+**Authenticator**
+
+the Shiro `SecurityManager` implementations default to using a [`ModularRealmAuthenticator`](https://shiro.apache.org/static/current/apidocs/org/apache/shiro/authc/pam/ModularRealmAuthenticator.html) instance.
+
+如果只有单个Realm,  ModularRealmAuthenticator 进行直接调用;  如果有多个Realm , ModularRealmAuthenticator 实例将利用其配置的 AuthenticationStrategy 启动多Realm认证尝试
+
+
+
+**AuthenticationStrategy**
+
+| `AuthenticationStrategy` class                               | Description                                                  |
+| :----------------------------------------------------------- | :----------------------------------------------------------- |
+| [`AtLeastOneSuccessfulStrategy`](https://shiro.apache.org/static/current/apidocs/org/apache/shiro/authc/pam/AtLeastOneSuccessfulStrategy.html) | 如果一个（或多个）Realm 成功通过身份验证，则整体尝试将被视为成功。如果没有身份验证成功，则尝试将失败。 |
+| [`FirstSuccessfulStrategy`](https://shiro.apache.org/static/current/apidocs/org/apache/shiro/authc/pam/FirstSuccessfulStrategy.html) | 只有从第一个成功通过身份验证的 Realm 返回的信息才会被使用。所有进一步的 Realm 都将被忽略。如果没有身份验证成功，则尝试将失败。 |
+| [`AllSuccessfulStrategy`](https://shiro.apache.org/static/current/apidocs/org/apache/shiro/authc/pam/AllSuccessfulStrategy.html) | 所有配置的Realm必须都认证成功时, 整体尝试才被视为成功, 如果任一验证失败, 则尝试将失败 |
+
+如果你想自己创建自己的 AuthenticationStrategy 实现，你可以使用` org.apache.shiro.authc.pam.AbstractAuthenticationStrategy` 作为起点。其会自动实现"捆绑"/聚合行为，即将每个 Realm 的结果合并到一个 AuthenticationInfo 实例中。
+
+
+
+**Realm Order**
+
+需要指出的是，ModularRealmAuthenticator 将按迭代顺序与 SecurityManager上的Realm 实例进行交互，这一点非常重要。
+
+realm的顺序可以通过定义的形式隐式声明 或 通过 securityManager.realms属性显式声明.
+
+
+
+### Authorization
+
+授权核心3元素: 权限, 角色, 用户.
+
+执行授权的三种方式:
+
+1.**以编程方式** (Subject方法)
+
+角色检查:
+
+```
+hasRole(String roleName) 和 hasAllRoles(Collection<String> roleNames), 如果subject分配了指定参数的一个或多个角色, 返回true;
+hasRole(List<String> roleNames) 返回方法参数中满足hasRole(String roleName)的结果数组
+```
+
+角色断言(比角色检查简洁,不需要构建自己的异常):
+
+If the `Subject` does not have the expected role, an `AuthorizationException` will be thrown.
+
+```
+checkRole(String roleName), checkRoles(Collection<String> roleNames) 和 checkRoles(String... roleNames),
+如果subject分配了指定参数中的角色,则静默返回, 否则异常.
+```
+
+2.**java注解方式**
+
+
+
+3.**JSP/GSP 标签**
