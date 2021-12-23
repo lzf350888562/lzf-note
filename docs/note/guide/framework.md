@@ -162,7 +162,7 @@ public class MapperConfig {
 
 # Safe
 
-## CSRF 与 XSS	
+## CSRF
 
 **CSRF（Cross Site Request Forgery）**一般被翻译为 **跨站请求伪造** 。
 
@@ -202,13 +202,13 @@ a.com以受害者的名义执行了act=xx。
 
 黑客可以查看小明的所有邮件，包括邮件里的域名验证码等隐私信息。拿到验证码之后，黑客就可以要求域名服务商把域名重置给自己。
 
-服务器通过校验请求是否携带正确的Token，来把正常的请求和攻击的请求区分开，也可以防范CSRF的攻击。
+CSRF只能通过浏览器自己带上Cookie，不能操作Cookie来获取到Token并加到http请求的参数中。
 
-但token和cookie都不能避免**跨站脚本攻击（Cross Site Scripting）XSS** ,XSS 中攻击者会用各种方式将恶意代码注入到其他用户的页面中
-
-### 防止XSS
+## XSS
 
 XSS攻击通常指的是利用网页开发时留下的漏洞, 通过巧妙的方法注入恶意指令代码到网页, 使用户加载并执行攻击者恶意制造的网页程序.
+
+> token和cookie都不能避免**跨站脚本攻击（Cross Site Scripting）XSS** ,XSS 中攻击者会用各种方式将恶意代码注入到其他用户的页面中
 
 比如攻击者在提交的表单中输入
 
@@ -285,7 +285,7 @@ HMACSHA256(base64UrlEncode(header) + "." +  base64UrlEncode(payload),  secret)
 
 > 只有在传递的原始数据和签名相同的情况,才认为这个JWT是合规的
 
-> jwt 只有最后签名部分时加密的, 因此签名两部分不能存放敏感信息(base64)
+> jwt 只有最后签名部是加密的, 因此前面两部分不能存放敏感信息(base64)
 
 此外 jwt还支持设置过期时间.
 
@@ -888,3 +888,73 @@ AuthenticatingRealm.setCredentialsMatcher(customMatcher)
 **Realm Authentication**
 
 SecurityManager 将授权检查任务委派给Authorizer，默认为 ModularRealmAuthorizer。
+
+### Session Manager
+
+**Session**
+
+shiro Session支持自定义存储,异构客户端访问,事件监听,主机和IP地址保留,回话过期延长,无侵入加入web应用,可用于SSO.
+
+```
+Subject currentUser = SecurityUtils.getSubject();
+Session session = currentUser.getSession();
+//上面相当于
+Session session = currentUser.getSession(true);
+```
+
+`currentUser.getSession(boolean create)`与`HttpServletRequest.getSession(boolean create)`功能相同, 但shiro的能应用于非Web应用:
+
+- 如果session已存在,则忽略boolean返回session; 
+- 如果session不存在,boolean为true则创建session返回;
+- 如果session不存在,boolean为false则返回null(通常用于阻止创建没必要的session);
+
+**Session Manager**
+
+SessionManager 是由 SecurityManager 维护的顶级组件。   默认DefaultSessionManager提供了应用程序所需的会话管理功能，如会话验证、孤立清理等。可通过setter修改.
+
+**Session Timeout**
+
+SessionManager实现默认为30分组session timeout, 可通过globalSessionTimeout属性修改. 也可以设置单个session timeout.
+
+**Session Listener**
+
+实现 SessionListener 接口（或继承SessionListenerAdapter）实现对session事件(任一session)进行响应。   
+
+默认的 SessionManager sessionListeners 属性是一个集合,  因此可以使用一个或多个侦听器实现来配置 SessionManager
+
+**Session Storage (SessionDao)**
+
+SessionManager 实现将session的CRUD 操作委托给内部组件 SessionDAO.
+
+实现该接口可以将session驻留在特定数据源中.
+
+> 默认情况下，Web 应用程序不使用本机会话管理器，而是保留 Servlet 容器的默认会话管理器，该管理器不支持 SessionDAO。如果要在基于 Web 的应用程序中为自定义会话存储或会话群集启用 SessionDAO，则必须首先配置本机 Web 会话管理器`rg.apache.shiro.web.session.mgt.DefaultWebSessionManager`
+
+Shiro 可以启用EHCache SessionDAO 将会话存储在内存中，并支持在内存受限时溢出到磁盘.(shiro官方建议开启).
+
+这是需要通过`EnterpriseCacheSessionDAO`使用`EhCacheManager`来实现存储session.
+
+**Session ID**
+
+SessionDAO 使用 `SessionIdGenerator `组件在每次创建新会话时生成新的会话 ID.默认实现为`JavaUuidSessionIdGenerator`，它基于 Java UUID 生成字符串 ID.
+
+**Session Validation&Scheduling**
+
+验证session以便删除无效的session
+
+> 出于性能原因, session验证仅发生在session访问的时候, 如Subject.getSession(), 这意味着如果没有额外的定期验证, 孤立session项将开始填满session存储.
+
+为了防止孤立session项堆积，SessionManager 实现支持` SessionValidationScheduler `负责定期验证会话，以确保在必要时清理它们.
+
+默认 SessionValidationScheduler 为 `ExecutorServiceSessionValidationScheduler`，它使用 JDK `ScheduledExecutorService` 来控制验证的频率。   默认情况下，此实现将每小时执行一次验证。可以通过指定新的`ExecutorServiceSessionValidationScheduler`实例并指定不同的间隔 (interval) 来更改验证发生的速率.
+
+> 在某些情况下，您可能希望完全禁用session验证，因为您设置了一个不受 Shiro 控制的进程来为您执行验证。例如，您可能正在使用企业级缓存，并依靠缓存的"生存时间"设置来自动清除旧session。或者，您可能已经设置了一个 cron 作业来自动清除自定义数据存储。在这些情况下，您可以关闭session验证计划: 通过设置`securityManager.sessionManager.sessionValidationSchedulerEnabled`为false, 但这不会禁用session访问时的验证.
+
+**Invalid Session Delete**
+
+默认情况下，每当 Shiro 检测到无效session时，都会尝试通过 SessionDAO.delete（session） 方法将其从session存储中删除。
+
+如果某些应用程序可能不希望 Shiro 自动删除session。例如，如果应用程序提供了支持可查询的 SessionDAO，并希望旧的或无效的session在一段时间内可用。这将允许团队对数据存储运行查询，例如，查看用户在上周创建了多少个session，或者用户session的平均持续时间或类似的报告类型查询。
+
+可通过`securityManager.sessionManager.deleteInvalidSessions`禁用shiro自动删除无效session.
+
