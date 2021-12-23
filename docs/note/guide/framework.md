@@ -873,8 +873,6 @@ userDAO.create(user);
 org.apache.shiro.authc.credential.Sha256CredentialsMatcher
 ```
 
- 
-
 
 
 也可以自定义实现.
@@ -887,5 +885,6 @@ AuthenticatingRealm.setCredentialsMatcher(customMatcher)
 
 
 
+**Realm Authentication**
 
-
+SecurityManager 将授权检查任务委派给Authorizer，默认为 ModularRealmAuthorizer。

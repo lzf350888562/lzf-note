@@ -354,6 +354,8 @@ https://gitee.com/beijing_hongye_huicheng/lilishop
 
 [RPC框架](https://hub.fastgit.org/Snailclimb/guide-rpc-framework)
 
+[监控平台](https://gitee.com/monitoring-platform/phoenix)
+
 ## JS
 
 [particles.js](https://github.com/VincentGarreau/particles.js) 网页背景粒子效果  [演示](https://codepen.io/VincentGarreau/pen/pnlso)
