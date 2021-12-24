@@ -2700,11 +2700,9 @@ slave start;
 
 提示：权限收回后，必须用户重新登录后，才能生效。
 
-**Keepalived**
 
-Keepalived是基于VRRP（Virtual Router Redundancy Protocol，虚拟路由器冗余协议）协议的一款高可用软件。Keepailived有一台主服务器（master）和多台备份服务器（backup），在主服务器和备份服务器上面部署相同的服务配置，使用一个虚拟IP地址对外提供服务，当主服务器出现故障时，虚拟IP地址会自动漂移到备份服务器。
 
-**互为主从**
+
 
 
 
