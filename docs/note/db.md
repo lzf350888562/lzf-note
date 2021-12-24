@@ -1116,11 +1116,11 @@ public class FastJsonRedisSerializer<T> implements RedisSerializer<T> {
 
 ```
 //在当前连接下执行动作 这里为获取连接信息
-        Properties info = (Properties) redisTemplate.execute((RedisCallback<Object>) RedisServerCommands::info);
-        //仅获取命令信息
-        Properties commandStats = (Properties) redisTemplate.execute((RedisCallback<Object>) connection -> connection.info("commandstats"));
-        //数据大小 相当于key数量
-        Object dbSize = redisTemplate.execute((RedisCallback<Object>) RedisServerCommands::dbSize);
+Properties info = (Properties) redisTemplate.execute((RedisCallback<Object>) RedisServerCommands::info);
+//仅获取命令信息
+Properties commandStats = (Properties) redisTemplate.execute((RedisCallback<Object>) connection -> connection.info("commandstats"));
+//数据大小 相当于key数量
+Object dbSize = redisTemplate.execute((RedisCallback<Object>) RedisServerCommands::dbSize);
 ```
 
 
