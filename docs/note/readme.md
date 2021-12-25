@@ -112,6 +112,10 @@ Weex UI -移动端
 
 [acro-design](https://arco.design/)  字节最新开源
 
+Semi Design 字节抖音开源
+
+TDesgin 腾讯开源
+
 ## Spring相关
 
 [Spring中文文档](https://www.springcloud.cc/)
@@ -217,6 +221,8 @@ StarUML: 开源简洁的UML图编辑软件
 [RegExr](https://www.code-nav.cn/rd/?rid=79550af2601114e9012110711798772b)：正则表达式的在线可视化工具
 
 [数据库大全](https://www.code-nav.cn/rd/?rid=b00064a76012546b016e274a3724c5f0)：果创云收录的各种数据库表设计
+
+[electerm](https://electerm.github.io/electerm/) 远程连接
 
 ## face
 

@@ -10,7 +10,143 @@
 
 容器: 镜像的运行环境,迷你的"linux操作系统",由Docker负责创建,容器之间彼此隔离
 
-## Docker一条龙
+## Docker
+
+![img](picture/1624937894925-f437bd98-94e2-4334-9657-afa69bb52179.svg)
+
+Docker_Host：安装Docker的主机
+
+Docker Daemon：运行在Docker主机上的Docker后台进程
+
+Client :  操作Docker主机的客户端（命令行、UI等） 
+
+Registry：镜像仓库 Docker Hub
+
+Images：镜像，带环境打包好的程序，可以直接启动运行
+
+Containers：容器，由镜像启动起来正在运行中的程序
+
+核心为资源隔离:
+
+- cpu、memory资源隔离与限制
+- 访问设备隔离与限制
+
+- 网络隔离与限制
+- 用户、用户组隔离限制
+
+常用命令
+
+![image.png](picture/1625373590853-2aaaa76e-d5b5-446b-850a-f6cfa26ac70a.png)
+
+镜像相关
+
+```
+docker pull nginx  #下载最新版
+镜像名:版本名（标签）
+docker pull nginx:1.20.1
+docker pull redis  #下载最新
+docker pull redis:6.2.4
+## 下载来的镜像都在本地
+docker images  #查看所有镜像
+redis = redis:latest
+docker rmi 镜像名:版本号/镜像id
+```
+
+启动容器
+
+```
+docker run [OPTIONS] IMAGE [COMMAND] [ARG...]
+【docker run  设置项   镜像名  】 镜像启动运行的命令（镜像里面默认有的，一般不会写）
+# -d：后台运行
+# --restart=always: 开机自启
+docker run --name=mynginx   -d  --restart=always -p  88:80   nginx
+# 查看正在运行的容器
+docker ps
+# 查看所有
+docker ps -a
+# 删除停止的容器
+docker rm  容器id/名字
+docker rm -f mynginx   #强制删除正在运行中的
+#停止容器
+docker stop 容器id/名字
+#再次启动
+docker start 容器id/名字
+#应用开机自启
+docker update 容器id/名字 --restart=always
+```
+
+修改容器内容
+
+```
+# 1. 进入容器内部的系统，修改容器内容
+docker exec -it 容器id  /bin/bash
+# 2. 挂载数据到外部修改  ro只读 rw读写..
+docker run --name=mynginx   \
+-d  --restart=always \
+-p  88:80 -v /data/html:/usr/share/nginx/html:ro  \
+nginx
+# 修改页面只需要去 主机的 /data/html
+```
+
+提交改变:将自己修改好的镜像提交, 打包到别的机器加载(通常是通过推送到hub来实现)
+
+```
+docker commit [OPTIONS] CONTAINER [REPOSITORY[:TAG]]
+docker commit -a "leifengyang"  -m "首页变化" 341d81f7504f guignginx:v1.0
+# 下次可直接运行该镜像
+docker images
+docker run -d -p 88:80 guigninx:v1.0
+# 如果想让其他docker服务器使用该镜像 可以:
+# 1. 将镜像保存成压缩包
+docker save -o abc.tar guignginx:v1.0
+# 2. 别的机器加载这个镜像
+docker load -i abc.tar
+docker images
+# 接下来可docker run ...
+# 离线安装
+```
+
+推送到远程仓库docker hub: 需要注册, create repository 
+
+```
+# 官方提供了如下命令
+docker tag local-image:tagname new-repo:tagname
+docker push new-repo:tagname
+
+# 把旧镜像的名字，改成仓库要求的新版名字
+docker tag guignginx:v1.0 leifengyang/guignginx:v1.0
+# 需要先登录到docker hub
+docker login       
+docker logout（推送完成镜像后退出）
+# 推送
+docker push leifengyang/guignginx:v1.0
+# 别的机器下载
+docker pull leifengyang/guignginx:v1.0
+```
+
+其他常用
+
+```
+docker logs 容器名/id   排错
+
+docker exec -it 容器id /bin/bash
+
+# docker 经常修改nginx配置文件 挂载 这里宿主机/data/conf/nginx.conf需要存在,否则会被docker识别为
+docker run -d -p 80:80 \
+-v /data/html:/usr/share/nginx/html:ro \
+-v /data/conf/nginx.conf:/etc/nginx/nginx.conf \
+--name mynginx-02 \
+nginx
+
+#把容器指定位置的东西复制出来 
+docker cp 5eff66eec7e1:/etc/nginx/nginx.conf  /data/conf/nginx.conf
+#把外面的内容复制到容器里面
+docker cp  /data/conf/nginx.conf  5eff66eec7e1:/etc/nginx/nginx.conf
+```
+
+
+
+### Docker一条龙
 
 使用Centos7下Docker发布Nginx+Tomcat+MySQL项目
 
@@ -60,6 +196,8 @@ docker network create ‐d bridge my‐bridge
 > 镜像仓库 [dockerhub ](hub.docker.com) 
 >
 > 搜索镜像 --> tags --> 选择版本 --> 查看使用方式 
+>
+> 找到需要的镜像后 docker pull xxx
 
 将数据库初始化sql文件加入宿主机器的/usr/local/lzf/sql下, 用于初始化mysql;
 
@@ -114,7 +252,7 @@ spring:
 FROM openjdk:11
 ADD ./app /usr/local/lzf
 WORKDIR /usr/local/lzf
-CMD ["java","‐jar", "bsbdj.jar"]
+CMD ["java","‐jar", "app.jar"]
 ```
 
 FROM: 指定该镜像基于哪个原始镜像进行扩展( 这里为jdk环境 ) ,  基准镜像
@@ -226,9 +364,17 @@ docker rmi ‐f openjdk:11
 docker network rm my‐bridge
 ```
 
-
-
 > 为了解决多机部署 ,可加入k8s进行分发部署
+
+## 云平台
+
+不能通过外网访问的端口需要配置安全组端口放行
+
+**VPC**
+
+VPC虚拟专用网络类似docker虚拟网段, 在一个私有网络下又可以划分多个子网.
+
+云服务器通信可通过配置私有IP进行通信, 而免去公网的流量计费和带宽限制. 在创建实例的时候可以指定vpc与交换机
 
 
 

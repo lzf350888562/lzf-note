@@ -1,6 +1,28 @@
-记录学习工作点滴
+# 概念相关
 
-# 记录
+[多线程](note/guide/thread.md "thread")
+
+[基础](note/guide/base.md "基础理论")
+
+[数据库](note/guide/db.md "数据库理论")
+
+[Spring](note/guide/spring.md "spring理论")
+
+[分布式](note/guide/distributed.md "分布式")
+
+[框架](note/guide/framework.md "框架")
+
+[服务器](note/guide/server.md "服务器")
+
+[中间件](note/guide/middleware.md "中间件")
+
+[Spring Cloud](note/guide/springcloud.md "cloud")
+
+[大数据](note/guide/bigdata.md "大数据")
+
+[其他](note/guide/other.md "other")
+
+# 使用笔记
 
 [Spring](note/springboot-common.md "spring")
 
@@ -27,30 +49,6 @@
 [消息队列](note/mq.md "mq")
 
 [Nginx](note/first/nginx.md "nginx")
-
-# 概念相关
-
-[多线程](note/guide/thread.md "thread")
-
-[基础](note/guide/base.md "基础理论")
-
-[数据库](note/guide/db.md "数据库理论")
-
-[Spring](note/guide/spring.md "spring理论")
-
-[分布式](note/guide/distributed.md "分布式")
-
-[框架](note/guide/framework.md "框架")
-
-[服务器](note/guide/server.md "服务器")
-
-[中间件](note/guide/middleware.md "中间件")
-
-[Spring Cloud](note/guide/springcloud.md "cloud")
-
-[大数据](note/guide/bigdata.md "大数据")
-
-[其他](note/guide/other.md "other")
 
 # 网课笔记
 

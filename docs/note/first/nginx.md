@@ -1,6 +1,32 @@
-前提 centos7安装nginx
+# 安装与使用 
+
+centos7安装nginx
 
 yum版本安装的nginx目录为 /etc/nginx
+
+```
+yum install nginx
+systemctl start nginx
+```
+
+接下来可以通过80端口(默认监听)进行访问.
+
+查看默认页面位置
+
+```
+whereis nginx
+cd /usr/share/nginx            #在该目录下
+cd html/
+cat "hello world" > index.html  #修改页面内容
+```
+
+再访问80可看到页面内容发送变化
+
+## 配置
+
+/etc/nginx/nginx.conf
+
+可修改默认端口然后restart再访问
 
 # 反向代理
 
