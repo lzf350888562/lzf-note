@@ -901,3 +901,84 @@ C2的优化主要是在全局层面，逃逸分析是优化的基础。基于逃
 一般来说,JIT编译出来的机器码性能比解释器高 .
 
 而c2编译器启动时间比c1编译器慢, 系统稳定执行以后, c2编译器执行速度远远快于c1编译器,
+
+
+
+# String相关
+
+## 拼接
+
+1.如果拼接符号的前后出现了变量，则相当于在堆空间中new String()
+
+2.被final修饰的String在拼接时是作为常量来拼接的
+
+3.字符串拼接操作不一定使用的是StringBuilder!  如果拼接符号左右两边都是字符串常量或常量引用，则仍然使用编译期优化，即非StringBuilder的方式。
+
+4.通过StringBuilder的append()的方式添加字符串的效率要远高于使用String的字符串拼接方式！
+
+StringBuilder的append()的方式：自始至终中只创建过一个StringBuilder的对象 , 而使用String的字符串拼接方式：创建过多个StringBuilder和String的对象
+
+5.在实际开发中，如果基本确定要前前后后添加的字符串长度不高于某个限定值highLevel的情况下,建议通过构造函数设置：
+
+```
+StringBuilder s = new StringBuilder(highLevel);//new char[highLevel]
+```
+
+
+
+## new String()
+
+```
+ * new String("ab")会创建几个对象？看字节码，就知道是两个。
+ *     一个对象是：new关键字在堆空间创建的          new #2<java/lang/String>
+ *     另一个对象是：字符串常量池中的对象"ab"。 字节码指令：ldc #3 <ab>
+ *
+ *
+ * 思考：
+ * new String("a") + new String("b")呢？   6个
+ *  对象1：new StringBuilder()           new #2 <java/lang/StringBuilder>
+ *  对象2： new String("a")              new #4 <java/lang/String>
+ *  对象3： 常量池中的"a"                 ldc #5 <a>
+ *  对象4： new String("b")              new #4 <java/lang/String>
+ *  对象5： 常量池中的"b"                 ldc #8 <b>
+ *
+ *  深入剖析： StringBuilder的toString():
+ *  对象6 ：new String("ab")
+ *  强调一下，toString()的调用，在字符串常量池中，没有生成"ab"  因为toString的参数为变量
+```
+
+## Intern()
+
+jdk1.6中，将这个字符串对象尝试放入串池。如果串池中有，则并不会放入。返回已有的串池中的对象的地址; 如果没有，会把此对象复制一份，放入串池，并返回串池中的对象地址
+
+Jdk1.7起，将这个字符串对象尝试放入串池。如果串池中有，则并不会放入。返回已有的串池中的对象的地址; 如果没有，则会把对象的引用地址复制一份，放入串池，并返回串池中的引用地址.
+
+## G1的String去重
+
+许多大规模的Java应用的瓶颈在于内存，测试表明，在这些类型的应用里面，Java堆中存活的数据集合差不多25%是String对象。更进一步，这里面差不多一半String对象是重复的，重复的意思是说：stringl.equals(string2)=true。
+
+堆上存在重复的String对象必然是一种内存的浪费。这个项目将在G1垃圾收集器中实现自动持续对重复的String对象进行去重，这样就能避免浪费内存。
+
+> 注意: 常量池本身就是不重复的
+>
+> String str1 = new String("hello");
+>
+> String str2 = new String("hello");
+>
+> 针对该类去重
+
+**G1的String去重操作实现**
+
+- 当垃圾收集器工作的时候，会访问堆上存活的对象。对每一个访问的对象都会检查是否是候选的要去重的String对象。
+- 如果是，把这个对象的一个引用插入到队列中等待后续的处理。一个去重的线程在后台运行，处理这个队列。处理队列的一个元素意味着从队列删除这个元素，然后尝试去重它引用的String对象。
+- 使用一个hashtable来记录所有的被String对象使用的不重复的char数组。当去重的时候，会查这个hashtable，来看堆上是否已经存在一个一模一样的char数组。
+- 如果存在，String对象会被调整引用那个数组，释放对原来的数组的引用，最终会被垃圾收集器回收掉。
+
+> G1的去重默认是不开启的, 相关参数为:
+>
+> UseStringDeduplication(bool):开启String去重，默认是不开启的，需要手动开启。
+>
+> PrintStringDeduplicationstatistics (bool):打印详细的去重统计信息
+>
+> StringDeduplicationAgeThreshold (uintx):达到这个年龄的String对象被认为是去重的候选对象
+

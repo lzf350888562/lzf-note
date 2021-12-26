@@ -124,7 +124,7 @@ Exception in thread "main" java.lang.ClassFormatError:Incompatible magic value 1
 
 **符号引用与直接引用**
 
-![](.\jvm-img\middle\符号引用与直接引用.jpg)
+![](.\picture\符号引用与直接引用.jpg)
 
 **常量类型与结构**
 
@@ -146,7 +146,7 @@ Exception in thread "main" java.lang.ClassFormatError:Incompatible magic value 1
 
 多个访问标记 使用 | 组合
 
-![](.\jvm-img\middle\访问标识.png)
+![](.\picture\访问标识.png)
 
 ### 类索引、父类索引、接口索引
 
@@ -176,7 +176,7 @@ interfaces[interfaces_count] 每个u2  索引从0开始
 
 字段表中每个成员都必须时一个fields_info结构的数据项
 
-![](.\jvm-img\middle\字段表.png)
+![](.\picture\字段表.png)
 
 字段访问标识见 class字节码文件结构.md
 
@@ -206,7 +206,7 @@ methods：指向常量池索引的集合，它完整描述了每个方法的签�
 
 重载：与原方法具有相同的名称之外，必须拥有不同的方法中各个参数在常量池中的字段符号引用的集合，返回值不包含在特征签名之中。字节码文件允许在特征签名相同的情况下返回值不同，但java语法不允许。
 
-![](.\jvm-img\middle\方法表.png)
+![](.\picture\方法表.png)
 
 描述符：返回值和参数类型
 
@@ -303,7 +303,7 @@ javap -help  选项帮助
 
 <u>最全  javap -v -p xxxx.class</u>
 
-![](.\jvm-img\middle\javap总结.png)
+![](.\picture\javap总结.png)
 
 # javac -g
 
@@ -331,17 +331,17 @@ if(字节码存在操作数)从字节码流中取出操作数；
 
 ## 数据类型
 
-![](.\jvm-img\middle\字节码与数据类型.png)
+![](.\picture\字节码与数据类型.png)
 
-![](.\jvm-img\middle\字节码与数据类型2.png)
+![](.\picture\字节码与数据类型2.png)
 
 ## 指令分类
 
-![](.\jvm-img\middle\指令分类.png)
+![](.\picture\指令分类.png)
 
 ### 加载与存储指令
 
-![](.\jvm-img\middle\存储与加载指令.png)
+![](.\picture\存储与加载指令.png)
 
 iload_0和iload 0功能相同 将局部变量表索引0的数据压操作数栈
 
@@ -349,7 +349,7 @@ iload_0和iload 0功能相同 将局部变量表索引0的数据压操作数栈
 
 ### 常量入栈指令
 
-![](.\jvm-img\middle\常量入栈指令.png)
+![](.\picture\常量入栈指令.png)
 
 ldc_w能接受16位参数，能支持的索引范围大于ldc，用于long和double
 
@@ -371,23 +371,23 @@ int e = 32767;  //sipush 32767
 int f = 32768;  // ldc #7 <32768>
 ```
 
-![](.\jvm-img\middle\常量入栈指令详细.png)
+![](.\picture\常量入栈指令详细.png)
 
 ### 出栈装入局部变量表指令
 
-![](.\jvm-img\middle\出栈装入局部变量表指令.png)
+![](.\picture\出栈装入局部变量表指令.png)
 
 ### 算术指令
 
-![](.\jvm-img\middle\算术1.png)
+![](.\picture\算术1.png)
 
-![](.\jvm-img\middle\算术2.png)
+![](.\picture\算术2.png)
 
-![](.\jvm-img\middle\算术3.png)
+![](.\picture\算术3.png)
 
 自增直接在局部变量表里面操作 iinc 1 by 1
 
-![](.\jvm-img\middle\算术4.png)
+![](.\picture\算术4.png)
 
 比较指令详细在条件跳转指令讲     
 
@@ -395,89 +395,89 @@ int f = 32768;  // ldc #7 <32768>
 
 **宽化类型转换 自动**
 
-![](.\jvm-img\middle\宽化类型转换.png)
+![](.\picture\宽化类型转换.png)
 
-![](.\jvm-img\middle\宽化类型转换2.png)
+![](.\picture\宽化类型转换2.png)
 
 **窄化类型转换 强制**
 
-![](.\jvm-img\middle\窄化类型转换.png)
+![](.\picture\窄化类型转换.png)
 
 ```
 *  在多指令转换中  一般用i作中转站
 ```
 
-![](.\jvm-img\middle\窄化类型转换2.png)
+![](.\picture\窄化类型转换2.png)
 
 ### 对象的创建与访问指令
 
 **创建指令**
 
-![](.\jvm-img\middle\创建指令.png)
+![](.\picture\创建指令.png)
 
 **字段访问指令**
 
-![](.\jvm-img\middle\字段访问指令1.png)
+![](.\picture\字段访问指令1.png)
 
-![](.\jvm-img\middle\字段访问指令2.png)
+![](.\picture\字段访问指令2.png)
 
 **数组创建指令**
 
-![](.\jvm-img\middle\数组操作指令.png)
+![](.\picture\数组操作指令.png)
 
-![](.\jvm-img\middle\数组访问指令2.png)
+![](.\picture\数组访问指令2.png)
 
 **类型检查指令**
 
-![](.\jvm-img\middle\检查类型指令.png)
+![](.\picture\检查类型指令.png)
 
 ### 方法调用与返回指令
 
 **方法调用**
 
-![](.\jvm-img\middle\方法调用指令.png)
+![](.\picture\方法调用指令.png)
 
 **方法返回**
 
-![](.\jvm-img\middle\方法返回指令.png)
+![](.\picture\方法返回指令.png)
 
 ### 操作数栈管理指令
 
-![](.\jvm-img\middle\操作数栈管理指令1.png)
+![](.\picture\操作数栈管理指令1.png)
 
-![](.\jvm-img\middle\操作数栈管理指令2.png)
+![](.\picture\操作数栈管理指令2.png)
 
 ### 控制转移指令
 
 **比较指令（前）**
 
-![](.\jvm-img\middle\算术4.png)
+![](.\picture\算术4.png)
 
 **条件跳转指令**
 
-![](.\jvm-img\middle\条件跳转指令.png)
+![](.\picture\条件跳转指令.png)
 
 **比较条件跳转指令**
 
-![](.\jvm-img\middle\比较条件跳转指令.png)
+![](.\picture\比较条件跳转指令.png)
 
 **多条件分支跳转指令**
 
-![](.\jvm-img\middle\多条件分支跳转指令.png)
+![](.\picture\多条件分支跳转指令.png)
 
 **无条件跳转指令**
 
-![](.\jvm-img\middle\无条件跳转.png)
+![](.\picture\无条件跳转.png)
 
 ### 异常处理指令
 
 **抛出异常指令**
 
-![](.\jvm-img\middle\抛出异常.png)
+![](.\picture\抛出异常.png)
 
 **处理异常与异常表**
 
-![](.\jvm-img\middle\处理异常与异常表.png)
+![](.\picture\处理异常与异常表.png)
 
 ### 同步控制指令
 
@@ -485,41 +485,41 @@ monitor
 
 **方法级的同步**
 
-![](.\jvm-img\middle\方法级的同步1.png)
+![](.\picture\方法级的同步1.png)
 
-![](.\jvm-img\middle\方法级的同步2.png)
+![](.\picture\方法级的同步2.png)
 
 **方法内部一段指令序列的同步**
 
-![](.\jvm-img\middle\指令同步1.png)
+![](.\picture\指令同步1.png)
 
-![](.\jvm-img\middle\指令同步2.png)
+![](.\picture\指令同步2.png)
 
 # 类的加载过程详解
 
-![](.\jvm-img\middle\类的加载01.png)
+![](.\picture\类的加载01.png)
 
 ## Loading加载阶段
 
 ### 加载完成的操作
 
-![](.\jvm-img\middle\类的加载02.png)
+![](.\picture\类的加载02.png)
 
 ### 二进制流的获取方式
 
-![](.\jvm-img\middle\类的加载03.png)
+![](.\picture\类的加载03.png)
 
 ### 类模型与Class实例的位置
 
-![类的加载05](.\jvm-img\middle\类的加载05.png)
+![类的加载05](.\picture\类的加载05.png)
 
-<img src=".\jvm-img\middle\类的加载04.png" style="zoom: 67%;" />
+<img src=".\picture\类的加载04.png" style="zoom: 67%;" />
 
-![](.\jvm-img\middle\类的加载06.png)
+![](.\picture\类的加载06.png)
 
 ### 数组类的加载
 
-![](.\jvm-img\middle\类的加载07.png)
+![](.\picture\类的加载07.png)
 
 ## Linking链接阶段
 
@@ -531,37 +531,37 @@ monitor
 
 验证的步骤比较复杂，实际要验证的项目也很繁多，大体上虚拟机需要作以下检查，如图
 
-![](.\jvm-img\middle\类的加载08.png)
+![](.\picture\类的加载08.png)
 
-![类的加载09](.\jvm-img\middle\类的加载09.png)
+![类的加载09](.\picture\类的加载09.png)
 
-![](.\jvm-img\middle\类的加载10.png)
+![](.\picture\类的加载10.png)
 
 ### Preparation准备
 
-![](.\jvm-img\middle\类的加载11.png)
+![](.\picture\类的加载11.png)
 
-![](.\jvm-img\middle\类的加载12.png)
+![](.\picture\类的加载12.png)
 
 ### Resolution解析
 
-![](.\jvm-img\middle\类的加载13.png)
+![](.\picture\类的加载13.png)
 
-![](.\jvm-img\middle\类的加载14.png)
+![](.\picture\类的加载14.png)
 
-![类的加载15](.\jvm-img\middle\类的加载15.png)
+![类的加载15](.\picture\类的加载15.png)
 
 ## Initialization初始化阶段
 
-![](.\jvm-img\middle\类的加载16.png)
+![](.\picture\类的加载16.png)
 
 由父及子，静态先行
 
-![](.\jvm-img\middle\类的加载17.png)
+![](.\picture\类的加载17.png)
 
 什么情况下不生成clinit方法
 
-![](.\jvm-img\middle\类的加载18.png)
+![](.\picture\类的加载18.png)
 
 ### static与final的搭配问题
 
@@ -583,17 +583,17 @@ monitor
 
 ### < clinit>()的线程安全性
 
-![](.\jvm-img\middle\类的加载19.png)
+![](.\picture\类的加载19.png)
 
 ### 类的初始化情况：主动使用与被动使用
 
 如果针对代码，设置参数-XX:+TraceClassLoading，可以追踪类的加载信息并打印出来
 
-![](.\jvm-img\middle\类的加载20.png)
+![](.\picture\类的加载20.png)
 
-![](.\jvm-img\middle\类的加载21.png)
+![](.\picture\类的加载21.png)
 
-![](.\jvm-img\middle\类的加载22.png)
+![](.\picture\类的加载22.png)
 
 ## 类的Using使用
 
@@ -603,49 +603,49 @@ monitor
 
 ## 类的Unloading卸载
 
-![](.\jvm-img\middle\类的加载23.png)
+![](.\picture\类的加载23.png)
 
-![](.\jvm-img\middle\类的加载24.png)
+![](.\picture\类的加载24.png)
 
-![](.\jvm-img\middle\类的加载25.png)
+![](.\picture\类的加载25.png)
 
-![](.\jvm-img\middle\类的加载26.png)
+![](.\picture\类的加载26.png)
 
-![](.\jvm-img\middle\类的加载27.png)
+![](.\picture\类的加载27.png)
 
 # 再谈类的加载器
 
-![](.\jvm-img\middle\001.png)
+![](.\picture\001.png)
 
 ## 类加载的分类
 
-![](.\jvm-img\middle\002.png)
+![](.\picture\002.png)
 
 ## 类加载的必要性
 
-![](.\jvm-img\middle\003.png)
+![](.\picture\003.png)
 
 ## 命名空间
 
-![](.\jvm-img\middle\004.png)
+![](.\picture\004.png)
 
 ## 类加载机制的基本特征
 
-![](.\jvm-img\middle\005.png)
+![](.\picture\005.png)
 
 ## 分类
 
-![](.\jvm-img\middle\06.png)
+![](.\picture\06.png)
 
 非继承 而是包含关系
 
 见上篇
 
-![](.\jvm-img\middle\07.png)
+![](.\picture\07.png)
 
 ## 测试不同类加载器
 
-![](.\jvm-img\middle\08.png)
+![](.\picture\08.png)
 
 ```
 //关于数组类型的加载:使用的类的加载器与数组元素的类的加载器相同
@@ -655,17 +655,17 @@ monitor
 
 ## ClassLoader源码解析
 
-![](.\jvm-img\middle\09.png)
+![](.\picture\09.png)
 
-![](.\jvm-img\middle\10.png)
+![](.\picture\10.png)
 
-![](.\jvm-img\middle\12.png)
+![](.\picture\12.png)
 
-![](.\jvm-img\middle\13.png)
+![](.\picture\13.png)
 
 ### loadClass()测试
 
-![](.\jvm-img\middle\11.png)
+![](.\picture\11.png)
 
 ```
 //name="com.atguig.java.User" resolve=true-加载class的同时进行解析操作 这里为false
@@ -715,19 +715,19 @@ protected Class<?> loadClass(String name, boolean resolve)
 
 ### SecureClassLoader与URLClassLoader
 
-![](.\jvm-img\middle\15.png)
+![](.\picture\15.png)
 
-![](.\jvm-img\middle\16.png)
+![](.\picture\16.png)
 
 ### ExtClassLoader与AppClassLoader
 
-![](.\jvm-img\middle\17.png)
+![](.\picture\17.png)
 
-![18](.\jvm-img\middle\18.png)
+![18](.\picture\18.png)
 
 ### Class.forName()与ClassLoader.loadClass()
 
-![](.\jvm-img\middle\19.png)
+![](.\picture\19.png)
 
 Class.forName为主动使用 ，会调用<clinit>
 
@@ -737,63 +737,63 @@ ClassLoader.loadClass为被动使用 ，不会调用<clinit>
 
 ### 定义与本质
 
-![](.\jvm-img\middle\20.png)
+![](.\picture\20.png)
 
 ### 优势与劣势
 
-![](.\jvm-img\middle\21.png)
+![](.\picture\21.png)
 
-![](.\jvm-img\middle\22.png)
+![](.\picture\22.png)
 
-![](.\jvm-img\middle\23.png)
+![](.\picture\23.png)
 
 ### 破坏双亲委派机制
 
 **一  jdk1.2以前**
 
-![](.\jvm-img\middle\24.png)
+![](.\picture\24.png)
 
 **二 线程上下文类加载器**
 
-![](.\jvm-img\middle\25.png)
+![](.\picture\25.png)
 
-![](.\jvm-img\middle\26.png)
+![](.\picture\26.png)
 
-![](.\jvm-img\middle\27.png)
+![](.\picture\27.png)
 
 **三 用户追求**
 
-![](.\jvm-img\middle\28.png)
+![](.\picture\28.png)
 
-![](.\jvm-img\middle\29.png)
+![](.\picture\29.png)
 
 ### 热替换的实现
 
-![](.\jvm-img\middle\30.png)
+![](.\picture\30.png)
 
-![31](.\jvm-img\middle\31.png)
+![31](.\picture\31.png)
 
 ## 沙箱安全机制
 
-![](.\jvm-img\middle\32.png)
+![](.\picture\32.png)
 
 **jdk1.0**
 
-![](.\jvm-img\middle\34.png)
+![](.\picture\34.png)
 
 **jdk1.1**
 
-![](.\jvm-img\middle\35.png)
+![](.\picture\35.png)
 
 **jdk1.2**
 
-![](.\jvm-img\middle\37.png)
+![](.\picture\37.png)
 
-![](.\jvm-img\middle\36.png)
+![](.\picture\36.png)
 
 **jdk1.6**
 
-![](.\jvm-img\middle\33.png)
+![](.\picture\33.png)
 
 ## 自定义类加载器
 
@@ -801,7 +801,7 @@ ClassLoader.loadClass为被动使用 ，不会调用<clinit>
 
 **实现方式**
 
-![](.\jvm-img\middle\14.png)
+![](.\picture\14.png)
 
 说明：
 
@@ -811,15 +811,15 @@ ClassLoader.loadClass为被动使用 ，不会调用<clinit>
 
 ## java9新特性
 
-![](.\jvm-img\middle\39.png)
+![](.\picture\39.png)
 
-![](.\jvm-img\middle\40.png)
+![](.\picture\40.png)
 
-![](.\jvm-img\middle\41.png)
+![](.\picture\41.png)
 
-![](.\jvm-img\middle\42.png)
+![](.\picture\42.png)
 
-![](.\jvm-img\middle\43.png)
+![](.\picture\43.png)
 
 java9之前的classloader：
 

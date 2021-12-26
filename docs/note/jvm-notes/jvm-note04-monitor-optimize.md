@@ -62,7 +62,7 @@
 
 **1发现问题：性能监控**
 
-![](.\jvm-img\end\001.png)
+![](.\picture\m-001.png)
 
 1.GC频繁
 
@@ -78,7 +78,7 @@
 
 **2排查问题：性能分析**
 
-![](.\jvm-img\end\002.png)
+![](.\picture\m-002.png)
 
 1.打印GC日志，通过GCviewer或者GCeasy来分析日志信息
 
@@ -106,11 +106,11 @@
 
 ## 性能评价/测试指标
 
-![](.\jvm-img\end\003.png)
+![](.\picture\m-003.png)
 
 停顿时间/响应时间
 
-![](.\jvm-img\end\004.png)
+![](.\picture\m-004.png)
 
 吞吐量
 
@@ -134,9 +134,9 @@
 
 ### 简单命令行工具
 
-![](.\jvm-img\end\005.png)
+![](.\picture\m-005.png)
 
-![](.\jvm-img\end\006.png)
+![](.\picture\m-006.png)
 
 ## jps查看正在运行的java进程
 
@@ -150,13 +150,13 @@ java process status
 
 jps [options] [hostid]
 
-![](.\jvm-img\end\007.png)
+![](.\picture\m-007.png)
 
-![](.\jvm-img\end\008.png)
+![](.\picture\m-008.png)
 
 ## jstat查看jvm统计信息
 
-![](.\jvm-img\end\009.png)
+![](.\picture\m-009.png)
 
 ### 基本语法
 
@@ -166,9 +166,9 @@ jstat -<option> [-t] [-h<lines>] <vmid> [<interval> [<count]]
 
 jstat -gc pid
 
-![](.\jvm-img\end\010.png)
+![](.\picture\m-010.png)
 
-![](.\jvm-img\end\011.png)
+![](.\picture\m-011.png)
 
 **interval参数**
 
@@ -200,15 +200,15 @@ jstat -class pid 1000 10
 
 ### 补充
 
-![](.\jvm-img\end\012.png)
+![](.\picture\m-012.png)
 
 ## jinfo实时查看和修改jvm配置参数
 
-![](.\jvm-img\end\013.png)
+![](.\picture\m-013.png)
 
 ### 基本语法
 
-![](.\jvm-img\end\014.png)
+![](.\picture\m-014.png)
 
 ### 查看行为
 
@@ -224,7 +224,7 @@ jinfo -flags 具体参数 pid 查看具体参数
 
 ### 修改行为
 
-![](.\jvm-img\end\015.png)
+![](.\picture\m-015.png)
 
 boolean类型：
 
@@ -250,23 +250,23 @@ java -XX:+PrintCommandLineFlags
 
 ## jmap到处内存映像文件&内存使用情况
 
-![](.\jvm-img\end\016.png)
+![](.\picture\m-016.png)
 
 ### 基本语法
 
-![](.\jvm-img\end\022.png)
+![](.\picture\m-022.png)
 
-![](.\jvm-img\end\023.png)
+![](.\picture\m-023.png)
 
 ### 使用1导出内存印象文件
 
-![](.\jvm-img\end\024.png)
+![](.\picture\m-024.png)
 
-![025](.\jvm-img\end\025.png)
+![025](.\picture\m-025.png)
 
 **手动方式**
 
-![](.\jvm-img\end\026.png)
+![](.\picture\m-026.png)
 
 
 
@@ -274,9 +274,9 @@ java -XX:+PrintCommandLineFlags
 
 OOM时
 
-![](.\jvm-img\end\028.png)
+![](.\picture\m-028.png)
 
-![](.\jvm-img\end\027.png)
+![](.\picture\m-027.png)
 
 ### 使用2显示堆内存信息
 
@@ -296,31 +296,31 @@ jmap -finalizerinfo
 
 ### 小结
 
-![](.\jvm-img\end\029.png)
+![](.\picture\m-029.png)
 
 ## jhatJDK自带堆分析工具
 
-![](.\jvm-img\end\30.png)
+![](.\picture\m-30.png)
 
 ### 基本语法
 
 jhat [option] [dumfile]
 
-![](.\jvm-img\end\31.png)
+![](.\picture\m-31.png)
 
 ## jstack打印JVM线程快照
 
-![](.\jvm-img\end\032.png)
+![](.\picture\m-032.png)
 
-<img src=".\jvm-img\end\033.png"  />
+<img src=".\picture\m-033.png"  />
 
 ### 基本语法
 
-![](.\jvm-img\end\034.png)
+![](.\picture\m-034.png)
 
 ## jcmd多功能命令行
 
-![](.\jvm-img\end\035.png)
+![](.\picture\m-035.png)
 
 jcmd -l 列出所有的jvm进程 相当于jps -m
 
@@ -369,59 +369,59 @@ help
 
 ## jstatd远程主机信息收集
 
-![](.\jvm-img\end\036.png)
+![](.\picture\m-036.png)
 
 GUI工具
 
-![](.\jvm-img\end\038.png)
+![](.\picture\m-038.png)
 
-![037](.\jvm-img\end\037.png)
+![037](.\picture\m-037.png)
 
-![](.\jvm-img\end\039.png)
+![](.\picture\m-039.png)
 
 ## jconsole
 
-![](.\jvm-img\end\040.png)
+![](.\picture\m-040.png)
 
-![](.\jvm-img\end\041 .png)
+![](.\picture\m-041 .png)
 
 ## visualvm
 
-![](.\jvm-img\end\042.png)
+![](.\picture\m-042.png)
 
 jdk9 visualvm不再内置 需要下载 字体很小
 
-![](.\jvm-img\end\043.png)
+![](.\picture\m-043.png)
 
-![](.\jvm-img\end\044.png)
+![](.\picture\m-044.png)
 
 然后在idea配置插件 选择visualvm的位置
 
 ### 远程连接
 
-![](.\jvm-img\end\045.png)
+![](.\picture\m-045.png)
 
 ### 主要功能
 
-![](.\jvm-img\end\047.png)
+![](.\picture\m-047.png)
 
 ## eclipse MAT
 
-![](.\jvm-img\end\048.png)
+![](.\picture\m-048.png)
 
-![](.\jvm-img\end\049.png)
+![](.\picture\m-049.png)
 
 ### dump文件
 
-![](.\jvm-img\end\050.png)
+![](.\picture\m-050.png)
 
 ### 说明
 
-![](.\jvm-img\end\051.png)
+![](.\picture\m-051.png)
 
 ### 获取dump文件
 
-![](.\jvm-img\end\052.png)
+![](.\picture\m-052.png)
 
 ### 分析dump文件
 
@@ -443,73 +443,73 @@ with incoming references
 
 **深堆与浅堆**
 
-![](.\jvm-img\end\053.png)
+![](.\picture\m-053.png)
 
-![](.\jvm-img\end\054.png)
+![](.\picture\m-054.png)
 
 **对象的实际大小**
 
-![](.\jvm-img\end\055.png)
+![](.\picture\m-055.png)
 
 案例
 
 StudentTrace
 
-![](.\jvm-img\end\056.png)
+![](.\picture\m-056.png)
 
 **支配树**
 
-![](.\jvm-img\end\057.png)
+![](.\picture\m-057.png)
 
-![](.\jvm-img\end\059.png)
+![](.\picture\m-059.png)
 
 ## 再谈内存泄漏
 
 ### 理解与分类
 
-![](.\jvm-img\end\060.png)
+![](.\picture\m-060.png)
 
-![](.\jvm-img\end\061.png)
+![](.\picture\m-061.png)
 
-![062](.\jvm-img\end\062.png)
+![062](.\picture\m-062.png)
 
-![](.\jvm-img\end\063.png)
+![](.\picture\m-063.png)
 
-![](.\jvm-img\end\064.png)
+![](.\picture\m-064.png)
 
 ### java中的内存泄漏8种情况
 
 静态集合类
 
-![](.\jvm-img\end\065.png)
+![](.\picture\m-065.png)
 
 单例模式
 
-![](.\jvm-img\end\066.png)
+![](.\picture\m-066.png)
 
 内部类持有外部类
 
-![](.\jvm-img\end\067.png)
+![](.\picture\m-067.png)
 
 各种连接
 
-![](.\jvm-img\end\068.png)
+![](.\picture\m-068.png)
 
 变量不合理的作用域
 
-![](.\jvm-img\end\069.png)
+![](.\picture\m-069.png)
 
 改变哈希值
 
-![](.\jvm-img\end\070.png)
+![](.\picture\m-070.png)
 
 缓存泄漏
 
-![](.\jvm-img\end\071.png)
+![](.\picture\m-071.png)
 
 监听器和回调
 
-![](.\jvm-img\end\072.png)
+![](.\picture\m-072.png)
 
 ### 案例
 
@@ -517,15 +517,15 @@ StudentTrace
 
 2.安卓开发：在退出后因为线程没有关闭所以key内存泄漏了
 
-![](.\jvm-img\end\073.png)
+![](.\picture\m-073.png)
 
-![](.\jvm-img\end\075.png)
+![](.\picture\m-075.png)
 
-![074](.\jvm-img\end\074.png)
+![074](.\picture\m-074.png)
 
 解决办法
 
-![](.\jvm-img\end\076.png)
+![](.\picture\m-076.png)
 
 ## 支持使用OQL语言查询对象信息
 
@@ -533,37 +533,37 @@ MAT支持一种类似于SQL的查询语言OQL(Object Query Language)。OQL使用
 
 ### SELECT
 
-![](.\jvm-img\end\077.png)
+![](.\picture\m-077.png)
 
 ### FROM
 
-![](.\jvm-img\end\078.png)
+![](.\picture\m-078.png)
 
 ### WHERE
 
-![](.\jvm-img\end\079.png)
+![](.\picture\m-079.png)
 
 ### 内置对象与方法
 
-![](.\jvm-img\end\080.png)
+![](.\picture\m-080.png)
 
 更详细的需要自行学习
 
 ## jprofiler
 
-![](.\jvm-img\end\081.png)
+![](.\picture\m-081.png)
 
-![](.\jvm-img\end\082.png)
+![](.\picture\m-082.png)
 
 **主要功能**
 
-![](.\jvm-img\end\083.png)
+![](.\picture\m-083.png)
 
 ### 安装
 
 在jprofiler中配置idea
 
-![](.\jvm-img\end\084.png)
+![](.\picture\m-084.png)
 
 在idea中继承jprofiler
 
@@ -577,17 +577,17 @@ MAT支持一种类似于SQL的查询语言OQL(Object Query Language)。OQL使用
 
 **Sampling抽样模式**
 
-![](.\jvm-img\end\086.png)
+![](.\picture\m-086.png)
 
-![085](.\jvm-img\end\085.png)
+![085](.\picture\m-085.png)
 
-![](.\jvm-img\end\087.png)
+![](.\picture\m-087.png)
 
 **遥感监测Telemetries**
 
 **内存视图Live  Memory**
 
-![](.\jvm-img\end\088.png)
+![](.\picture\m-088.png)
 
 **堆遍历Heap Walker**
 
@@ -595,35 +595,35 @@ MAT支持一种类似于SQL的查询语言OQL(Object Query Language)。OQL使用
 
 **线程视图 threads**
 
-![](.\jvm-img\end\089.png)
+![](.\picture\m-089.png)
 
 **监视器&锁Monitors&locks**
 
-![](.\jvm-img\end\090.png)
+![](.\picture\m-090.png)
 
 ## Arthas
 
 visualvm与jprofiler
 
-![](.\jvm-img\end\091.png)
+![](.\picture\m-091.png)
 
-![](.\jvm-img\end\092.png)
+![](.\picture\m-092.png)
 
-![](.\jvm-img\end\093.png)
+![](.\picture\m-093.png)
 
 ### 下载安装与使用
 
-![](.\jvm-img\end\095.png)
+![](.\picture\m-095.png)
 
-![094](.\jvm-img\end\094.png)
+![094](.\picture\m-094.png)
 
 工程目录
 
-![](.\jvm-img\end\096.png)
+![](.\picture\m-096.png)
 
 启动
 
-![](.\jvm-img\end\097.png)
+![](.\picture\m-097.png)
 
 查看日志
 
@@ -635,11 +635,11 @@ java -jar arthas -boot.jar -h
 
 web console
 
-![](.\jvm-img\end\098.png)
+![](.\picture\m-098.png)
 
 退出
 
-![](.\jvm-img\end\099.png)
+![](.\picture\m-099.png)
 
 ### 指令
 
@@ -647,11 +647,11 @@ web console
 
 **基础指令**
 
-![](.\jvm-img\end\100.png)
+![](.\picture\m-100.png)
 
 **jvm相关**
 
-![](.\jvm-img\end\101.png)
+![](.\picture\m-101.png)
 
 dashboard：
 
@@ -673,107 +673,107 @@ id 查看指定线程
 
 **class/classloader相关**
 
-![](.\jvm-img\end\102.png)
+![](.\picture\m-102.png)
 
 sc
 
-![](.\jvm-img\end\103.png)
+![](.\picture\m-103.png)
 
 sm
 
-![](.\jvm-img\end\104.png)
+![](.\picture\m-104.png)
 
 jad
 
-![](.\jvm-img\end\105.png)
+![](.\picture\m-105.png)
 
 也可以仅编译方法
 
 mc、redefine
 
-![](.\jvm-img\end\106.png)
+![](.\picture\m-106.png)
 
 classloader
 
-![](.\jvm-img\end\107.png)
+![](.\picture\m-107.png)
 
 monitor/watch/trace相关
 
 monitor
 
-![](.\jvm-img\end\108.png)
+![](.\picture\m-108.png)
 
 trace
 
-![](.\jvm-img\end\111.png)
+![](.\picture\m-111.png)
 
 watch
 
-![](.\jvm-img\end\109.png)
+![](.\picture\m-109.png)
 
-![110](.\jvm-img\end\110.png)
+![110](.\picture\m-110.png)
 
 stack
 
-![](.\jvm-img\end\112.png)
+![](.\picture\m-112.png)
 
 tt
 
-![](.\jvm-img\end\113.png)
+![](.\picture\m-113.png)
 
 **其他**
 
-![](.\jvm-img\end\114.png)
+![](.\picture\m-114.png)
 
 ## java mission control
 
-![](.\jvm-img\end\115.png)
+![](.\picture\m-115.png)
 
-![116](.\jvm-img\end\116.png)
+![116](.\picture\m-116.png)
 
-![117](.\jvm-img\end\117.png)
+![117](.\picture\m-117.png)
 
-![](.\jvm-img\end\118.png)
+![](.\picture\m-118.png)
 
 ### java Flight Recorder
 
-![](.\jvm-img\end\121.png)
+![](.\picture\m-121.png)
 
 事件类型
 
-![](.\jvm-img\end\119.png)
+![](.\picture\m-119.png)
 
 启动方式
 
-![](.\jvm-img\end\122.png)
+![](.\picture\m-122.png)
 
-![123](.\jvm-img\end\123.png)
+![123](.\picture\m-123.png)
 
-![124](.\jvm-img\end\124.png)
+![124](.\picture\m-124.png)
 
 取样分析
 
-![](.\jvm-img\end\120.png)
+![](.\picture\m-120.png)
 
-![](.\jvm-img\end\126.png)
+![](.\picture\m-126.png)
 
-![125](.\jvm-img\end\125.png)
+![125](.\picture\m-125.png)
 
 ## 其他工具
 
 Flame Graphs火焰图
 
-![](.\jvm-img\end\127.png)
+![](.\picture\m-127.png)
 
 Tprofiler
 
-![](.\jvm-img\end\128.png)
+![](.\picture\m-128.png)
 
 下载：https://github.com/alibaba/TProfiler
 
 Btrace
 
-![](.\jvm-img\end\129.png)
+![](.\picture\m-129.png)
 
 # jvm运行时参数
 
@@ -791,7 +791,7 @@ Btrace
 
 运行java -X可以看到所有X选项
 
-![](.\jvm-img\end\130.png)
+![](.\picture\m-130.png)
 
 -XX参数选项：
 
@@ -809,21 +809,21 @@ number表示数值，可以带参数 不区分大小写
 
 非数值型格式-XX:<name>=<string>
 
-![](.\jvm-img\end\131.png)
+![](.\picture\m-131.png)
 
 ## 添加jvm参数选项
 
-![](.\jvm-img\end\131.png)
+![](.\picture\m-131.png)
 
-![](.\jvm-img\end\132.png)
+![](.\picture\m-132.png)
 
-![133](.\jvm-img\end\133.png)
+![133](.\picture\m-133.png)
 
 ## 常用jvm参数选项
 
 ### 打印设置的XX选项和值
 
-![](.\jvm-img\end\134.png)
+![](.\picture\m-134.png)
 
 ### 堆、栈、方法区内存相关选项
 
@@ -837,114 +837,114 @@ number表示数值，可以带参数 不区分大小写
 
 栈
 
-![](.\jvm-img\end\135.png)
+![](.\picture\m-135.png)
 
 堆
 
-![136](.\jvm-img\end\136.png)
+![136](.\picture\m-136.png)
 
-![137](.\jvm-img\end\137.png)
+![137](.\picture\m-137.png)
 
 方法区
 
-![](.\jvm-img\end\138.png)
+![](.\picture\m-138.png)
 
 直接内存
 
-![](.\jvm-img\end\139.png)
+![](.\picture\m-139.png)
 
 ### OOM相关选项
 
-![](.\jvm-img\end\139.png)
+![](.\picture\m-139.png)
 
 ### 垃圾回收器相关
 
 查看默认垃圾回收器
 
-![](.\jvm-img\end\140.png)
+![](.\picture\m-140.png)
 
 各种垃圾收集器具体
 
-![](.\jvm-img\end\141.png)
+![](.\picture\m-141.png)
 
-![142](.\jvm-img\end\142.png)
+![142](.\picture\m-142.png)
 
 Parallel回收器
 
-![143](.\jvm-img\end\143.png)
+![143](.\picture\m-143.png)
 
-![](.\jvm-img\end\144.png)
+![](.\picture\m-144.png)
 
 cms
 
-![145](.\jvm-img\end\145.png)
+![145](.\picture\m-145.png)
 
-![146](.\jvm-img\end\146.png)
+![146](.\picture\m-146.png)
 
-![](.\jvm-img\end\147.png)
+![](.\picture\m-147.png)
 
 g1
 
-![](.\jvm-img\end\148.png)
+![](.\picture\m-148.png)
 
-![149](.\jvm-img\end\149.png)
+![149](.\picture\m-149.png)
 
-![](.\jvm-img\end\150.png)
+![](.\picture\m-150.png)
 
 ### GC日志相关选项
 
 常用参数
 
-![](.\jvm-img\end\151.png)
+![](.\picture\m-151.png)
 
 其他参数
 
-![](.\jvm-img\end\152.png)
+![](.\picture\m-152.png)
 
 ### 其他参数
 
-![](.\jvm-img\end\153.png)
+![](.\picture\m-153.png)
 
 ## 通过java代码获取jvm参数
 
-![](.\jvm-img\end\154.png)
+![](.\picture\m-154.png)
 
-![155](.\jvm-img\end\155.png)
+![155](.\picture\m-155.png)
 
-![156](.\jvm-img\end\156.png)
+![156](.\picture\m-156.png)
 
 # 分析GC日志
 
-![](.\jvm-img\end\157.png)
+![](.\picture\m-157.png)
 
-![](.\jvm-img\end\158.png)
+![](.\picture\m-158.png)
 
 ## GC日志分类
 
 ### MinorGC
 
-![](.\jvm-img\end\159.png)
+![](.\picture\m-159.png)
 
 ### FullGC
 
-![160](.\jvm-img\end\160.png)
+![160](.\picture\m-160.png)
 
 ## GC日志结构剖析
 
 ### 垃圾回收器
 
-![](.\jvm-img\end\161.png)
+![](.\picture\m-161.png)
 
 ### GC前后情况
 
-![162](.\jvm-img\end\162.png)
+![162](.\picture\m-162.png)
 
 ### GC时间
 
-![163](.\jvm-img\end\163.png)
+![163](.\picture\m-163.png)
 
 ## GC日志分析工具
 
-![](.\jvm-img\end\163.png)
+![](.\picture\m-163.png)
 
-![](.\jvm-img\end\164.png)
+![](.\picture\m-164.png)
