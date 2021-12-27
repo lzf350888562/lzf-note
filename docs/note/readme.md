@@ -14,8 +14,6 @@
 
 [各类API资料]([OverAPI.com | Collecting all the cheat sheets](https://overapi.com/))
 
-[面试](https://hub.fastgit.org/CyC2018/CS-Notes)
-
 [徐亮技术文档Nginx linux docker](https://www.xuliangwei.com/)
 
 [深入浅出Java多线程 ](http://concurrent.redspider.group/RedSpider.html) √
@@ -28,7 +26,7 @@
 
 [spring源码讲解](https://hub.fastgit.org/seaswalker/spring-analysis)
 
-[es在线权威指南2.0版本](https://www.elastic.co/guide/cn/elasticsearch/guide/current/index.html)
+[docker从入门到实践](https://vuepress.mirror.docker-practice.com/)
 
 # Dev
 
@@ -48,15 +46,25 @@ vscode: appworks pack,
 
 前端美工软件 AXURE
 
+JPom 简单低侵入的在线构建,自动构建,日常运维,项目监控的功能
+
 [密钥对生成](http://web.chacuo.net/netrsakeypair)
 
 ## java
 
-[mvn仓库]( https://mvnrepository.com/)
+[jvm文档jdk8](https://docs.oracle.com/javase/specs/jvms/se8/html/) 
 
-### 其他
+[jvm参数
 
-[Cron 生成]( https://www.pppet.net/)
+**GC**
+
+GCViewer
+
+Arthas
+
+GCEasy[](https://docs.oracle.com/javase/8/docs/technotes/tools/unix/java.html)
+
+**其他**
 
 Zipkin服务 追踪监控：监控服务调用链路健康情况。(微服务)  配合spring cloud sleuth使用
 
@@ -74,17 +82,17 @@ Promotheus: 开源sql监控系统
 
 [命令搜索]( https://wangchujiang.com/linux-command/)
 
-## IDEA相关
+## IDEA
 
 [IDEA配置](https://segmentfault.com/a/1190000024484460?utm_source=tag-newest)
 
-IDEA虚拟映射技术，在copy configuration  的vm options输入 -DServer.port=映射的端口，但是这样其实还是只有一个微服务 映射端口的请求最终还是会被原来的端口处理。
+**虚拟映射技术**，在copy configuration  的vm options输入 -DServer.port=映射的端口，但是这样其实还是只有一个微服务 映射端口的请求最终还是会被原来的端口处理。
 
-## 前端技术
+## 前端
 
 [vite构建工具](https://vitejs.cn/)
 
-### UI组件库
+**UI组件库**
 
 [UI资料导航](https://uidashen.com/)
 
@@ -116,19 +124,13 @@ Semi Design 字节抖音开源
 
 TDesgin 腾讯开源
 
-## Spring相关
-
-[Spring中文文档](https://www.springcloud.cc/)
-
-[Spring cloud alibaba](https://hub.fastgit.org/alibaba/spring-cloud-alibaba/wiki) 
-
 ## 数据库
 
 版本控制 Flyway
 
-[Redis文档](http://redisdoc.com/)
 
-## 分库分表
+
+**分库分表**
 
 ShardingSphere  
 
@@ -136,29 +138,13 @@ MyCat
 
 [mybatis-mate](https://gitee.com/baomidou/mybatis-mate-examples)  mp企业级模块
 
-## JVM
 
-[jvm文档jdk8](https://docs.oracle.com/javase/specs/jvms/se8/html/) 
-
-[jvm参数](https://docs.oracle.com/javase/8/docs/technotes/tools/unix/java.html)
-
-### GC
-
-GCViewer
-
-Arthas
-
-GCEasy
-
-## Docker
-
-[lib](https://hub.docker.com/) 
-
-[从入门到实践](https://vuepress.mirror.docker-practice.com/)
 
 ## 大数据
 
-数据处理ETL Kettle
+数据处理ETL
+
+​	 Kettle
 
 # Resource
 
@@ -233,6 +219,12 @@ StarUML: 开源简洁的UML图编辑软件
 ## Other
 
 [wechaty](http://wechaty.js.org/) 微信聊天机器人  (+ 微信对话开放平台 实现自动恢复)
+
+
+
+**面试**
+
+https://hub.fastgit.org/tomsun28/pdf
 
 # Demo
 
@@ -361,6 +353,12 @@ https://gitee.com/beijing_hongye_huicheng/lilishop
 [RPC框架](https://hub.fastgit.org/Snailclimb/guide-rpc-framework)
 
 [监控平台](https://gitee.com/monitoring-platform/phoenix)
+
+[单点登录系统](https://gitee.com/dromara/MaxKey)
+
+[Surenss](https://usthe.com/sureness)
+
+
 
 ## JS
 

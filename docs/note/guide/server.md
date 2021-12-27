@@ -151,6 +151,8 @@ nginx
 docker cp 5eff66eec7e1:/etc/nginx/nginx.conf  /data/conf/nginx.conf
 #把外面的内容复制到容器里面
 docker cp  /data/conf/nginx.conf  5eff66eec7e1:/etc/nginx/nginx.conf
+
+do
 ```
 
 指定启动命令,以redis为例, 比如要设置持久化和redis密码(追加appdendonly yes 和 requirepass 350562即可)
@@ -525,6 +527,604 @@ kubelet 接收一组通过各类机制提供给它的 PodSpecs，确保这些 Po
 kube-proxy 维护节点上的网络规则。这些网络规则允许从集群内部或外部的网络会话与 Pod 进行网络通信。
 
 如果操作系统提供了数据包过滤层并可用的话，kube-proxy 会通过它来实现网络规则。否则， kube-proxy 仅转发流量本身。
+
+### Kubeadm创建集群
+
+> 前置要求:  所有机器能相互通信, 不同主机名
+
+> k8s要求为了保证 kubelet 正常工作，必须禁用交换分区, 即free -m 中swap需要都为0
+
+1.**基础环境**
+
+```
+# 将 SELinux 设置为 permissive 模式（相当于将其禁用）
+sudo setenforce 0
+sudo sed -i 's/^SELINUX=enforcing$/SELINUX=permissive/' /etc/selinux/config
+
+#关闭swap
+swapoff -a  
+sed -ri 's/.*swap.*/#&/' /etc/fstab
+
+#允许 iptables 检查桥接流量
+cat <<EOF | sudo tee /etc/modules-load.d/k8s.conf
+br_netfilter
+EOF
+
+cat <<EOF | sudo tee /etc/sysctl.d/k8s.conf
+net.bridge.bridge-nf-call-ip6tables = 1
+net.bridge.bridge-nf-call-iptables = 1
+EOF
+
+sudo sysctl --system
+```
+
+2.**安装kubelet、kubeadm、kubectl三大件**
+
+```
+cat <<EOF | sudo tee /etc/yum.repos.d/kubernetes.repo
+[kubernetes]
+name=Kubernetes
+baseurl=http://mirrors.aliyun.com/kubernetes/yum/repos/kubernetes-el7-x86_64
+enabled=1
+gpgcheck=0
+repo_gpgcheck=0
+gpgkey=http://mirrors.aliyun.com/kubernetes/yum/doc/yum-key.gpg
+   http://mirrors.aliyun.com/kubernetes/yum/doc/rpm-package-key.gpg
+exclude=kubelet kubeadm kubectl
+EOF
+
+
+sudo yum install -y kubelet-1.20.9 kubeadm-1.20.9 kubectl-1.20.9 --disableexcludes=kubernetes
+
+sudo systemctl enable --now kubelet
+```
+
+> kubelet 现在每隔几秒就会重启，因为它陷入了一个等待 kubeadm 指令的死循环
+>
+> 可通过systemctl status kubelet验证
+
+3.**使用kubeadm引导集群**
+
+下载各个机器需要的镜像
+
+```
+sudo tee ./images.sh <<-'EOF'
+#!/bin/bash
+images=(
+kube-apiserver:v1.20.9
+kube-proxy:v1.20.9
+kube-controller-manager:v1.20.9
+kube-scheduler:v1.20.9
+coredns:1.7.0
+etcd:3.4.13-0
+pause:3.2
+)
+for imageName in ${images[@]} ; do
+docker pull registry.cn-hangzhou.aliyuncs.com/lfy_k8s_images/$imageName
+done
+EOF
+ 
+# 执行上面会产生images.sh
+chmod +x ./images.sh && ./images.sh
+```
+
+初始化master(使用kubeadm)
+
+```
+#所有机器添加master域名映射，以下需要修改为自己的
+echo "172.20.200.0  cluster-endpoint" >> /etc/hosts
+
+#下面所有只在主节点执行  主节点初始化 注意相关值与上面对于
+kubeadm init \
+--apiserver-advertise-address=172.20.200.0 \
+--control-plane-endpoint=cluster-endpoint \
+--image-repository registry.cn-hangzhou.aliyuncs.com/lfy_k8s_images \
+--kubernetes-version v1.20.9 \
+--service-cidr=10.96.0.0/16 \
+--pod-network-cidr=192.168.0.0/16
+
+#所有网络范围不重叠 显示下列表示成功
+Your Kubernetes control-plane has initialized successfully!
+
+To start using your cluster, you need to run the following as a regular user:
+
+  mkdir -p $HOME/.kube
+  sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+  sudo chown $(id -u):$(id -g) $HOME/.kube/config
+
+Alternatively, if you are the root user, you can run:
+
+  export KUBECONFIG=/etc/kubernetes/admin.conf
+
+You should now deploy a pod network to the cluster.
+Run "kubectl apply -f [podnetwork].yaml" with one of the options listed at:
+  https://kubernetes.io/docs/concepts/cluster-administration/addons/
+
+You can now join any number of control-plane nodes by copying certificate authorities
+and service account keys on each node and then running the following as root:
+
+  kubeadm join cluster-endpoint:6443 --token v1itg4.iig4pa4ukxeddgrq \
+    --discovery-token-ca-cert-hash sha256:feaee042731b72db702aaef3d0f75f4e6daf1234b64f4cf906e82dccf8e344e1 \
+    --control-plane 
+
+Then you can join any number of worker nodes by running the following on each as root:
+
+kubeadm join cluster-endpoint:6443 --token v1itg4.iig4pa4ukxeddgrq \
+    --discovery-token-ca-cert-hash sha256:feaee042731b72db702aaef3d0f75f4e6daf1234b64f4cf906e82dccf8e344e1
+#该文字也说明了 操作步骤 比如 如果要加入主节点(control-plane) 需要使用的命令 和 要加入工作节点(worker)需要使用的命令
+
+#执行文字中的内容
+mkdir -p $HOME/.kube
+sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+sudo chown $(id -u):$(id -g) $HOME/.kube/config
+
+#查看索引节点 验证主节点状态-NotReady
+kubectl get nodes
+
+#按照文件要求 还需要按照网络插件, 这里选择calico
+curl https://docs.projectcalico.org/manifests/calico.yaml -O
+
+#上面命令生成了一个calico.yaml文件, 如果在顶部配置的--pod-network-cidr不是192.168.0.0/16, 需要修改该文件中对应为你的设置  # - name: CALICO_IPV4POOL_CIDR #  value "192.168.0.0/16"   -->  value "你的配置"
+
+#应用生成的文件创建该资源
+kubectl apply -f calico.yaml
+
+#查看应用 需要所有应用都为running
+kubectl get pods -A
+#再查看节点 主节点状态需要变为 Ready  
+kubectl get nodes
+```
+
+> 根据配置文件，给集群创建资源
+>
+> kubectl apply -f xxxx.yaml
+>
+> 查看集群部署了哪些应用？
+>
+> docker ps   =等价=   kubectl get pods -A
+>
+> 运行中的应用在docker里面叫容器，在k8s里面叫Pod
+>
+> kubectl get pods -A
+
+加入node节点
+
+```
+# 其他节点上执行  复制上面文本中的内容, 令牌必须一样
+kubeadm join cluster-endpoint:6443 --token x5g4uy.wpjjdbgra92s25pp \
+	--discovery-token-ca-cert-hash sha256:6255797916eaee52bf9dda9429db616fcd828436708345a308f4b917d3457a22
+#提示This node has joined the cluster
+
+# 其他节点执行完后 在主节点查看node 
+kubectl get nodes
+# 验证集群, 再确认所有应用状态是否为running
+kubectl get pods -A
+```
+
+>如果令牌失效, 创建新令牌命令 : kubeadm token create --print-join-command
+
+4.**部署dashboard**
+
+>kubernetes官方提供的可视化界面 https://github.com/kubernetes/dashboard
+
+```
+# 主节点执行 
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/v2.3.1/aio/deploy/recommended.yaml
+```
+
+如果无法解析域名 可以查询ip做映射 或 手动复制下来作为一个文件:
+
+```
+# 比如浏览器访问网址复制文件内容到dashboard.yaml上
+kubectl apply -f dashboard.yaml
+```
+
+> kubectl get pod -A  可发现多了应用
+
+设置访问端口
+
+```bash
+kubectl edit svc kubernetes-dashboard -n kubernetes-dashboard
+```
+
+type: ClusterIP 改为 type: NodePort
+
+```bash
+kubectl get svc -A |grep kubernetes-dashboard
+## 找到NodePort行443:端口，如果是云服务器需要在安全组放行
+```
+
+访问： https://集群任意IP:端口      https://172.20.200:32759 
+
+注意!!! 一定要使用https.
+
+> 需要通过界面中的token方式登录
+
+创建访问账号
+
+```yaml
+#创建访问账号，准备一个yaml文件； vi dash.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: admin-user
+  namespace: kubernetes-dashboard
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: admin-user
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- kind: ServiceAccount
+  name: admin-user
+  namespace: kubernetes-dashboard
+
+#应用 创建admin-user用户
+kubectl apply -f dash.yaml
+```
+
+令牌访问
+
+```bash
+#获取访问令牌
+kubectl -n kubernetes-dashboard get secret $(kubectl -n kubernetes-dashboard get sa/admin-user -o jsonpath="{.secrets[0].name}") -o go-template="{{.data.token | base64decode}}"
+```
+
+复制生成的令牌, 输入到dashboard的token完成登录, 如果失效重复此步骤
+
+### Namespace
+
+名称空间 用来对集群资源进行隔离划分, 默认只隔离资源, 不隔离网络.
+
+```
+kubectl get ns 
+#再回过头看应用 发现他们都有自己的ns
+kubectl get pods -A
+#查看指定ns
+kubectl get pod -n xxx
+#创建删除
+kubectl create ns hello
+kubectl delete ns hello
+```
+
+> kubectl get pods只获取default ns
+
+通过yaml配置命名空间:
+
+```
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: hello
+  
+#应用
+kubectl apply -f xxx.yml
+#删除应用
+kubectl delete -f xxx.yml
+```
+
+> k8s资源创建方式有命令行和yaml(创建文件然后应用)两种
+
+### Pod
+
+k8s在容器外再封装了一层pod, pod是运行中的一组容器，**Pod是kubernetes中应用的最小单位**.
+
+> kubectl get pod -A 的READY列表示的就是pod中所有容器的状态统计, 表示所有容器中有几个READY
+
+![image.png](picture/1625484036923-09a15ef3-33dc-4e29-91e4-e7fbc69070ce.png)
+
+创建pod
+
+```
+kubectl run mynginx --image=nginx
+
+# 查看default名称空间的Pod (默认在该ns)
+# ContainerCreating表示容器正在创建, 创建完变为Running
+kubectl get pod 
+# 描述 Events表格为创建流程情况, 该命令可用来排错
+# 先分配给一个node, 然后那个node的kubelet拉镜像, 创建与运行容器
+kubectl describe pod 你自己的Pod名字
+# 为了验证上述情况 可在每个node执行,有输出的为pod所在节点
+docker ps| grep mynginx
+# 删除
+kubectl delete pod Pod名字
+# 查看Pod的运行日志
+kubectl logs Pod名字
+
+# 每个Pod - k8s都会分配一个ip
+kubectl get pod -owide
+# 使用Pod的ip+pod里面运行容器的端口
+curl 192.168.169.136
+
+# 集群中的任意一个机器以及任意的应用都能通过Pod分配的ip来访问这个Pod
+```
+
+以配置文件方式创建
+
+```
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    run: mynginx
+  # pod名
+  name: mynginx
+#  namespace: default
+spec:
+  containers:
+  - image: nginx
+  # 容器名
+    name: mynginx
+```
+
+应用
+
+kubectl apply -f xxx.yml
+
+删除应用
+
+kubectl delete -f xxx.yml
+
+**如何在可视化界面创建pod**?
+
+右上角 "+ "
+
+> 前提, 在上方先选择命名空间 或 在配置文件中指定namespace
+
+有三种方式创建: 直接输入yaml文件, 导入文件创建, 从表单创建.
+
+创建完之后在pods选项中查看, 点击pod名称相当于describe命令.
+
+**如何访问这个nginx**?
+
+```
+# 获取pod详细信息,主要为了查看ip和所在节点
+kubectl get pod -owide
+# 根据上述中pod的ip地址+端口访问 ,每个节点都可访问
+curl 192.168.53.195
+```
+
+>  即**k8s会为每个pod分配一个id**, 提供集群应用间的通信.
+>
+> 分配的ip 与 创建集群初始化主节点配置时设置的
+>
+> --pod-network-cidr=192.168.0.0/16 对应
+>
+> 注意: 此时外部还是无法访问
+
+**如何进入pod内去修改配置信息**?
+
+```
+kubectl exec -it mynginx -- /bin/bash
+
+ls /
+cd /usr/share/nginx/html
+echo "hello k8s" > index.html
+exit
+
+# 再访问
+curl 192.168.53.195
+```
+
+> 另外, 可视化界面也提供了Pod控制台, 可直接点击进入
+
+
+
+**多容器pod**
+
+```
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    run: myapp
+  name: myapp
+spec:
+  containers:
+  - image: nginx
+    name: nginx
+  - image: tomcat:8.5.68
+    name: tomcat
+    
+vim xxx.yaml
+kubectl apply -f xxx.yaml
+# 通过事件查看可发现创建tomcat容器比较慢 
+
+# 再访问
+kubectl get pod -owide
+curl 192.168.101.194 
+curl 192.168.101.194:8080   # 404
+```
+
+**同一个pod中的容器共享网络空间**
+
+因此在nginx容器可通过127.0.0.1:8080访问tomcat, 在tomcat容器中可通过127.0.0.1访问nginx, 这点可以通过可视化界面验证, 上面选择框可以选择容器.
+
+
+
+同一个pod允许存在多个相同的镜像容器, 但他们端口不能相同:
+
+```
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    run: myapp-2
+  name: myapp-2
+spec:
+  containers:
+  - image: nginx
+    name: nginx-1
+  - image: nginx
+    name: nginx-2
+```
+
+```
+# 查看pod状态为error
+kubectl describe pod
+
+# 通过事件查看可发现在创建nginx-2容器的时候报错
+
+# 在可视化界面查看nginx-2的日志可查看具体原因
+Address already in use
+```
+
+> kubectl get pod/deploy xxx -oyaml
+>
+> 以yaml形式输出该pod或deploy的配置信息
+
+### Deployment
+
+**控制Pod，使Pod拥有多副本，自愈，扩缩容, 滚动更新, 版本回退等能力**
+
+```
+# 比较下面两个命令有何不同效果？
+kubectl run mynginx --image=nginx
+kubectl create deployment mytomcat --image=tomcat:8.5.68
+
+# 查看pod名会发现deployment方式的后面多了内容
+kubectl get pod
+
+# 比较删除操作
+# 该方式删了就直接没了
+kubectl delete pod mynginx
+kubectl get pod
+# 对于deployment方式, 需要再启一个终端监控变化
+watch -n 1 kubectl get pod
+# 根据上面监控的pod名称进行删除
+kubectl delete pod mytomcat-6f5f895f4f-wvtwz
+# 删除了-wvtwz结尾的后 又多除了 -dmkm9结尾的pod (随机)
+# 重复删除也是一样 这就是k8s的 自愈能力
+```
+
+如果真的要删除怎么办?
+
+```
+kubectl delete deploy mytomcat
+```
+
+
+
+**多副本**
+
+k8s会自动在node节点分配副本, 如果有一台node挂了, 它会自动在另一台node上再启动, 自愈&故障转移
+
+```
+kubectl create deployment my-dep --image=nginx --replicas=3
+
+# 查看3个pod
+watch -n 1 kubectl get pod
+# 查看deployment
+watch -n 1 kubectl get deploy
+
+#查看这每个pod的ip和节点名
+kubectl get pod -owide
+
+# 删除 或在可视化界面的Deployments选项中
+kubectl delete deploy my-dep
+```
+
+可视化界面表单方式创建多副本: my-dep --> nginx --> 3  --> None
+
+yaml方式创建多副本:
+
+```
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: my-dep
+  name: my-dep
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: my-dep
+  template:
+    metadata:
+      labels:
+        app: my-dep
+    spec:
+      containers:
+      - image: nginx
+        name: nginx
+```
+
+
+
+**扩缩容**
+
+在流量高峰时, 需要运行过程中增加pod ; 在流量恢复后, 需要运行过程中减少pod -->   kubectl scale;
+
+```
+kubectl scale --replicas=5 deployment/my-dep
+```
+
+或者修改其yaml配置文件:
+
+```
+kubectl edit deployment my-dep
+kubectl edit deployment/my-dep
+#进入配置文件 修改 replicas
+```
+
+或者直接在可视化界面缩放.
+
+
+
+>  k8s的故障转移自愈能力可通过运行过程docker stop containerId进行模拟.  
+>
+> **但如果是服务器宕机, k8s默认在5分钟以后进行故障转移再创建该机器上的pod**,   如果时间间隔设的很小, 而服务器中可能存在的网络延迟和网络故障导致无法通信一段时间, 这样会使得k8s经常处于删pod,创pod的过程.
+>
+> 宕机等待5分钟过程可通过kubectl get pod -w查看效果, 不需要盯着看, 该命令会记录.
+>
+> k8s自愈保证最终总会有预先设置的n个pod副本
+
+
+
+**滚动更新**
+
+不停机更新, 类似[灰度发布](#增量发布)?
+
+```
+# 通过发布以前版本模拟更新 key为容器名而不是镜像名=value为镜像名:版本
+# --record表示记录该次更新
+kubectl set image deployment/my-dep nginx=nginx:1.16.1 --record
+
+#执行完上面命令后 k8s会逐步新启一个pod同时删除一个旧pod, 直到所有pod被替换为新的
+kubectl get pod -w
+kubectl get pod
+```
+
+**版本回退**
+
+```
+#历史记录
+kubectl rollout history deployment/my-dep
+
+#查看某个历史详情
+kubectl rollout history deployment/my-dep --revision=2
+
+#回滚(回到上次)
+kubectl rollout undo deployment/my-dep
+
+#回滚(回到指定版本)
+kubectl rollout undo deployment/my-dep --to-revision=2
+```
+
+
+
+> 更多：
+>
+> 除了Deployment，k8s还有 `StatefulSet` 、`DaemonSet` 、`Job`  等 类型资源。我们都称为 `工作负载`。
+>
+> 有状态应用使用  `StatefulSet`  部署，无状态应用使用 `Deployment` 部署
+>
+> https://kubernetes.io/zh/docs/concepts/workloads/controllers/
 
 # JVM
 
@@ -926,6 +1526,67 @@ insert into t(a,b) values(‘a’,’b’);
 在灰度发布的时候，可以部署相对较小的集群，让集群保持在高压力确认新版应用的性能情况，之后再酌情进行扩容。
 
 > TIPS: 服务监控可使用简单粗暴的SkyWalking
+
+
+
+# VM
+
+设置NAT网卡的网络,掩码,网关.
+
+克隆虚拟机
+
+1.配置静态IP
+
+```
+/etc/sysconfig/network-scripts/ifcfg-eth0    # centos7 为 ens33
+DEVICE=eth0
+TYPE=Ethernet
+ONBOOT=yes
+BOOTPROTO=static
+IPADDR=192.168.5.101
+PREFIX=24
+GATEWAY=192.168.5.2
+DNS1=192.168.5.2
+NAME=eth0
+```
+
+2.修改主机名
+
+```
+#修改下面文件
+/etc/sysconfig/network
+#或者直接使用命令
+hostnamectl set-hostname xxxx
+#不重新开启中断实现更新@hostname
+bash
+```
+
+3.关闭防火墙
+
+```
+chkconfig iptables off
+```
+
+4.创建用户,设置权限
+
+```
+useradd lzf 
+passwd 123456
+#设置权限
+vim /etc/sudoers
+lzf ALL=(ALL)   NOPASSWD: ALL
+```
+
+5.修改hosts文件,创建主机映射
+
+```
+#可通过脚本实现
+#! bin/bash
+for((i=100;i<110;i++))
+do
+	echo "192.168.5.$i  hadoop$i"  >> /etc/hosts
+done
+```
 
 
 
