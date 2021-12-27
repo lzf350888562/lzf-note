@@ -1,6 +1,25 @@
+学习多线程前, 需要先回顾对象在内存的布局:
 
+- markword这部分其实就是加锁的核心，同时还包含的对象的一些生命信息，例如是否GC,经过了几次Young GC还存活,锁信息。64bit
+- klass pointer记录了指向对象的class文件指针。 32bit
+- instance data记录了对象里面的变量数据。
+- padding作为对齐使用，对象在64位服务器版本中，规定对象内存必须要能被8字节整除，如果不能整除，那么就靠对齐来补。举个例子：new出了一个对象，内存只占用18字节，但是规定要能被8整除，所以padding=6。
 
-# 并发
+其中markword和klass pointer组合为object , header.
+
+object header:
+
+![](picture/objectheader.jpg)
+
+> 第三方包 JOL  = Java Object Layout 可查看对象内存布局
+>
+> System.out.println(ClassLayout.parseInstance(o).toPrintable());
+
+> new一个Object对象，占用16个字节。对象头占用12字节(markword8,klasspoint4)，由于Object中没有额外的变量，所以instance = 0，考虑要对象内存大小要被8字节整除，那么padding=4.
+
+> 因为4bit代表分代年龄, 所以最大范围为0-15, 即新生代的年龄设置不能超过15!!! 
+
+# 多线程
 
 **进程和线程**
 
@@ -212,9 +231,9 @@ instance = new Singleton(); // 第10行
 
 而一旦假设发生了这样的重排序，比如线程A在第10行执行了步骤1和步骤3，但是步骤2还没有执行完。这个时候另一个线程B执行到了第7行，它会判定instance不为空，然后直接返回了一个未初始化完成的instance！
 
-## 锁
 
-### synchronized
+
+## synchronized
 
 通过 JDK 自带的 `javap` 命令查看类的相关字节码信息
 
@@ -234,7 +253,7 @@ instance = new Singleton(); // 第10行
 
 > 不过两者的本质都是对对象监视器 monitor 的获取。
 
-#### 锁升级
+### 锁升级
 
 [jdk6对该关键字的优化](https://www.cnblogs.com/wuqinglong/p/9945618.html)
 
@@ -253,11 +272,11 @@ Java 6 为了减少获得锁和释放锁带来的性能消耗，引入了“偏�
 
 每个Java对象都有对象头。如果是非数组类型，则用2个字宽来存储对象头，如果是数组，则会用3个字宽来存储对象头。在32位处理器中，一个字宽是32位；在64位虚拟机中，一个字宽是64位。对象头的内容如下表：
 
-| 长度     | 内容                   | 说明                         |
-| -------- | ---------------------- | ---------------------------- |
-| 32/64bit | Mark Word              | 存储对象的hashCode或锁信息等 |
-| 32/64bit | Class Metadata Address | 存储到对象类型数据的指针     |
-| 32/64bit | Array length           | 数组的长度（如果是数组）     |
+| 内容                   | 说明                         |
+| ---------------------- | ---------------------------- |
+| Mark Word   64bit      | 存储对象的hashCode或锁信息等 |
+| Class Metadata Address | 存储到对象类型数据的指针     |
+| Array length           | 数组的长度（如果是数组）     |
 
 我们主要来看看Mark Word的格式：
 
@@ -389,9 +408,85 @@ Owner：获得锁的线程称为Owner
 | 轻量级锁 | 竞争的线程不会阻塞，提高了程序的响应速度。                   | 如果始终得不到锁竞争的线程使用自旋会消耗CPU。    | 追求响应时间。同步块执行速度非常快。 |
 | 重量级锁 | 线程竞争不使用自旋，不会消耗CPU。                            | 线程阻塞，响应时间缓慢。                         | 追求吞吐量。同步块执行时间较长。     |
 
+### 举例分析
 
+jdk8下
 
-### locks
+对于代码:
+
+```
+public class JOLDemo {
+    private static Object  o;
+    public static void main(String[] args) {
+        o = new Object();
+        System.out.println(ClassLayout.parseInstance(o).toPrintable());
+        synchronized (o){
+            System.out.println(ClassLayout.parseInstance(o).toPrintable());
+        }
+    }
+}
+```
+
+> JOL输出的第一个字节的最后两位为锁标志位
+
+查看输出可发现第一次输出的锁标志位为01, 锁偏向位为0, 表示无锁状态;
+
+第二次输出的锁标志位为00, 表示轻量级锁状态.
+
+对于代码:
+
+```
+public class JOLDemo {
+    private static Object  o;
+    public static void main(String[] args) {
+      try { Thread.sleep(5000); } catch (InterruptedException e) { e.printStackTrace(); }
+        o = new Object();
+        synchronized (o){
+            System.out.println(ClassLayout.parseInstance(o).toPrintable());
+        }
+    }
+}
+```
+
+在锁前加入延迟5s, 查看输出的锁标志位为10 和 锁偏向位为1, 表示偏向锁.
+
+**为什么一个为没有sleep为轻量级锁而加了sleep为偏向锁?**
+
+因为Syn锁升级之后，jdk1.8版本的一个底层默认设置4s之后偏向锁开启。也就是说在4s内是没有开启偏向锁的，加了锁就直接升级为轻量级锁了。
+
+**为什么要进行锁升级**?
+
+首先明确早起jdk1.2效率非常低。那时候syn就是重量级锁，申请锁必须要经过操作系统老大kernel进行系统调用，入队进行排序操作，操作完之后再返回给用户态。
+
+内核态：用户态如果要做一些比较危险的操作直接访问硬件，很容易把硬件搞死（格式化，访问网卡，访问内存干掉、）操作系统为了系统安全分成两层，用户态和内核态 。申请锁资源的时候用户态要向操作系统老大内核态申请。Jdk1.2的时候用户需要跟内核态申请锁，然后内核态还会给用户态。这个过程是非常消耗时间的，导致早期效率特别低。有些jvm就可以处理的为什么还交给操作系统做去呢？能不能把jvm就可以完成的锁操作拉取出来提升效率，所以也就有了锁优化。
+
+**为什么要有偏向锁？**
+
+其实这本质上归根于一个概率问题，统计表示，在我们日常用的syn锁过程中70%-80%的情况下，一般都只有一个线程去拿锁，例如我们常使用的System.out.println、StringBuffer.length，虽然底层加了syn锁，但是基本没有多线程竞争的情况。那么这种情况下，没有必要升级到轻量级锁级别了。偏向的意义在于：第一个线程拿到锁，将自己的线程信息标记在锁上，下次进来就不需要在拿去拿锁验证了。如果超过1个线程去抢锁，那么偏向锁就会撤销，升级为轻量级锁，其实我认为严格意义上来讲偏向锁并不算一把真正的锁，因为只有一个线程去访问共享资源的时候才会有偏向锁这个情况。
+
+**为什么jdk8要在4s后开启偏向锁？**
+
+其实这是一个妥协，明确知道在刚开始执行代码时，一定有好多线程来抢锁，如果开了偏向锁效率反而降低，所以上面程序在睡了5s之后偏向锁才开放。为什么加偏向锁效率会降低，因为中途多了几个额外的过程，上了偏向锁之后多个线程争抢共享资源的时候要进行锁升级到轻量级锁，这个过程还的把偏向锁进行撤销在进行升级，所以导致效率会降低。为什么是4s？这是一个统计的时间值。
+
+当然我们是可以禁止偏向锁的，通过配置参数-XX:-UseBiasedLocking = false来禁用偏向锁。jdk15之后默认已经禁用了偏向锁。本文是在jdk8的环境下做的锁升级验证.
+
+ **synchronized的底层实现**
+
+对使用syn锁的代码进行反编译, 可以看到有monitorenter和monitorexit，主观上就可以猜到这是跟加锁和解锁相关的指令。有意思的是1个monitorenter和2个monitorexit。为什么呢？正常来说应该就是一个加锁和一个释放锁啊。其实这里也体现了syn和lock的区别。syn是JVM层面的锁，如果异常了不用自己释放，jvm会自动帮助释放，这一步就取决于多出来的那个monitorexit。而lock异常需要我们手动补获并释放的。
+
+1. 对于monitorenter: 每个对象有一个监视器锁（monitor）。当monitor被占用时就会处于锁定状态，线程执行monitorenter指令时尝试获取monitor的所有权，过程如下：
+
+- 如果monitor的进入数为0，则该线程进入monitor，然后将进入数设置为1，该线程即为monitor的所有者。
+
+- 如果线程已经占有该monitor，只是重新进入，则进入monitor的进入数加1。
+
+- 如果其他线程已经占用了monitor，则该线程进入阻塞状态，直到monitor的进入数为0，再重新尝试获取monitor的所有权。
+
+2. 对于monitorexit: 执行monitorexit的线程必须是objectref所对应的monitor的所有者。指令执行时，monitor的进入数减1，如果减1后进入数为0，那线程退出monitor，不再是这个monitor的所有者。其他被这个monitor阻塞的线程可以尝试去获取这个 monitor的所有权。 
+
+> Synchronized底层通过一个monitor的对象来完成，wait/notify等方法其实也依赖于monitor对象，这就是为什么只有在同步的块或者方法中才能调用wait/notify等方法，否则会抛出java.lang.IllegalMonitorStateException的异常。
+
+## locks
 
 1. [Java并发编程：Lock](https://www.cnblogs.com/dolphin0520/p/3923167.html)
 2. [Java多线程之Lock的使用（一）](https://juejin.im/post/582169d45bbb500059f6c241)

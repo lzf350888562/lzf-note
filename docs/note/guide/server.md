@@ -1102,6 +1102,8 @@ kubectl get pod
 
 **版本回退**
 
+回退的过程也是逐一替换的过程
+
 ```
 #历史记录
 kubectl rollout history deployment/my-dep
@@ -1114,6 +1116,9 @@ kubectl rollout undo deployment/my-dep
 
 #回滚(回到指定版本)
 kubectl rollout undo deployment/my-dep --to-revision=2
+
+#通过镜像版本查看是否回退到了新版本
+kubectl get deploy/my-dep -oyaml |grep image
 ```
 
 
@@ -1122,7 +1127,13 @@ kubectl rollout undo deployment/my-dep --to-revision=2
 >
 > 除了Deployment，k8s还有 `StatefulSet` 、`DaemonSet` 、`Job`  等 类型资源。我们都称为 `工作负载`。
 >
-> 有状态应用使用  `StatefulSet`  部署，无状态应用使用 `Deployment` 部署
+> 有状态应用使用  `StatefulSet`  部署(如redis)， 提供稳定的存储,网络等功能;
+>
+> 无状态应用使用 `Deployment` 部署(如微服务),   提供多副本等功能;
+>
+> 守护型应用部署`DaemonSet`部署(如日志收集组件), 在每个机器上都运行一份;
+>
+> 定时任务部署 `Job/CronJob`部署(比如垃圾清理组件) ,可以在指定时间运行.
 >
 > https://kubernetes.io/zh/docs/concepts/workloads/controllers/
 
