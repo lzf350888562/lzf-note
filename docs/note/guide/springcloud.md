@@ -51,3 +51,16 @@ Sentinel Core为服务限流, 熔断提供了核心拦截器SentinelWebIntercept
 - AuthoritySlot根据黑白名单做黑板名单控制.
 - FlowSlot根据预设的限流规则, 以及前面slot统计的状态, 来进行限流.
 - DegradeSlot通过统计信息, 以及限流的规则, 来做熔断降级.
+
+## Seata
+
+seata主要三个角色:
+
+事务管理器（TM）：决定什么时候全局提交/回滚
+
+事务协调者（TC）：负责通知命令的中间件Seata-Server
+
+资源管理器（RM）：做具体事的工具人
+
+### TCC
+

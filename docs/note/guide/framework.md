@@ -1,8 +1,6 @@
 # Mybatis
 
-https://mybatis.net.cn/
-
-## #{}与${}
+**#{}与${}**
 
 1）#{}是预编译处理，$ {}是字符串替换。
 
@@ -159,6 +157,68 @@ public class MapperConfig {
 它的原理是，使用 `CGLIB` 创建目标对象的代理对象，当调用目标方法时，进入拦截器方法，比如调用 `a.getB().getName()` ，拦截器 `invoke()` 方法发现 `a.getB()` 是 null 值，那么就会单独发送事先保存好的查询关联 B 对象的 sql，把 B 查询上来，然后调用 a.setB(b)，于是 a 的对象 b 属性就有值了，接着完成 `a.getB().getName()` 方法的调用。这就是延迟加载的基本原理。
 
 不光是 MyBatis，几乎所有的包括 Hibernate，支持延迟加载的原理都是一样的。
+
+## 缓存
+
+**一级缓存**：它指的是Mybatis中sqlSession对象的缓存，当我们执行查询以后，查询的结果会同时存入到SqlSession为我们提供的一块区域中，该区域的结构是一个Map，当我们再次查询同样的数据，mybatis会先去sqlsession中查询是否有，有的话直接拿出来用，当SqlSession对象消失时，mybatis的一级缓存也就消失了，同时一级缓存是SqlSession范围的缓存，**当调用SqlSession的修改、添加、删除、commit(),close()等方法时，就会清空一级缓存。**
+
+**二级缓存**：它指得是Mybatis中SqlSessionFactory对象的缓存，**由同一个SqlSessionFactory对象创建的SqlSession共享其缓存**，但是其中**缓存的是数据而不是对象**，通过存储的数据构造对象返回, 所以从二级缓存再次查询出得结果的对象与第一次存入的对象是不一样的。
+
+一级缓存命中情况:
+
+```
+session = factory.openSession();
+userDao = session.getMapper(UserDao.class);
+//第一次获取该用户
+User user1 = userDao.findById(45);
+System.out.println(user1);
+//第二次获取该用户  从一级缓存中查询
+User user2 = userDao.findById(45);
+System.out.println(user2);
+//true 因为一级缓存的是对象
+System.out.println(user1 == user2); 
+session.close();
+```
+
+清空一级缓存情况:
+
+```
+session = factory.openSession();
+userDao = session.getMapper(UserDao.class);
+//第一次获取该用户
+User user1 = userDao.findById(45);
+System.out.println(user1);
+//  session.commit();        //调用SqlSession的commit方法清空缓存
+user1.setUsername("更新用户");
+userDao.updateUser(user1);   //通过更新SqlSession清空缓存
+User user2 = userDao.findById(45);
+System.out.println(user2);
+//false 因为情况过缓存, 且对象已更新
+System.out.println(user1 == user2); 
+session.close();
+```
+
+二级缓存命中情况:
+
+```
+//第一次查询 并更新二级缓存
+SqlSession session1 = factory.openSession();
+UserDao userDao1 = session1.getMapper(UserDao.class);
+User user1 = userDao1.findById(45);
+System.out.println(user1);
+session1.commit(); 			//commit()方法提交二级缓存 同时清空一级缓存
+session1.close();			
+//第二次查找命中二级缓存
+SqlSession session2 = factory.openSession();
+UserDao userDao2 = session2.getMapper(UserDao.class);
+User user2 = userDao2.findById(45);
+session2.commit(); 			//commit()方法提交二级缓存 同时清空一级缓存
+session2.close();
+System.out.println(user2); 
+System.out.println(user1 == user2);	//false 因为二级缓存的是数据, 而不是对象
+```
+
+
 
 # Safe
 

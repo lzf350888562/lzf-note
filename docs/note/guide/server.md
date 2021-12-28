@@ -1137,6 +1137,714 @@ kubectl get deploy/my-dep -oyaml |grep image
 >
 > https://kubernetes.io/zh/docs/concepts/workloads/controllers/
 
+
+
+### Service
+
+**Pod的服务发现与负载均衡, 将一组Pods公开为网络服务的抽象方法。**
+
+```
+# 先创建3个nginx Pod
+kubectl create deployment my-dep --image=nginx --replicas=3
+# 可视化界面修改每个pod nginx index为不同内容
+ls /
+cd /usr/share/nginx/html
+echo "1111" > index.html
+exit
+
+# 根据查看到的ip 依次curl访问 看输出内容是否不同
+kubectl get pod -owide
+```
+
+接下来使用service
+
+```
+#暴露Deploy  8000为暴露的端口 80为每个pod的端口
+kubectl expose deployment my-dep --port=8000 --target-port=80
+# 查看service
+kubectl get service
+# 根据my-dep服务的cluster-ip访问  ip:8000   多次访问  达到负载均衡效果
+curl 10.96.8.0:8000
+# 这个ip在初始化主节点时的 -- service-cidr=10.96.0.0/16中
+
+#使用标签(服务名)检索Pod
+kubectl get pod -l app=my-dep
+```
+
+配置文件形式:
+
+```
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: my-dep
+  name: my-dep
+spec:
+  selector:
+    app: my-dep
+  ports:
+  - port: 8000
+    protocol: TCP
+    targetPort: 80
+```
+
+> 上面的service模式为默认的clusterIp模式 , 暴露的集群ip只能在集群内访问 
+
+容器内部除了可以通过服务ip:端口 , 还可以通过 服务名.名称空间:端口访问 
+
+```
+# 创建一个tomcat 模拟在其他应用访问nginx服务
+kubectl create deploy my-tomcat --image=tomcat
+#进入tomcat可视化界面终端 访问nginx
+curl my-dep.default:8000
+```
+
+>  利用这点可以实现多服务间通信
+
+> 删除服务 kubectl delete svc my-dep
+
+**如果想要在外网访问呢?**
+
+可以使用NodePort方式
+
+```
+# 删除前一个service
+kubectl delete svc my-dep
+# nodeport模式
+kubectl expose deployment my-dep --port=8000 --target-port=80 --type=NodePort
+# 查看
+kubectl get svc
+# 根据查找到的服务 clusterid:8000访问
+curl 10.96.8.51:8000
+# 查看会发现8000后面还带有一个随机端口, 这个是每个pod开放的端口
+kubectl get svc
+# 在外网通过masterip:随机端口 或者 nodeip:随机端口 访问
+http://172.20.200.0:30088/
+# 同一个回话多次访问的好像是同一个pod
+```
+
+> NodePort范围在 30000-32767 之间
+
+### Ingress
+
+service的统一网关入口[(底层nginx实现)](https://kubernetes.github.io/ingress-nginx/)
+
+到目前为止, 存在服务层网络 : --service-cidr=10.96.0.0/16 , 存在pod层网络 : --pod-network-cidr=192.168.0.0/16, 而外网要访问服务可通过ingress层
+
+**安装ingress**
+
+```
+wget https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v0.47.0/deploy/static/provider/baremetal/deploy.yaml
+
+#修改镜像
+vi deploy.yaml
+#将image的值改为如下值：
+registry.cn-hangzhou.aliyuncs.com/lfy_k8s_images/ingress-nginx-controller:v0.46.0
+
+# 检查安装的结果 ingress也是个服务, 以nodeport方式暴露端口 http对于80:后面的端口 https对于443:后面的端口
+kubectl get pod -n ingress-nginx
+kubectl get svc -n ingress-nginx
+
+#使用两种方式外网浏览器访问 集群ip:生成的端口  可看到nginx提示, 说明了ingress通过nginx实现
+http://172.20.200.0:32401/
+https://172.20.200.0:32405/
+
+#今后可以直接使用这两个地址访问
+```
+
+测试环境
+
+```
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hello-server
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: hello-server
+  template:
+    metadata:
+      labels:
+        app: hello-server
+    spec:
+      containers:
+      - name: hello-server
+        image: registry.cn-hangzhou.aliyuncs.com/lfy_k8s_images/hello-server
+        ports:
+        - containerPort: 9000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: nginx-demo
+  name: nginx-demo
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: nginx-demo
+  template:
+    metadata:
+      labels:
+        app: nginx-demo
+    spec:
+      containers:
+      - image: nginx
+        name: nginx
+---
+# 两个nginx-demo pod为一个service
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: nginx-demo
+  name: nginx-demo
+spec:
+  selector:
+    app: nginx-demo
+  ports:
+  - port: 8000
+    protocol: TCP
+    targetPort: 80
+---
+# 两个hello-server pod为一个service
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: hello-server
+  name: hello-server
+spec:
+  selector:
+    app: hello-server
+  ports:
+  - port: 8000
+    protocol: TCP
+    targetPort: 9000
+```
+
+实现域名访问,hello.atguigu.com转发给hello-server服务,  demo-atguigu.com转发给nginx-demo服务
+
+```
+apiVersion: networking.k8s.io/v1
+kind: Ingress  
+metadata:
+  name: ingress-host-bar
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: "hello.atguigu.com"
+    http:
+      paths:
+      - pathType: Prefix
+        path: "/"
+        backend:
+          service:
+            name: hello-server
+            port:
+              number: 8000
+  - host: "demo.atguigu.com"
+    http:
+      paths:
+      - pathType: Prefix
+        path: "/"
+        backend:
+          service:
+            name: nginx-demo
+            port:
+              number: 8000
+```
+
+应用上面文件
+
+```
+kubectl apply -f xxx.yaml
+#查看ingress
+kubectl get ingress
+#修改ingress配置
+kubectl edit ing ingress-host-bar
+```
+
+为了模拟域名访问, 设置给master设置两个域名的映射, 通过安装ingress暴露的端口在外网进行访问
+
+```
+http://hello.atguigu.com:32401
+http://demo.atguigu.com:32401
+http://demo.atguigu.com:32401/nginx
+```
+
+如果修改demo.atguigu.com域名配置的path
+
+```
+- host: "demo.atguigu.com"
+    http:
+      paths:
+      - pathType: Prefix
+        path: "/nginx"  # 把请求会转给下面的服务，下面的服务一定要能处理这个路径，不能处理就是404 , 可添加nginx.html
+        backend:
+          service:
+            name: nginx-demo  ## java，比如使用路径重写，去掉前缀nginx
+            port:
+              number: 8000
+```
+
+[官方路径重写示例](https://kubernetes.github.io/ingress-nginx/examples/rewrite/)
+
+```
+$ echo '
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+  name: rewrite
+  namespace: default
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: rewrite.bar.com
+    http:
+      paths:
+      - path: /something(/|$)(.*)
+        pathType: Prefix
+        backend:
+          service:
+            name: http-svc
+            port: 
+              number: 80
+' | kubectl create -f -
+```
+
+- `rewrite.bar.com/something` rewrites to `rewrite.bar.com/`
+- `rewrite.bar.com/something/` rewrites to `rewrite.bar.com/`
+- `rewrite.bar.com/something/new` rewrites to `rewrite.bar.com/new`
+
+对于原来的内容, 修改为
+
+```
+apiVersion: networking.k8s.io/v1
+kind: Ingress  
+metadata:
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+  name: ingress-host-bar
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: "hello.atguigu.com"
+    http:
+      paths:
+      - pathType: Prefix
+        path: "/"
+        backend:
+          service:
+            name: hello-server
+            port:
+              number: 8000
+  - host: "demo.atguigu.com"
+    http:
+      paths:
+      - pathType: Prefix
+        path: "/nginx(/|$)(.*)" 
+        backend:
+          service:
+            name: nginx-demo
+            port:
+              number: 8000
+```
+
+现在访问http://demo.atguigu.com:32401/nginx 可以被正常处理了
+
+
+
+**流量限制**
+
+```
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ingress-limit-rate
+  annotations:
+    nginx.ingress.kubernetes.io/limit-rps: "1"
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: "haha.atguigu.com"
+    http:
+      paths:
+      - pathType: Exact
+        path: "/"
+        backend:
+          service:
+            name: nginx-demo
+            port:
+              number: 8000
+```
+
+重复快速访问http://haha.atguigu.com:32401, 默认返回503
+
+### 存储抽象
+
+在使用docker时,可以使用存储映射,将宿主机上的文件应用到容器.
+
+在k8s中文件也可以挂载到pod, 但是如果pod因为故障转移转移到了另一个node上 , 怎么办呢?
+
+为了解决这个问题, k8s引入到存储层抽象, 具体的实现有NFS, Glusterfs, CephFS, 这里使用NFS.
+
+> NFS是一种基于TCP/IP传输的网络文件系统协议. 通过使用NFS协议客户机可以像访问本地目录一样访问远程服务器中的共享资源
+
+**环境准备**
+
+```
+#所有机器安装
+yum install -y nfs-utils
+```
+
+**主节点**
+
+```
+#nfs主节点执行 表示在master节点暴露/nfs/data目录
+echo "/nfs/data/ *(insecure,rw,sync,no_root_squash)" > /etc/exports
+
+mkdir -p /nfs/data
+systemctl enable rpcbind --now
+systemctl enable nfs-server --now
+#配置生效
+exportfs -r
+#验证
+exportfs
+```
+
+**从节点**
+
+```
+#查看主节点哪些目录可以挂载
+showmount -e 172.20.200.0
+
+#挂载 nfs 服务器上的共享目录到本机路径 /nfs/data
+mkdir -p /nfs/data
+mount -t nfs 172.20.200.0:/nfs/data /nfs/data
+# 写入一个测试文件
+echo "hello nfs server" > /nfs/data/test.txt
+```
+
+**原生方式数据挂载**
+
+```
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: nginx-pv-demo
+  name: nginx-pv-demo
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: nginx-pv-demo
+  template:
+    metadata:
+      labels:
+        app: nginx-pv-demo
+    spec:
+      containers:
+      - image: nginx
+        name: nginx
+        volumeMounts:
+        - name: html
+          mountPath: /usr/share/nginx/html
+      volumes:
+        - name: html
+          nfs:
+            server: 172.20.200.0
+            path: /nfs/data/nginx-pv
+```
+
+文件中的内容表示将所有pod中的/usr/share/nginx/html挂载到172.31.0.4:/nfs/data/nginx-pv , 挂载名和被挂载名需要一致.
+
+```
+kubectl get pod
+#查看事件是否报错 比如/nfs/data/nginx-pv目录不存在
+kubectl describe pod nginx-pv-demo-xxx
+
+#可视化界面容器内终端访问/usr/share/nginx/html目录相当于访问文件系统服务器/nfs/data/nginx-pv
+```
+
+> 在默认情况下, 如果与某个挂载目录相关的所有pod都关闭了, 文件系统服务器中被挂载的目录还是会存在, 会存在文件堆积问题.
+
+1.**PV&PVC**
+
+PV：持久卷（Persistent Volume），将应用需要持久化的数据保存到指定位置
+
+PVC：持久卷申明（Persistent Volume Claim），申明需要使用的持久卷规格
+
+**创建pv池  静态供应**
+
+```
+#nfs主节点
+mkdir -p /nfs/data/01
+mkdir -p /nfs/data/02
+mkdir -p /nfs/data/03
+```
+
+**创建pv**
+
+```
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv01-10m
+spec:
+  capacity:
+    storage: 10M
+  accessModes:
+    - ReadWriteMany
+  storageClassName: nfs
+  nfs:
+    path: /nfs/data/01
+    server: 172.20.200.0
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv02-1gi
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteMany
+  storageClassName: nfs
+  nfs:
+    path: /nfs/data/02
+    server: 172.20.200.0
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv03-3gi
+spec:
+  capacity:
+    storage: 3Gi
+  accessModes:
+    - ReadWriteMany
+  storageClassName: nfs
+  nfs:
+    path: /nfs/data/03
+    server: 172.20.200.0
+```
+
+应用上面文件
+
+```
+#查看资源
+kubectl get persistentvolume
+#查看pv
+kubectl get pv
+```
+
+
+
+**PVC创建与绑定**
+
+创建PVC,  storageClassName与上面的 storageClassName对应
+
+```
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: nginx-pvc
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 200Mi
+  storageClassName: nfs
+  
+#应用上面文件 再查看pv
+kubectl apply -f xxx.yaml
+kubectl get pv
+#发现1g的pv状态变为Bound, Claim为default/nginx-pvm对应上面的名称
+#为什么是这个pv呢 , 因为这个pv是分配200m最小的资源
+
+#删除pvc 再查看pv
+kubectl delete -f xxx.yaml
+kubectl get pv
+#发现1g的pv状态变为Released, 还没完全清空, 还是不可用
+#如果此时再创建pvc 会分配到其他可用pv上
+kubectl apply -f xxx.yaml
+kubectl get pv
+```
+
+创建Pod绑定PVC,  cliaimName处绑定pvc
+
+```
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: nginx-deploy-pvc
+  name: nginx-deploy-pvc
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: nginx-deploy-pvc
+  template:
+    metadata:
+      labels:
+        app: nginx-deploy-pvc
+    spec:
+      containers:
+      - image: nginx
+        name: nginx
+        volumeMounts:
+        - name: html
+          mountPath: /usr/share/nginx/html
+      volumes:
+        - name: html
+          persistentVolumeClaim:
+            claimName: nginx-pvc
+            
+
+#查看
+get pvc,pv
+#pvc对应的pv创建内容 这里为绑定的3gi
+cd /nfs/data/03/
+echo 111111 > index.html
+#可视化界面nginx pod中断执行
+cd /usr/share/nginx/html/
+ll
+cat index.html
+```
+
+
+
+**在docker中,创建容器时通常还可以指定挂载配置文件, 在k8s中如何实现?**
+
+2.**ConfigMap**:抽取应用配置，并且可以自动更新.
+
+以redis为例, 把之前的配置文件创建为配置集
+
+```
+# 创建配置，redis保存到k8s的etcd
+vi redis.conf
+kubectl create cm redis-conf --from-file=redis.conf
+
+#查看configmap
+kubectl get cm
+#删除实体文件 再查看, 仍然存在, 因为k8s将数据存储到了etcd中
+rm -rf redis.conf
+kubectl get cm
+```
+
+上面创建配置行命令的配置文件形式为:
+
+```
+apiVersion: v1
+data:    #data是所有真正的数据，key：默认是文件名   value：配置文件的内容
+  redis.conf: |
+    appendonly yes
+kind: ConfigMap
+metadata:
+  name: redis-conf
+  namespace: default
+```
+
+创建pod
+
+```
+apiVersion: v1
+kind: Pod
+metadata:
+  name: redis
+spec:
+  containers:
+  - name: redis
+    image: redis
+    command:
+      - redis-server
+      - "/redis-master/redis.conf"  #指的是redis容器内部的位置
+    ports:
+    - containerPort: 6379
+    volumeMounts:
+    - mountPath: /data
+      name: data
+    - mountPath: /redis-master
+      name: config
+  volumes:
+    - name: data
+      emptyDir: {}
+    - name: config
+      configMap:
+        name: redis-conf  #名叫redis-conf的配置集 对应上面的配置
+        items:
+        - key: redis.conf
+          path: redis.conf
+          
+#应用后进入redis pod  目录与上面对应
+cd /redis-master
+ls
+cat redis.conf
+
+#修改配置文件
+kubectl get cm
+kubectl edit cm redis-conf
+#添加内容
+requirepass 123456
+#wq保存后再进入pod多次输出redis.conf查看变化    
+
+
+#通过redis-cli验证配合是否更新
+kubectl exec -it redis -- redis-cli
+
+127.0.0.1:6379> CONFIG GET appendonly
+127.0.0.1:6379> CONFIG GET requirepass
+```
+
+> 结论: 修改了CM。Pod里面的配置文件会跟着变, 但配置值未更改，因为需要重新启动 Pod 才能从关联的 ConfigMap 中获取更新的值。即Pod部署的中间件自己本身没有热更新能力.
+
+
+
+3.**Secret**
+
+Secret 对象类型用来保存敏感信息，例如密码、OAuth 令牌和 SSH 密钥。 将这些信息放在 secret 中比放在 [Pod](https://kubernetes.io/docs/concepts/workloads/pods/pod-overview/) 的定义或者 [容器镜像](https://kubernetes.io/zh/docs/reference/glossary/?all=true#term-image) 中来说更加安全和灵活。
+
+```
+kubectl create secret docker-registry leifengyang-docker \
+--docker-username=leifengyang \
+--docker-password=Lfy123456 \
+--docker-email=534096094@qq.com
+
+##命令格式
+kubectl create secret docker-registry regcred \
+  --docker-server=<你的镜像仓库服务器> \
+  --docker-username=<你的用户名> \
+  --docker-password=<你的密码> \
+  --docker-email=<你的邮箱地址>
+```
+
+配置文件
+
+```
+apiVersion: v1
+kind: Pod
+metadata:
+  name: private-nginx
+spec:
+  containers:
+  - name: private-nginx
+    image: leifengyang/guignginx:v1.0
+  imagePullSecrets:
+  - name: leifengyang-docker
+```
+
+
+
 # JVM
 
 jvm选项规则

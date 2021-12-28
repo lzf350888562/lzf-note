@@ -491,6 +491,60 @@ server处理完之后, rabbitmq自动将处理结果发送到队列2中 , client
 >
 > 有替代方案 ,Dubbo  ,所以几乎不使用
 
+### 保证消息可靠性
+
+![在这里插入图片描述](picture/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L2R1eXVzZWFu,size_16,color_FFFFFF,t_70.png)
+
+**生产者:**
+
+1. 事务消息 : 使用 RabbitMQ 提供的事务功能，就是生产者发送数据之前开启 RabbitMQ 事务channel.txSelect，然后发送消息，如果消息没有成功被 RabbitMQ 接收到，那么生产者会收到异常报错，此时就可以回滚事务channel.txRollback，然后重试发送消息；如果收到了消息，那么可以提交事务channel.txCommit。
+
+   > 缺点:RabbitMQ 事务机制是**同步**的，提交一个事务之后会阻塞在，严重降低性能。目前基本不使用.
+
+2. confirm模式: 发送方将信道设置成confirm (确认)模式, 一旦这样设置，这个信道上所有发布的消息都会被指定一个唯一的ID，消息被投递到所匹配的队列后，rabbitmq会发送一个包含消息唯一ID的确认信息给生产者，使生产者知道消息送达。
+
+**MQ:**
+
+RabbitMQ收到消息后将这个消息暂时存在了内存中，那这就会有个问题，如果RabbitMQ挂了，那重启后数据就丢失了，所以相关的数据应该持久化到硬盘中，这样就算RabbitMQ重启后也可以到硬盘中取数据恢复。
+
+因为message消息到达RabbitMQ后先是到exchange交换机中，然后路由给queue队列，最后发送给消费端。
+
+所以需要给exchange、queue和message都进行持久化：
+
+exchange持久化：
+
+```
+//第三个参数true表示这个exchange持久化
+channel.exchangeDeclare(EXCHANGE_NAME, "direct", true);
+```
+
+queue持久化：
+
+```
+//第二个参数true表示这个queue持久化
+channel.queueDeclare(QUEUE_NAME, true, false, false, null)
+message持久化：
+```
+
+```
+//第三个参数MessageProperties.PERSISTENT_TEXT_PLAIN表示这条消息持久化
+channel.basicPublish(EXCHANGE_NAME, ROUTING_KEY, MessageProperties.PERSISTENT_TEXT_PLAIN, message.getBytes(StandardCharsets.UTF_8));
+```
+
+> 为了防止mq消息持久化时宕机导致丢失, 还可以做一些消息补偿机制, 比如 **消息入库**
+>
+> 在发送端首先发送消息前先将消息保存到数据库中，有一个状态字段status=0，表示生产端将消息发送给了RabbitMQ但还没收到确认；在生产端收到确认后将status设为1，表示RabbitMQ已收到消息。并设置一个定时器，定时检索消息表，将status=0并且超过固定时间后（可能消息刚发出去还没来得及确认这边定时器刚好检索到这条status=0的消息，所以给个时间）还没收到确认的消息取出重发（第二种情况下这里会造成消息重复，消费者端要做幂等性），可能重发还会失败，所以可以做一个最大重发次数，超过就做另外的处理。
+
+**消费者:**
+
+因为RabbitMQ的自动ack机制，即默认RabbitMQ在消息发出后就立即将这条消息删除，而不管消费端是否接收到，是否处理完，导致消费端消息丢失时RabbitMQ自己又没有这条消息了。
+
+所以就需要将自动ack机制改为手动ack机制。
+
+```
+channel.basicAck(delivery.getEnvelope().getDeliveryTag(), false);
+```
+
 
 
 ### 死信队列解决消息积压
@@ -598,6 +652,6 @@ BorrowSale前台解决办法：依赖RabbitMQ的“**死信队列**”特性，�
 
 ![image-20211211201914708](picture/image-20211211201914708.png)
 
-> 注意重发情况的幂等性
+> 注意消费端的幂等性
 
 > 为防止消息表囤积, 可设置订单超时时间.
