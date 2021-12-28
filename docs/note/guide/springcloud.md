@@ -36,6 +36,8 @@ https://blog.csdn.net/cold___play/article/details/108032204
 
 ## sentinel
 
+> sentinel与微服务关系不大, 将其放在这是因为它属于springcloud子项目
+
 实现原理:
 
 Sentinel Core为服务限流, 熔断提供了核心拦截器SentinelWebInterceptor , 这个拦截器默认对所有请求 /** 进行拦截 , 然后开始请求的链式处理流程, 在对于每一个处理请求的节点被称为slot (槽), 通过多个槽的连接形成处理链, 在请求的流转过程中, 如何有任何一个Slot验证未通过 , 都会产生BlockException ,请求处理链便会中断, 并返回"Blocked by sentinel"异常消息.
@@ -54,6 +56,8 @@ Sentinel Core为服务限流, 熔断提供了核心拦截器SentinelWebIntercept
 
 ## Seata
 
+> sentinel与微服务关系不大, 将其放在这是因为它属于springcloud子项目
+
 seata主要三个角色:
 
 事务管理器（TM）：决定什么时候全局提交/回滚
@@ -62,5 +66,12 @@ seata主要三个角色:
 
 资源管理器（RM）：做具体事的工具人
 
+**AC模式**
+
+AT 模式是 Seata 主推的分布式事务解决方案，对业务无侵入，真正做到了业务与事务分离，用户只需关注自己的“业务 SQL语句”。
+
+AT模式使用起来非常简单，与完全没有使用分布式事务方案相比，业务逻辑不需要修改，只需要增加一个事务注解@GlobalTransactional即可
+
 ### TCC
 
+TCC 模式需要用户根据自己的业务场景实现 try()、confirm() 和 cancel()
