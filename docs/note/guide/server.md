@@ -1849,8 +1849,6 @@ spec:
   - name: leifengyang-docker
 ```
 
-
-
 # JVM
 
 jvm选项规则

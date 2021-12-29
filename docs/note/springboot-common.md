@@ -3268,6 +3268,8 @@ executor.setRejectedExecutionHandler((r, executor1) -> {
 
 ## 修改默认线程池
 
+> Spring中使用的@Async注解，底层是基于SimpleAsyncTaskExecutor去执行任务，只不过它不是线程池，而是每次都新开一个线程。
+
 实现AsyncConfigurer,  只需要加`@Async`注解就可以，不用在注解属性指定线程池。
 
 ```
