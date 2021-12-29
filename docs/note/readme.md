@@ -52,10 +52,6 @@ JPom 简单低侵入的在线构建,自动构建,日常运维,项目监控的功
 
 ## java
 
-[jvm文档jdk8](https://docs.oracle.com/javase/specs/jvms/se8/html/) 
-
-[jvm参数
-
 **GC**
 
 GCViewer

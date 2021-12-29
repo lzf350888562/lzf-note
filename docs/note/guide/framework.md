@@ -1027,3 +1027,282 @@ SessionDAO 使用 `SessionIdGenerator `组件在每次创建新会话时生成�
 
 可通过`securityManager.sessionManager.deleteInvalidSessions`禁用shiro自动删除无效session.
 
+## Spring Security
+
+### UserDetailsManager
+
+`UserDetailsManager` 负责对安全用户实体抽象 UserDetails 的增删查改操作
+
+默认情况下, 在`org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration`
+
+中会注入一个 `InMemoryUserDetailsManager `,     并指定一个User对象( 用户信息主题UserDetails的实现类) , 这个User用户名为user,  密码在控制台可以看到.
+
+
+
+### PasswordEncoder
+
+ `PasswordEncoder` 就是我们对密码进行编码 的工具接口。该接口只有两个功能： 一个是匹配验证。另一个是密码编码。
+
+在`WebSecurityConfigurerAdapter`中对`PasswordEncoder`进行了懒加载: 
+
+```
+// 获取最终干活的PasswordEncoder
+private PasswordEncoder getPasswordEncoder() {
+	if (this.passwordEncoder != null) {
+		return this.passwordEncoder;
+	}
+	PasswordEncoder passwordEncoder = getBeanOrNull(PasswordEncoder.class);
+	if (passwordEncoder == null) {
+		passwordEncoder = PasswordEncoderFactories.createDelegatingPasswordEncoder();
+	}
+	this.passwordEncoder = passwordEncoder;
+	return passwordEncoder;
+}
+// 从Spring IoC容器中获取Bean 有可能获取不到
+private <T> T getBeanOrNull(Class<T> type) {
+	try {
+		return this.applicationContext.getBean(type);
+	} catch(NoSuchBeanDefinitionException notFound) {
+	return null;
+	}
+}
+```
+
+其中, 如果能从从Spring IoC容器中获取 PasswordEncoder 的Bean就用该Bean作为编码器，没有就通过`PasswordEncoderFactories.createDelegatingPasswordEncoder();` 获取
+
+```
+public static PasswordEncoder createDelegatingPasswordEncoder() {
+	String encodingId = "bcrypt";
+	Map<String, PasswordEncoder> encoders = new HashMap<>();
+	encoders.put(encodingId, new BCryptPasswordEncoder());
+	encoders.put("ldap", new org.springframework.security.crypto.password.LdapShaPasswordEncoder());
+	encoders.put("MD4", new org.springframework.security.crypto.password.Md4PasswordEncoder());
+	encoders.put("MD5", new org.springframework.security.crypto.password.MessageDigestPasswordEncoder("MD5"));
+	encoders.put("noop",org.springframework.security.crypto.password.NoOpPasswordEncoder.getInstance());
+	encoders.put("pbkdf2", new Pbkdf2PasswordEncoder());
+	encoders.put("scrypt", new SCryptPasswordEncoder());
+	encoders.put("SHA-1", new org.springframework.security.crypto.password.MessageDigestPasswordEncoder("SHA1"));
+	encoders.put("SHA-256", new org.springframework.security.crypto.password.MessageDigestPasswordEncoder("SHA256"));	
+	encoders.put("sha256", new org.springframework.security.crypto.password.StandardPasswordEncoder());
+	return new DelegatingPasswordEncoder(encodingId, encoders);
+
+```
+
+返回的是一个`DelegatingPasswordEncoder`委托密码编码器对象, 继承了多种编码方式, 默认采用bcrypt进行编码(通过传入encodingId). 
+
+> 因为先会从ioc中获取编码器, 所以我们也可以直接注入一个PasswordEncoder类型的bean, 来替换掉默认的PasswordEncoder
+
+### 自动配置入口
+
+在spring boot中, spring security是通过`org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration`来完成自动配置的.
+
+在这个配置类中, 除了使用@Import导入了其他三个配置类`SpringBootWebSecurityConfiguration 、 WebSecurityEnablerConfiguration 和 SecurityDataConfiguration` 以外, 还将 DefaultAuthenticationEventPublisher 作为默认的 AuthenticationEventPublisher 注入 Spring IoC 容器.  熟悉spring的我一看就知道是事件发布器.
+
+该类内置 了一个 HashMap> 维护了认证异常处理和对应异常事件处理逻辑的映射关系，比如账户过期异常 AccountExpiredException 对 应认证过期事件 AuthenticationFailureExpiredEvent ，也就是说发生不同认证的异常使用不同处理策略。
+
+ 1.**SpringBootWebSecurityConfiguration**
+
+```
+@Configuration
+@ConditionalOnClass(WebSecurityConfigurerAdapter.class)
+@ConditionalOnMissingBean(WebSecurityConfigurerAdapter.class)
+@ConditionalOnWebApplication(type = Type.SERVLET)
+public class SpringBootWebSecurityConfiguration {
+	@Configuration
+	@Order(SecurityProperties.BASIC_AUTH_ORDER)
+	static class DefaultConfigurerAdapter extends WebSecurityConfigurerAdapter {
+	}
+}
+```
+
+默认情况下 DefaultConfigurerAdapter 将以 SecurityProperties.BASIC_AUTH_ORDER （ -5 ） 的顺序注入 Spring IoC 容器，这是个空实现。 **如果我们需要个性化可以通过继承 `WebSecurityConfigurerAdapter` 来实现**。
+
+2.**WebSecurityEnablerConfiguration**
+
+```
+@Configuration
+@ConditionalOnBean(WebSecurityConfigurerAdapter.class)
+@ConditionalOnMissingBean(name = BeanIds.SPRING_SECURITY_FILTER_CHAIN)
+@ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
+@EnableWebSecurity
+public class WebSecurityEnablerConfiguration {
+}
+```
+
+这个配置类的作用仅仅是为了启动**@EnableWebSecurity**:
+
+```
+@Retention(value = java.lang.annotation.RetentionPolicy.RUNTIME)
+@Target(value = { java.lang.annotation.ElementType.TYPE })
+@Documented
+@Import({ WebSecurityConfiguration.class,
+	SpringWebMvcImportSelector.class,
+	OAuth2ImportSelector.class })
+@EnableGlobalAuthentication
+@Configuration
+public @interface EnableWebSecurity {
+	boolean debug() default false;
+}
+```
+
+又导入了`WebSecurityConfiguration, SpringWebMvcImportSelector, OAuth2ImportSelector` 和启动了`@EnableGlobalAuthentication`
+
+① **WebSecurityConfiguration**
+
+该配置类使用一个 WebSecurity 对象基于用户指定的或者默认的安全配置，你可以通过继承 WebSecurityConfigurerAdapter 或者实现 WebSecurityConfigurer 来定制 WebSecurity 创建一个 FilterChainProxy Bean来对用户请求进行安全过滤。这个 FilterChainProxy 的名称就是 WebSecurityEnablerConfiguration 上的 BeanIds.SPRING_SECURITY_FILTER_CHAIN 也就是 springSecurityFilterChain ,它是一个 Filter，最终会被作为Servlet过滤器链中的一个Filter应用到Servlet容器中。安全处理的策略主要是过滤器 的调用顺序。 WebSecurityConfiguration 最终会通过 @EnableWebSecurity 应用到系统。
+
+```
+@Configuration
+public class WebSecurityConfiguration implements ImportAware,BeanClassLoaderAware {
+	private WebSecurity webSecurity;
+	// 是否启用了调试模式，来自注解 @EnableWebSecurity 的属性 debug，缺省值 false
+	private Boolean debugEnabled;
+	private List<SecurityConfigurer<Filter, WebSecurity>> webSecurityConfigurers;
+	private ClassLoader beanClassLoader;
+	@Autowired(required = false)
+	private ObjectPostProcessor<Object> objectObjectPostProcessor;
+	/**
+	* 代理监听器 应该时监听 DefaultAuthenticationEventPublisher 的一些处理策略
+	*/
+	@Bean
+	public static DelegatingApplicationListener delegatingApplicationListener(){
+		return new DelegatingApplicationListener();
+	}
+	/**
+	* 安全SpEL表达式处理器 SecurityExpressionHandler 缺省为一个DefaultWebSecurityExpressionHandler
+	*/
+	@Bean
+	@DependsOn(AbstractSecurityWebApplicationInitializer.DEFAULT_FILTER_NAME)
+	public SecurityExpressionHandler<FilterInvocation> webSecurityExpressionHandler() {
+		return webSecurity.getExpressionHandler();
+	}
+	/**
+	* Spring Security核心过滤器 Spring Security Filter Chain , Bean ID为springSecurityFilterChain
+	*/
+	@Bean(name = AbstractSecurityWebApplicationInitializer.DEFAULT_FILTER_NAME)
+	public Filter springSecurityFilterChain() throws Exception {
+		boolean hasConfigurers = webSecurityConfigurers != null && !webSecurityConfigurers.isEmpty();
+		if (!hasConfigurers) {
+			WebSecurityConfigurerAdapter adapter = objectObjectPostProcessor
+				.postProcess(new WebSecurityConfigurerAdapter() {
+				});
+			webSecurity.apply(adapter);
+		}
+		return webSecurity.build();
+	}
+	/**
+	* 用于模板 如JSP Freemarker 的一些页面标签按钮控制支持
+	*/
+	@Bean
+	@DependsOn(AbstractSecurityWebApplicationInitializer.DEFAULT_FILTER_NAME)
+	public WebInvocationPrivilegeEvaluator privilegeEvaluator() throws Exception{
+		return webSecurity.getPrivilegeEvaluator();
+	}
+	/**
+	* 用于创建web configuration的SecurityConfigurer实例，
+	* 注意该参数通过@Value(...)方式注入，对应的bean autowiredWebSecurityConfigurersIgnoreParents也在该类中定义
+	@Autowired(required = false)
+	public void setFilterChainProxySecurityConfigurer(
+			ObjectPostProcessor<Object> objectPostProcessor,
+			@Value("#
+				{@autowiredWebSecurityConfigurersIgnoreParents.getWebSecurityConfigurers()}")
+				List<SecurityConfigurer<Filter, WebSecurity>> webSecurityConfigurers)throws Exception {
+		webSecurity = objectPostProcessor.postProcess(new WebSecurity(objectPostProcessor));
+		if (debugEnabled != null) {
+		webSecurity.debug(debugEnabled);
+		}
+		Collections.sort(webSecurityConfigurers,AnnotationAwareOrderComparator.INSTANCE);
+		Integer previousOrder = null;
+		Object previousConfig = null;
+		for (SecurityConfigurer<Filter, WebSecurity> config : webSecurityConfigurers) {
+			Integer order = AnnotationAwareOrderComparator.lookupOrder(config);
+			if (previousOrder != null && previousOrder.equals(order)) {
+				throw new IllegalStateException(
+					"@Order on WebSecurityConfigurers must be unique. Order of "
+					+ order + " was already used on " +
+					previousConfig + ", so it cannot be used on "
+					+ config + " too.");
+			}
+			previousOrder = order;
+			previousConfig = config;
+		}
+		for (SecurityConfigurer<Filter, WebSecurity> webSecurityConfigurer : webSecurityConfigurers){
+			webSecurity.apply(webSecurityConfigurer);
+		}
+		this.webSecurityConfigurers = webSecurityConfigurers;
+	}
+	/**
+	* 从当前bean容器中获取所有的WebSecurityConfigurer bean。
+	* 这些WebSecurityConfigurer通常是由开发人员实现的配置类，并且继承自WebSecurityConfigurerAdapter
+	*/
+	@Bean
+	public static AutowiredWebSecurityConfigurersIgnoreParents
+		autowiredWebSecurityConfigurersIgnoreParents(
+			ConfigurableListableBeanFactory beanFactory) {
+		return new AutowiredWebSecurityConfigurersIgnoreParents(beanFactory);
+	}
+	//......
+}
+```
+
+② **SpringWebMvcImportSelector**
+
+该类是为了对 Spring Mvc 进行支持的。一旦发现应用使用 Spring Mvc 的核心前置控制器 `DispatcherServlet` 就会引入 ``WebMvcSecurityConfiguration 。主要是为了适配 Spring Mvc 。
+
+③ **OAuth2ImportSelector**
+
+该类是为了对 OAuth2.0 开放授权协议进行支持。 ClientRegistration 如果被引用，具体点也就是 spring-security-oauth2 模块被启用（引入依赖jar）时。会启用 OAuth2 客户端配置 `OAuth2ClientConfiguration `。
+
+④**@EnableGlobalAuthentication**
+
+这个类主要引入了` AuthenticationConfiguration` 目的主要为了构造 认证管理器` AuthenticationManager `。 
+
+
+
+3.**SecurityFilterAutoConfiguration**
+
+用于向Servlet容器注册一个名称为 securityFilterChainRegistration 的bean, 实现类是 DelegatingFilterProxyRegistrationBean 。该 bean 的目的是注册另外一个 Servlet Filter Bean 到 Servlet 容器,实现类为 DelegatingFilterProxy 。 DelegatingFilterProxy 其实是一 个代理过滤器，它被 Servlet 容器用于处理请求时，会将任务委托给指定给自己另外一个Filter bean。 对于 SecurityFilterAutoConfiguration ,来讲，这个被代理的Filter bean的名字为 springSecurityFilterChain , 也就是我们上面提到过的 Spring Security Web提供的用于请求安全处 理的Filter bean，其实现类是 FilterChainProxy 。
+
+```
+@Configuration
+// 仅在 Servlet 环境下生效
+@ConditionalOnWebApplication(type = Type.SERVLET)
+// 确保安全属性配置信息被加载并以bean形式被注册到容器
+@EnableConfigurationProperties(SecurityProperties.class)
+// 仅在特定类存在于 classpath 上时才生效
+@ConditionalOnClass({ AbstractSecurityWebApplicationInitializer.class,
+	SessionCreationPolicy.class })
+// 指定该配置类在 SecurityAutoConfiguration 配置类应用之后应用
+@AutoConfigureAfter(SecurityAutoConfiguration.class)
+public class SecurityFilterAutoConfiguration {
+	// 要注册到 Servlet 容器的 DelegatingFilterProxy Filter的
+	// 目标代理Filter bean的名称 ：springSecurityFilterChain
+	private static final String DEFAULT_FILTER_NAME =
+		AbstractSecurityWebApplicationInitializer.DEFAULT_FILTER_NAME;
+	// 定义一个 bean securityFilterChainRegistration,
+	// 该 bean 的目的是注册另外一个 bean 到 Servlet 容器 : 实现类为 DelegatingFilterProxy 的一个 Servlet Filter
+	// 该 DelegatingFilterProxy Filter 其实是一个代理过滤器，它被 Servlet 容器用于匹配特定URL模式的请求，
+	// 而它会将任务委托给指定给自己的名字为 springSecurityFilterChain 的 Filter, 也就是 Spring Security Web
+	// 提供的用于请求安全处理的一个 Filter bean，其实现类是 FilterChainProxy
+	// (可以将 1 个 FilterChainProxy 理解为 1 HttpFirewall + n SecurityFilterChain)
+	@Bean
+	@ConditionalOnBean(name = DEFAULT_FILTER_NAME)
+	public DelegatingFilterProxyRegistrationBean securityFilterChainRegistration(
+			SecurityProperties securityProperties) {
+		DelegatingFilterProxyRegistrationBean registration = new
+		DelegatingFilterProxyRegistrationBean(DEFAULT_FILTER_NAME);
+		registration.setOrder(securityProperties.getFilter().getOrder());
+		registration.setDispatcherTypes(getDispatcherTypes(securityProperties));
+		return registration;
+	}
+	private EnumSet<DispatcherType> getDispatcherTypes(SecurityProperties securityProperties) {
+		if (securityProperties.getFilter().getDispatcherTypes() == null) {
+			return null;
+		}
+		return securityProperties.getFilter().getDispatcherTypes().stream()
+			.map((type) -> DispatcherType.valueOf(type.name()))
+			.collect(Collectors.collectingAndThen(Collectors.toSet(), EnumSet::copyOf));
+	}
+}
+```
+
