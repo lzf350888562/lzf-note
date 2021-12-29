@@ -85,11 +85,11 @@ BitMap通常用来去重 & 取两个集合的交集或并集等.
 > 1. 内核等待 I/O 设备准备好数据
 > 2. 内核将数据从内核空间拷贝到用户空间。
 
-## bio
+**bio**
 
 ![](picture/6a9e704af49b4380bb686f0c96d33b81tplv-k3u1fbpfcp-watermark.image)
 
-## nio
+**nio**
 
 Java 中的 NIO 是 **I/O 多路复用模型** 还是 同步非阻塞 IO 模型。
 
@@ -115,13 +115,51 @@ Java 中的 NIO ，有一个非常重要的**选择器 ( Selector )** 的概念�
 
 ![img](picture/0f483f2437ce4ecdb180134270a00144tplv-k3u1fbpfcp-watermark.image)
 
-## aio
+**aio**
 
 AIO 也就是 NIO 2。Java 7 中引入了 NIO 的改进版 NIO 2,它是异步 IO 模型。
 
 异步 IO 是基于事件和回调机制实现的，也就是应用操作之后会直接返回，不会堵塞在那里，当后台处理完成，操作系统会通知相应的线程进行后续的操作。
 
 ![img](picture/3077e72a1af049559e81d18205b56fd7tplv-k3u1fbpfcp-watermark.image)
+
+## 使用缓冲流减少IO
+
+如果使用普通的FileInputStream/FileOutputStream实现文件读写:
+
+```
+long begin = System.currentTimeMillis();
+        try (FileInputStream input = new FileInputStream("C:/456.png");
+             FileOutputStream output = new FileOutputStream("C:/789.png")) {
+            byte[] bytes = new byte[1024];
+            int i;
+            while ((i = input.read(bytes)) != -1) {
+                output.write(bytes,0,i);
+            }
+        } catch (IOException e) {
+            log.error("复制文件发生异常",e);
+        }
+        log.info("常规流读写，总共耗时ms："+(System.currentTimeMillis() - begin));
+```
+
+如果是不带缓冲的流，读取到一个字节或者字符的，就会直接输出数据了。而带缓冲的流，读取到一个字节或者字符时，先不输出，而是等达到缓冲区的最大容量，才一次性输出: 
+
+```
+long begin = System.currentTimeMillis();
+        try (BufferedInputStream bufferedInputStream = new BufferedInputStream(new FileInputStream("C:/456.png"));
+        BufferedOutputStream  bufferedOutputStream = new BufferedOutputStream(new FileOutputStream("C:/789.png"))) {
+            byte[] bytes = new byte[1024];
+            int i;
+            while ((i = input.read(bytes)) != -1) {
+                output.write(bytes,0,i);
+            }
+        } catch (IOException e) {
+            log.error("复制文件发生异常",e);
+        }
+        log.info("总共耗时ms"+(System.currentTimeMillis() - begin));
+```
+
+
 
 # 设计模式
 

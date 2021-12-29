@@ -1242,13 +1242,14 @@ vi deploy.yaml
 #将image的值改为如下值：
 registry.cn-hangzhou.aliyuncs.com/lfy_k8s_images/ingress-nginx-controller:v0.46.0
 
+# 应用
 # 检查安装的结果 ingress也是个服务, 以nodeport方式暴露端口 http对于80:后面的端口 https对于443:后面的端口
 kubectl get pod -n ingress-nginx
 kubectl get svc -n ingress-nginx
 
 #使用两种方式外网浏览器访问 集群ip:生成的端口  可看到nginx提示, 说明了ingress通过nginx实现
-http://172.20.200.0:32401/
-https://172.20.200.0:32405/
+http://172.20.200.0:30849/
+https://172.20.200.0:30184/
 
 #今后可以直接使用这两个地址访问
 ```
@@ -1369,12 +1370,15 @@ kubectl get ingress
 kubectl edit ing ingress-host-bar
 ```
 
-为了模拟域名访问, 设置给master设置两个域名的映射, 通过安装ingress暴露的端口在外网进行访问
+为了模拟域名访问, hosts给master设置两个域名的映射, 通过安装ingress暴露的端口在外网进行访问
+
+172.20.200.0	hello.atguigu.com
+172.20.200.0 	demo.atguigu.com
 
 ```
-http://hello.atguigu.com:32401
-http://demo.atguigu.com:32401
-http://demo.atguigu.com:32401/nginx
+http://hello.atguigu.com:30849/
+https://hello.atguigu.com:30184/
+http://demo.atguigu.com:32401/nginx  
 ```
 
 如果修改demo.atguigu.com域名配置的path
@@ -1457,7 +1461,9 @@ spec:
               number: 8000
 ```
 
-现在访问http://demo.atguigu.com:32401/nginx 可以被正常处理了
+现在访问http://demo.atguigu.com:32401/nginx 将被 demo.atguigu.com:32401/ 处理,
+
+但原来的http://demo.atguigu.com:32401/ 不能被处理了?
 
 
 
