@@ -1445,7 +1445,7 @@ ShardingSphere（包括 Sharding-JDBC、Sharding-Proxy 和 Sharding-Sidecar) ,�
 
 为了保证数据做到准实时同步还要团队之间解耦，团队A不再背锅, 可引入canal.
 
-cacal通过伪装成从库监听relaylog来获取增量数据日志,再通过java代码调用其他模块接口可实现如es ,  mongodb的数据同步.
+cacal通过**伪装成从库监听relaylog来获取增量数据日志**,再通过java代码调用其他模块接口可实现如es ,  mongodb的数据同步.
 
 但是此时解耦还没有完成, 接口调用都是在团队A完成, 可以再引入消息队列MQ , 团队A部署canal监听mysql的修改操作发布到消息队列 ,团队B和团队C通过订阅消息队列 ,自己调用接口对数据进行同步. 之后再需要加入新的团队只需要订阅消息队列即可 ,与团队A无关了.
 
@@ -1462,6 +1462,8 @@ cacal通过伪装成从库监听relaylog来获取增量数据日志,再通过jav
 canal实现mysql异构数据同步机制
 
 ![image-20211205131701281](picture/image-20211205131701281.png)
+
+> 另外, 为支持去IOE, 阿里针对oracle异构数据提出了yugong解决方案
 
 ## MHA高可用
 

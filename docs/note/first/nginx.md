@@ -119,21 +119,54 @@ server {
 }
 ```
 
-负载均衡策略:
+轮询策略(默认):每个请求按时间顺序逐一分配到不同的后端服务器，如果后端服务器down掉，能自动剔除。 
 
-1,轮询(默认)
+```
+upstream backserver { 
+server 192.168.0.14; 
+server 192.168.0.15; 
+} 
+```
 
-2.weight(加载proxy_pass后)
+权重策略:指定轮询几率，weight和访问比率成正比，用于后端服务器性能不均的情况。 
 
-代表轮询权重,默认1,权重越高被分配的客户端越多
+```
+upstream backserver { 
+server 192.168.0.14 weight=8; 
+server 192.168.0.15 weight=10; 
+}
+```
 
-3.ip_hash(加在upstream中)
+IP_HASH:每个请求按访问ip的hash结果分配，这样每个访客固定访问一个后端服务器，可以解决session的问题。
 
-对每个请求按访问ip的hash结果进行分配,这样每个访客固定访问一个后端服务器.
+```
+upstream backserver { 
+ip_hash; 
+server 192.168.0.14:88; 
+server 192.168.0.15:80; 
+} 
+```
 
-4.fair(加在upstream中,第三方)
+URL_HASH:按访问url的hash结果来分配请求，使每个url定向到同一个后端服务器，后端服务器为缓存时比较有效。 
 
-按后端服务器的响应时间来分配请求,响应时间短的优先分配.
+```
+upstream backserver { 
+server squid1:3128; 
+server squid2:3128; 
+hash $request_uri; 
+hash_method crc32; 
+} 
+```
+
+FAIR:按后端服务器的响应时间来分配请求，响应时间短的优先分配。 
+
+```
+upstream backserver { 
+server server1; 
+server server2; 
+fair; 
+} 
+```
 
 
 

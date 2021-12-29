@@ -2740,11 +2740,9 @@ public class ProxyTestController {
 
 # @Async异步调用
 
-再Spring Boot中，提供了`@Async`注解就能将原来的同步函数变为异步函数,
+`@Async`注解就能将原来的同步函数变为异步函数,
 
-为了让@Async注解能够生效，还需要在Spring Boot的主程序中配置@EnableAsync
-
-测试
+为了让@Async注解能够生效，还需要配置@EnableAsync
 
 ```
 @Component
@@ -2781,11 +2779,9 @@ public class Task {
 @SpringBootApplication
 @EnableAsync
 public class Application {
-
 	public static void main(String[] args) {
 		SpringApplication.run(Application.class, args);
 	}
-
 }
 
 @RunWith(SpringJUnit4ClassRunner.class)
@@ -2799,27 +2795,22 @@ public class ApplicationTests {
 		task.doTaskTwo();
 		task.doTaskThree();
 	}
-
 }
 ```
 
-此时可以反复执行单元测试，您可能会遇到各种不同的结果，比如：
+此时反复执行单元测试会遇到各种不同的结果，比如：
 
 - 没有任何任务相关的输出
 - 有部分任务相关的输出
 - 乱序的任务相关的输出
 
-原因是目前`doTaskOne`、`doTaskTwo`、`doTaskThree`三个函数的时候已经是异步执行了。主程序在异步调用之后，主程序并不会理会这三个函数是否执行完成了，由于没有其他需要执行的内容，所以程序就自动结束了，导致了不完整或是没有输出任务相关内容的情况。
+原因是主程序在异步调用三个函数之后并不会理会这三个函数是否执行完成了，由于没有其他需要执行的内容，所以程序就自动结束了，导致了不完整或是没有输出任务相关内容的情况。
 
 **注： @Async所修饰的函数不要定义为static类型，这样异步调用不会生效**
 
 ## 异步回调
 
-为了让`doTaskOne`、`doTaskTwo`、`doTaskThree`能正常结束，假设我们需要统计一下三个任务并发执行共耗时多少，这就需要等到上述三个函数都完成调动之后记录时间，并计算结果。
-
-我们需要使用`Future<T>`来返回异步调用的结果.
-
-修改:
+为了让异步函数能正常结束，可使用`Future<T>`来返回异步调用的结果.
 
 ```
 @Component
@@ -2858,7 +2849,6 @@ public class Task {
 ```
 @Test
 public void test() throws Exception {
-
 	long start = System.currentTimeMillis();
 
 	Future<String> task1 = task.doTaskOne();
@@ -2877,13 +2867,20 @@ public void test() throws Exception {
 }
 ```
 
-### Future简单示例
+### Future
 
 `Future`是对于具体的`Runnable`或者`Callable`任务的执行结果进行取消、查询是否完成、获取结果的接口。必要时可以通过get方法获取执行结果，该方法会阻塞直到任务返回结果。
 
 它声明这样的五个方法：
 
-- cancel方法用来取消任务，如果取消任务成功则返回true，如果取消任务失败则返回false。参数mayInterruptIfRunning表示是否允许取消正在执行却没有执行完毕的任务，如果设置true，则表示可以取消正在执行过程中的任务。如果任务已经完成，则无论mayInterruptIfRunning为true还是false，此方法肯定返回false，即如果取消已经完成的任务会返回false；如果任务正在执行，若mayInterruptIfRunning设置为true，则返回true，若mayInterruptIfRunning设置为false，则返回false；如果任务还没有执行，则无论mayInterruptIfRunning为true还是false，肯定返回true。
+- cancel方法用来取消任务，如果取消成功返回true，否则返回false。参数mayInterruptIfRunning表示是否允许取消正在执行却没有执行完毕的任务。
+
+> 两种特殊情况是: 
+>
+> 如果任务已经完成，则无论mayInterruptIfRunning为true还是false，方法都会返回false，即如果取消已经完成的任务会返回false；
+>
+> 如果任务还没有执行，则无论mayInterruptIfRunning为true还是false，方法都会返回true,  即如果取消还没执行的任务会返回true.
+
 - isCancelled方法表示任务是否被取消成功，如果在任务正常完成前被取消成功，则返回 true。
 - isDone方法表示任务是否已经完成，若任务完成，则返回true；
 - get()方法用来获取执行结果，这个方法会产生阻塞，会一直等到任务执行完毕才返回；
@@ -2906,9 +2903,9 @@ public class ApplicationTests {
 }
 ```
 
-在get方法中还定义了该线程执行的超时时间，通过执行这个测试我们可以观察到执行时间超过5秒的时候，这里会抛出超时异常，该执行线程就能够因执行超时而释放回线程池，不至于一直阻塞而占用资源。
+执行时间超过5秒的时候，这里会抛出超时异常，该执行线程就能够因执行超时而释放回线程池，不至于一直阻塞而占用资源。
 
-### 内存溢出(配置默认线程池)
+### 配置默认线程池
 
 通过异步任务加速执行的实现，是否存在问题或风险呢？
 
@@ -2931,7 +2928,9 @@ public class HelloController {
 }
 ```
 
-虽然，从单次接口调用来说，是没有问题的。但当接口被客户端频繁调用的时候，异步任务的数量就会大量增长：3 x n（n为请求数量），如果任务处理不够快，就很可能会出现内存溢出的情况。那么为什么会内存溢出呢？根本原因是由于Spring Boot默认用于异步任务的线程池是这样配置的：
+当接口被频繁调用的时候，异步任务的数量就会大量增长：3 x n，如果任务处理不够快，就很可能会出现内存溢出。
+
+根本原因是由于Spring Boot默认用于异步任务的线程池是这样配置的：
 
 ```
 public static class Pool{
@@ -2940,8 +2939,6 @@ public static class Pool{
 	//...
 }
 ```
-
-所以，默认情况下，一般任务队列就可能把内存给堆满了。所以，我们真正使用的时候，还需要对异步任务的执行线程池做一些基础配置，以防止出现内存溢出导致服务不可用的问题。
 
 配置默认线程池:
 
@@ -2982,20 +2979,12 @@ public void test1() throws Exception {
 }
 ```
 
-```
-2021-09-15 00:31:50.013  INFO 77985 --- [         task-1] com.didispace.chapter76.AsyncTasks       : 开始做任务一
-2021-09-15 00:31:50.013  INFO 77985 --- [         task-2] com.didispace.chapter76.AsyncTasks       : 开始做任务二
-2021-09-15 00:31:52.452  INFO 77985 --- [         task-1] com.didispace.chapter76.AsyncTasks       : 完成任务一，耗时：2439毫秒
-2021-09-15 00:31:52.452  INFO 77985 --- [         task-1] com.didispace.chapter76.AsyncTasks       : 开始做任务三
-2021-09-15 00:31:55.880  INFO 77985 --- [         task-2] com.didispace.chapter76.AsyncTasks       : 完成任务二，耗时：5867毫秒
-2021-09-15 00:32:00.346  INFO 77985 --- [         task-1] com.didispace.chapter76.AsyncTasks       : 完成任务三，耗时：7894毫秒
-2021-09-15 00:32:00.347  INFO 77985 --- [           main] c.d.chapter76.Chapter76ApplicationTests  : 任务全部完成，总耗时：10363毫秒
-```
+根据输出日志可能有如下结果:
 
 - 任务一和任务二会马上占用核心线程，任务三进入队列等待
 - 任务一完成，释放出一个核心线程，任务三从队列中移出，并占用核心线程开始处理
 
-**注意**：这里可能有的小伙伴会问，最大线程不是5么，为什么任务三是进缓冲队列，不是创建新线程来处理吗？这里要理解缓冲队列与最大线程间的关系：只有在缓冲队列满了之后才会申请超过核心线程数的线程来进行处理。所以，这里只有缓冲队列中10个任务满了，再来第11个任务的时候，才会在线程池中创建第三个线程来处理。这个这里就不具体写列子了，读者可以自己调整下参数，或者调整下单元测试来验证这个逻辑。
+**注意**：只有在缓冲队列满之后才会申请超过核心线程数的线程来进行处理。所以，这里只有缓冲队列中10个任务满了，再来第11个任务的时候，才会在线程池中创建第三个线程来处理。。
 
 ## 自定义线程池
 
