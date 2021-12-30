@@ -179,20 +179,6 @@ public class BrowserSecurityConfig extends WebSecurityConfigurerAdapter {
 
 再访问项目现在是表单认证方式而不是对话框了.
 
-如果需要换回HTTP Basic的认证方式，我们只需要简单修改`configure`方法中的配置：
-
-```
-@Override
-protected void configure(HttpSecurity http) throws Exception {
-    // http.formLogin() // 表单方式
-    http.httpBasic() // HTTP Basic方式
-            .and()
-            .authorizeRequests() // 授权配置
-            .anyRequest()  // 所有请求
-            .authenticated(); // 都需要认证
-}
-```
-
 ```
      * anyRequest          |   匹配所有请求路径
      * access              |   SpringEl表达式结果为true时可以访问
@@ -709,7 +695,7 @@ Spring Security的认证校验是由`UsernamePasswordAuthenticationFilter`过滤
 
 首先定义一个验证码对象ImageCode：
 
-```
+```java
 public class ImageCode {
     private BufferedImage image;
     private String code;
@@ -735,7 +721,7 @@ ImageCode对象包含了三个属性：`image`图片，`code`验证码和`expire
 
 定义一个ValidateCodeController，用于处理生成验证码请求：
 
-```
+```java
 @RestController
 public class ValidateController {
     public final static String SESSION_KEY= "SESSION_KEY_IMAGE_CODE";
@@ -754,7 +740,7 @@ public class ValidateController {
 
 其中`createImageCode`方法代码如下所示：
 
-```
+```java
 private ImageCode createImageCode() {
     int width = 100; // 验证码图片宽度
     int height = 36; // 验证码图片长度
@@ -810,7 +796,7 @@ private Color getRandColor(int fc, int bc) {
 
 要使生成验证码的请求不被拦截，需要在`BrowserSecurityConfig`的`configure`方法中配置免拦截：
 
-```
+```java
 @Override
 protected void configure(HttpSecurity http) throws Exception {
     http.formLogin() // 表单登录

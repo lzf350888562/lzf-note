@@ -1123,6 +1123,181 @@ Properties commandStats = (Properties) redisTemplate.execute((RedisCallback<Obje
 Object dbSize = redisTemplate.execute((RedisCallback<Object>) RedisServerCommands::dbSize);
 ```
 
+## 发布订阅功能
+
+
+
+```
+@SpringBootApplication
+public class Chapter55Application {
+    private static String CHANNEL = "didispace";
+    public static void main(String[] args) {
+        SpringApplication.run(Chapter55Application.class, args);
+    }
+
+    @RestController
+    static class RedisController {
+        private RedisTemplate<String, String> redisTemplate;
+        
+        public RedisController(RedisTemplate<String, String> redisTemplate) {
+            this.redisTemplate = redisTemplate;
+        }
+        
+        @GetMapping("/publish")
+        public void publish(@RequestParam String message) {
+            // 发送消息
+            redisTemplate.convertAndSend(CHANNEL, message);
+        }
+    }
+}
+```
+
+```
+@Slf4j
+@Service
+static class MessageSubscriber {
+
+    public MessageSubscriber(RedisTemplate redisTemplate) {
+        RedisConnection redisConnection = redisTemplate.getConnectionFactory().getConnection();
+        redisConnection.subscribe(new MessageListener() {
+            @Override
+            public void onMessage(Message message, byte[] bytes) {
+                // 收到消息的处理逻辑
+                log.info("Receive message : " + message);
+            }
+        }, CHANNEL.getBytes(StandardCharsets.UTF_8));
+    }
+}
+```
+
+## redis cache自定义配置
+
+```
+@Configuration
+public class RedisConfig extends CachingConfigurerSupport {
+
+	// 自定义缓存key生成策略
+	@Bean
+	@Override
+	public KeyGenerator keyGenerator() {
+		return new KeyGenerator() {
+			@Override
+			public Object generate(Object target, java.lang.reflect.Method method, Object... params) {
+				StringBuffer sb = new StringBuffer();
+				sb.append(target.getClass().getName());
+				sb.append(method.getName());
+				for (Object obj : params) {
+					sb.append(obj.toString());
+				}
+				return sb.toString();
+			}
+		};
+	}
+
+	// 缓存管理器
+	@Bean
+	public CacheManager cacheManager(@SuppressWarnings("rawtypes") RedisTemplate redisTemplate) {
+		RedisCacheManager cacheManager = new RedisCacheManager(redisTemplate);
+		// 设置缓存过期时间
+		cacheManager.setDefaultExpiration(10000);
+		return cacheManager;
+	}
+
+	@Bean
+	public RedisTemplate<String, String> redisTemplate(RedisConnectionFactory factory) {
+		StringRedisTemplate template = new StringRedisTemplate(factory);
+		setSerializer(template);// 设置序列化工具
+		template.afterPropertiesSet();
+		return template;
+	}
+
+	private void setSerializer(StringRedisTemplate template) {
+		@SuppressWarnings({ "rawtypes", "unchecked" })
+		Jackson2JsonRedisSerializer jackson2JsonRedisSerializer = new Jackson2JsonRedisSerializer(Object.class);
+		ObjectMapper om = new ObjectMapper();
+		om.setVisibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.ANY);
+		om.enableDefaultTyping(ObjectMapper.DefaultTyping.NON_FINAL);
+		jackson2JsonRedisSerializer.setObjectMapper(om);
+		template.setValueSerializer(jackson2JsonRedisSerializer);
+	}
+}
+```
+
+```
+@CacheConfig(cacheNames = "student")
+public interface StudentService {
+   @CachePut(key = "#p0.sno")
+   Student update(Student student);
+
+   @CacheEvict(key = "#p0", allEntries = true)
+   void deleteStudentBySno(String sno);
+   
+   @Cacheable(key = "#p0")
+   Student queryStudentBySno(String sno);
+}
+```
+
+### SHA256生成key
+
+org.apache.commons
+
+```
+ @Bean
+    @Override
+    public KeyGenerator keyGenerator() {
+        return (target, method, params) -> {
+            Map<String,Object> container = new HashMap<>(3);
+            Class<?> targetClassClass = target.getClass();
+            // 类地址
+            container.put("class",targetClassClass.toGenericString());
+            // 方法名称
+            container.put("methodName",method.getName());
+            // 包名称
+            container.put("package",targetClassClass.getPackage());
+            // 参数列表
+            for (int i = 0; i < params.length; i++) {
+                container.put(String.valueOf(i),params[i]);
+            }
+            // 转为JSON字符串
+            String jsonString = JSON.toJSONString(container);
+            // 做SHA256 Hash计算，得到一个SHA256摘要作为Key
+            return DigestUtils.sha256Hex(jsonString);
+        };
+    }
+```
+
+### cache操作异常处理
+
+```
+	 @Bean
+    @Override
+    public CacheErrorHandler errorHandler() {
+        // 异常处理，当Redis发生异常时，打印日志，但是程序正常走
+        log.info("初始化 -> [{}]", "Redis CacheErrorHandler");
+        return new CacheErrorHandler() {
+            @Override
+            public void handleCacheGetError(RuntimeException e, Cache cache, Object key) {
+                log.error("Redis occur handleCacheGetError：key -> [{}]", key, e);
+            }
+
+            @Override
+            public void handleCachePutError(RuntimeException e, Cache cache, Object key, Object value) {
+                log.error("Redis occur handleCachePutError：key -> [{}]；value -> [{}]", key, value, e);
+            }
+
+            @Override
+            public void handleCacheEvictError(RuntimeException e, Cache cache, Object key) {
+                log.error("Redis occur handleCacheEvictError：key -> [{}]", key, e);
+            }
+
+            @Override
+            public void handleCacheClearError(RuntimeException e, Cache cache) {
+                log.error("Redis occur handleCacheClearError：", e);
+            }
+        };
+    }
+```
+
 
 
 # EhCache

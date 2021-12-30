@@ -22,7 +22,7 @@ cat "hello world" > index.html  #修改页面内容
 
 再访问80可看到页面内容发送变化
 
-## 配置
+**配置**
 
 /etc/nginx/nginx.conf
 
@@ -275,3 +275,7 @@ systemctl start keepalived.service
 停止主服务器 在访问虚拟ip, 同样可以正常访问.
 
 在ifconfig ens33可以看到 绑定的虚拟ip.
+
+# 数据压缩
+
+gzip

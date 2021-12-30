@@ -94,9 +94,11 @@ Kibana - 给人看的 : 可视化数据展示
 
 缺点：基于SDK开发，有代码入侵使应用与 Logstash 耦合了不易扩展。
 
+> Logstash还能起到限流缓冲的作用, 避免同时落入es的数据量过多
+
 **方案3：EFK**
 
-将Logback替换为ELK公司开发的FileBeat组件, FileBeat是轻量级日志收集器, 通过监听日志文件, 收集并发送(像flume?).
+将Logback替换为ELK公司开发的FileBeat组件, FileBeat是轻量级日志收集器, 通过**监听日志文件**, 收集并发送(像flume?).
 
 ![image-20211210225616468](picture/image-20211210225616468.png)
 

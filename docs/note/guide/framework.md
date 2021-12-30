@@ -692,11 +692,9 @@ https://oauth.example.com/token?grant_type=client_credentials&client_id=CLIENT_I
 
 如果授权服务器验证成功，那么将直接返回令牌 token，改客户端已被授权。
 
-## shiro
+# shiro
 
-
-
-### Authentication
+## Authentication
 
 Subject.login -->  SecurityManager.login(token) -->	Authenticator.doAuthenticate(token)   --> Realm.getAuthenticationInfo(token)
 
@@ -747,7 +745,7 @@ realm的顺序可以通过定义的形式隐式声明 或 通过 securityManager
 
 
 
-### Authorization
+## Authorization
 
 授权核心3元素: 权限, 角色, 用户.
 
@@ -906,7 +904,7 @@ SecurityManager 实现默认使用 ModularRealmAuthorizer 实例。ModularRealmA
 
 > 最后, 如果你的应用程序使用多个Realm来执行授权，并且 ModularRealmAuthorizer 的默认简单基于迭代的短路授权行为不适合您的需要，则您可能希望创建一个自定义Authorizer并相应地配置 SecurityManager。
 
-### Realm
+## Realm
 
 Realm 用于将访问特定于应用程序的安全数据(例如用户、角色和权限)数据转换为 Shiro 理解的格式. Realm通常与数据源(jdbc,文件io等数据访问api)具有一对一的相关性. 所以Realm本质上是一个特定于安全性的 DAO
 
@@ -958,7 +956,7 @@ AuthenticatingRealm.setCredentialsMatcher(customMatcher)
 
 SecurityManager 将授权检查任务委派给Authorizer，默认为 ModularRealmAuthorizer。
 
-### Session Manager
+## Session Manager
 
 **Session**
 
@@ -1017,7 +1015,7 @@ SessionDAO 使用 `SessionIdGenerator `组件在每次创建新会话时生成�
 
 默认 SessionValidationScheduler 为 `ExecutorServiceSessionValidationScheduler`，它使用 JDK `ScheduledExecutorService` 来控制验证的频率。   默认情况下，此实现将每小时执行一次验证。可以通过指定新的`ExecutorServiceSessionValidationScheduler`实例并指定不同的间隔 (interval) 来更改验证发生的速率.
 
-> 在某些情况下，您可能希望完全禁用session验证，因为您设置了一个不受 Shiro 控制的进程来为您执行验证。例如，您可能正在使用企业级缓存，并依靠缓存的"生存时间"设置来自动清除旧session。或者，您可能已经设置了一个 cron 作业来自动清除自定义数据存储。在这些情况下，您可以关闭session验证计划: 通过设置`securityManager.sessionManager.sessionValidationSchedulerEnabled`为false, 但这不会禁用session访问时的验证.
+> 如果想设置一个不受 Shiro 控制的进程来执行验证。例如，使用redis缓存并依靠缓存的"生存时间"设置来自动清除旧session; 或者，设置了一个 cron 作业来自动清除自定义数据存储。在这些情况下，您可以关闭session验证计划: 通过设置`securityManager.sessionManager.sessionValidationSchedulerEnabled`为false, 但这不会禁用session访问时的验证.
 
 **Invalid Session Delete**
 
@@ -1027,9 +1025,9 @@ SessionDAO 使用 `SessionIdGenerator `组件在每次创建新会话时生成�
 
 可通过`securityManager.sessionManager.deleteInvalidSessions`禁用shiro自动删除无效session.
 
-## Spring Security
+# Spring Security
 
-### UserDetailsManager
+## UserDetailsManager
 
 `UserDetailsManager` 负责对安全用户实体抽象 UserDetails 的增删查改操作
 
@@ -1039,7 +1037,7 @@ SessionDAO 使用 `SessionIdGenerator `组件在每次创建新会话时生成�
 
 
 
-### PasswordEncoder
+## PasswordEncoder
 
  `PasswordEncoder` 就是我们对密码进行编码 的工具接口。该接口只有两个功能： 一个是匹配验证。另一个是密码编码。
 
@@ -1092,11 +1090,11 @@ public static PasswordEncoder createDelegatingPasswordEncoder() {
 
 > 因为先会从ioc中获取编码器, 所以我们也可以直接注入一个PasswordEncoder类型的bean, 来替换掉默认的PasswordEncoder
 
-### 自动配置入口
+## 自动配置入口
 
 在spring boot中, spring security是通过`org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration`来完成自动配置的.
 
-在这个配置类中, 除了使用@Import导入了其他三个配置类`SpringBootWebSecurityConfiguration 、 WebSecurityEnablerConfiguration 和 SecurityDataConfiguration` 以外, 还将 DefaultAuthenticationEventPublisher 作为默认的 AuthenticationEventPublisher 注入 Spring IoC 容器.  熟悉spring的我一看就知道是事件发布器.
+在这个配置类中, 除了使用@Import导入了其他三个配置类`SpringBootWebSecurityConfiguration 、 WebSecurityEnablerConfiguration 和 SecurityDataConfiguration` 以外, 还将 `DefaultAuthenticationEventPublisher` 作为默认的` AuthenticationEventPublisher` 注入 Spring IoC 容器.  熟悉spring的我一看就知道是事件发布器.
 
 该类内置 了一个 HashMap> 维护了认证异常处理和对应异常事件处理逻辑的映射关系，比如账户过期异常 AccountExpiredException 对 应认证过期事件 AuthenticationFailureExpiredEvent ，也就是说发生不同认证的异常使用不同处理策略。
 
@@ -1115,7 +1113,7 @@ public class SpringBootWebSecurityConfiguration {
 }
 ```
 
-默认情况下 DefaultConfigurerAdapter 将以 SecurityProperties.BASIC_AUTH_ORDER （ -5 ） 的顺序注入 Spring IoC 容器，这是个空实现。 **如果我们需要个性化可以通过继承 `WebSecurityConfigurerAdapter` 来实现**。
+默认情况下 `DefaultConfigurerAdapter` 将以 `SecurityProperties.BASIC_AUTH_ORDER` （ -5 ） 的顺序注入 Spring IoC 容器，这是个空实现。 **如果我们需要个性化可以通过继承 `WebSecurityConfigurerAdapter` 来实现**。
 
 2.**WebSecurityEnablerConfiguration**
 
@@ -1149,9 +1147,9 @@ public @interface EnableWebSecurity {
 
 ① **WebSecurityConfiguration**
 
-该配置类使用一个 WebSecurity 对象基于用户指定的或者默认的安全配置，你可以通过继承 WebSecurityConfigurerAdapter 或者实现 WebSecurityConfigurer 来定制 WebSecurity 创建一个 FilterChainProxy Bean来对用户请求进行安全过滤。这个 FilterChainProxy 的名称就是 WebSecurityEnablerConfiguration 上的 BeanIds.SPRING_SECURITY_FILTER_CHAIN 也就是 springSecurityFilterChain ,它是一个 Filter，最终会被作为Servlet过滤器链中的一个Filter应用到Servlet容器中。安全处理的策略主要是过滤器 的调用顺序。 WebSecurityConfiguration 最终会通过 @EnableWebSecurity 应用到系统。
+该配置类使用一个 `WebSecurity` 对象基于用户指定的或者默认的安全配置，你可以通过继承 `WebSecurityConfigurerAdapter` 或者实现 `WebSecurityConfigurer `来定制 `WebSecurity` 创建一个 `FilterChainProxy` Bean来对用户请求进行安全过滤。这个 `FilterChainProxy` 的名称就是` WebSecurityEnablerConfiguration` 上的 `BeanIds.SPRING_SECURITY_FILTER_CHAIN `也就是 springSecurityFilterChain ,它是一个 Filter，**最终会被作为Servlet过滤器链中的一个Filter应用到Servlet容器中**。安全处理的策略主要是过滤器的调用顺序。
 
-```
+```java
 @Configuration
 public class WebSecurityConfiguration implements ImportAware,BeanClassLoaderAware {
 	private WebSecurity webSecurity;
@@ -1162,7 +1160,7 @@ public class WebSecurityConfiguration implements ImportAware,BeanClassLoaderAwar
 	@Autowired(required = false)
 	private ObjectPostProcessor<Object> objectObjectPostProcessor;
 	/**
-	* 代理监听器 应该时监听 DefaultAuthenticationEventPublisher 的一些处理策略
+	* 代理监听器 监听 DefaultAuthenticationEventPublisher 的一些处理策略
 	*/
 	@Bean
 	public static DelegatingApplicationListener delegatingApplicationListener(){
@@ -1177,7 +1175,7 @@ public class WebSecurityConfiguration implements ImportAware,BeanClassLoaderAwar
 		return webSecurity.getExpressionHandler();
 	}
 	/**
-	* Spring Security核心过滤器 Spring Security Filter Chain , Bean ID为springSecurityFilterChain
+	* Spring Security核心过滤器链
 	*/
 	@Bean(name = AbstractSecurityWebApplicationInitializer.DEFAULT_FILTER_NAME)
 	public Filter springSecurityFilterChain() throws Exception {
@@ -1199,8 +1197,9 @@ public class WebSecurityConfiguration implements ImportAware,BeanClassLoaderAwar
 		return webSecurity.getPrivilegeEvaluator();
 	}
 	/**
-	* 用于创建web configuration的SecurityConfigurer实例，
-	* 注意该参数通过@Value(...)方式注入，对应的bean autowiredWebSecurityConfigurersIgnoreParents也在该类中定义
+	* webSecurity应用SecurityConfigurer实例，
+	* 注入参数的依赖对应的bean autowiredWebSecurityConfigurersIgnoreParents也在该类中定义
+	*/
 	@Autowired(required = false)
 	public void setFilterChainProxySecurityConfigurer(
 			ObjectPostProcessor<Object> objectPostProcessor,
@@ -1247,7 +1246,7 @@ public class WebSecurityConfiguration implements ImportAware,BeanClassLoaderAwar
 
 ② **SpringWebMvcImportSelector**
 
-该类是为了对 Spring Mvc 进行支持的。一旦发现应用使用 Spring Mvc 的核心前置控制器 `DispatcherServlet` 就会引入 ``WebMvcSecurityConfiguration 。主要是为了适配 Spring Mvc 。
+该类是为了对 Spring Mvc 进行支持的。一旦发现应用使用 Spring Mvc 的核心前置控制器 `DispatcherServlet` 就会引入 `WebMvcSecurityConfiguration `。主要是为了适配 Spring Mvc 。
 
 ③ **OAuth2ImportSelector**
 
@@ -1261,9 +1260,9 @@ public class WebSecurityConfiguration implements ImportAware,BeanClassLoaderAwar
 
 3.**SecurityFilterAutoConfiguration**
 
-用于向Servlet容器注册一个名称为 securityFilterChainRegistration 的bean, 实现类是 DelegatingFilterProxyRegistrationBean 。该 bean 的目的是注册另外一个 Servlet Filter Bean 到 Servlet 容器,实现类为 DelegatingFilterProxy 。 DelegatingFilterProxy 其实是一 个代理过滤器，它被 Servlet 容器用于处理请求时，会将任务委托给指定给自己另外一个Filter bean。 对于 SecurityFilterAutoConfiguration ,来讲，这个被代理的Filter bean的名字为 springSecurityFilterChain , 也就是我们上面提到过的 Spring Security Web提供的用于请求安全处 理的Filter bean，其实现类是 FilterChainProxy 。
+用于向Servlet容器注册一个名称为 `securityFilterChainRegistration` 的bean, 实现类是 `DelegatingFilterProxyRegistrationBean` 。该 bean 的目的是注册另外一个 Servlet Filter Bean 到 Servlet 容器,实现类为 `DelegatingFilterProxy` 。 DelegatingFilterProxy 其实是一个代理过滤器，它被 Servlet 容器用于处理请求时，会将任务委托给指定给自己另外一个Filter bean。 对于 SecurityFilterAutoConfiguration ,来讲，这个被代理的Filter bean的名字为 **springSecurityFilterChain** , 也就是我们上面提到过的 Spring Security Web提供的用于请求安全处理的Filter bean，其实现类是 `FilterChainProxy` 。
 
-```
+```java
 @Configuration
 // 仅在 Servlet 环境下生效
 @ConditionalOnWebApplication(type = Type.SERVLET)
@@ -1275,16 +1274,10 @@ public class WebSecurityConfiguration implements ImportAware,BeanClassLoaderAwar
 // 指定该配置类在 SecurityAutoConfiguration 配置类应用之后应用
 @AutoConfigureAfter(SecurityAutoConfiguration.class)
 public class SecurityFilterAutoConfiguration {
-	// 要注册到 Servlet 容器的 DelegatingFilterProxy Filter的
-	// 目标代理Filter bean的名称 ：springSecurityFilterChain
+	// 要注册到 Servlet 容器的 DelegatingFilterProxy Filter的目标代理Filter bean的名称springSecurityFilterChain
 	private static final String DEFAULT_FILTER_NAME =
 		AbstractSecurityWebApplicationInitializer.DEFAULT_FILTER_NAME;
-	// 定义一个 bean securityFilterChainRegistration,
-	// 该 bean 的目的是注册另外一个 bean 到 Servlet 容器 : 实现类为 DelegatingFilterProxy 的一个 Servlet Filter
-	// 该 DelegatingFilterProxy Filter 其实是一个代理过滤器，它被 Servlet 容器用于匹配特定URL模式的请求，
-	// 而它会将任务委托给指定给自己的名字为 springSecurityFilterChain 的 Filter, 也就是 Spring Security Web
-	// 提供的用于请求安全处理的一个 Filter bean，其实现类是 FilterChainProxy
-	// (可以将 1 个 FilterChainProxy 理解为 1 HttpFirewall + n SecurityFilterChain)
+	// 安装上面方式注入securityFilterChainRegistration,
 	@Bean
 	@ConditionalOnBean(name = DEFAULT_FILTER_NAME)
 	public DelegatingFilterProxyRegistrationBean securityFilterChainRegistration(
@@ -1303,6 +1296,163 @@ public class SecurityFilterAutoConfiguration {
 			.map((type) -> DispatcherType.valueOf(type.name()))
 			.collect(Collectors.collectingAndThen(Collectors.toSet(), EnumSet::copyOf));
 	}
+}
+```
+
+## WebSecurityConfigurerAdapter 
+
+安全配置类,  通过该类可以自定义配置, 通常直接实现该类重写其方法即可, 也可以模仿`SpringBootWebSecurityConfiguration`的方式:来重写:
+
+```
+@Configuration
+@ConditionalOnClass(WebSecurityConfigurerAdapter.class)
+@ConditionalOnWebApplication(type = Type.SERVLET)
+public class  CustomSpringBootWebSecurityConfiguration {
+	@Configuration(proxyBeanMethods = false)
+	@Order(SecurityProperties.BASIC_AUTH_ORDER)
+	static class DefaultConfigurerAdapter extends WebSecurityConfigurerAdapter {
+		@Override
+		protected void configure(AuthenticationManagerBuilder auth) throws Exception {
+			super.configure(auth);
+		}
+		@Override
+		public void configure(WebSecurity web) throws Exception {
+			super.configure(web);
+		}
+		@Override
+		protected void configure(HttpSecurity http) throws Exception {
+			super.configure(http);
+		}
+	}
+
+}
+
+```
+
+**认证管理器配置方法: **`void configure(AuthenticationManagerBuilder auth)` : 用来配置认证管理器` AuthenticationManager`, (管理所有的`UserDetails`等)
+
+**核心过滤器配置方法:**` void configure(WebSecurity web)`: 用来配置 `WebSecurity` 。WebSecurity 是基于 Servlet Filter 用来配置 springSecurityFilterChain ,  而 springSecurityFilterChain 又被委托给了 Spring Security 核心过滤器 Bean `DelegatingFilterProxy` 。 相关逻辑可以在 `WebSecurityConfiguration` 中找到。我们一般不会过多来自定义 WebSecurity , 使用较多的使其 ignoring() 方法用来忽略 Spring Security 对静态资源的控制。
+
+**安全过滤器配置方法:**`void configure(HttpSecurity http)`:用来配置 `HttpSecurity` 。 HttpSecurity 用于构建一个安全过滤器链 SecurityFilterChain 。 SecurityFilterChain 最终 被注入核心过滤器 。 HttpSecurity 有许多我们需要的配置。我们可以通过它来进行自定义安全访问策略。这也是大家最经常重写的方法.
+
+## 登录
+
+自定义访问控制主要是通过 HttpSecurity 来构建的。默认它提供了三种登录方式： 
+
+formLogin() 普通表单登录
+
+oauth2Login() 基于 OAuth2.0 认证/授权协议 
+
+openidLogin() 基于 OpenID 身份认证规范
+
+以上三种方式统统是 AbstractAuthenticationFilterConfigurer 实现的，
+
+
+
+**form 表单登录**
+
+启用表单登录通过两种方式一种是通过 **HttpSecurity 的 apply(C configurer) 方法自己构造一 个 AbstractAuthenticationFilterConfigurer** 的实现，这种是比较高级的玩法。 另一种是我们常见的使用 **HttpSecurity 的 formLogin() 方法来自定义 FormLoginConfigurer** 。
+
+1. **FormLoginConfigurer**
+
+该类是 form 表单登录的配置类。
+
+它提供了一些我们常用的配置方法：
+
+- loginPage(String loginPage) : 登录页面而并不是接口，对于前后分离模式需要我们进行改造 默认为 /login 。
+- loginProcessingUrl(String loginProcessingUrl) 实际表单向后台提交用户信息的 Action ，再由过滤器 UsernamePasswordAuthenticationFilter 拦截处理，该 Action 其实 不会处理任何逻辑。 
+- usernameParameter(String usernameParameter) 用来自定义用户参数名，默认 username 。
+- passwordParameter(String passwordParameter) 用来自定义用户密码名，默认 password 
+- failureUrl(String authenticationFailureUrl) 登录失败后会重定向到此路径， 一般前后 分离不会使用它。 
+- failureForwardUrl(String forwardUrl) 登录失败会转发到此， 一般前后分离用到它。 可定 义一个 Controller （控制器）来处理返回值,但是要注意 RequestMethod 。 
+- defaultSuccessUrl(String defaultSuccessUrl, boolean alwaysUse) 默认登陆成功后 跳转到此 ，如果 alwaysUse 为 true 只要进行认证流程而且成功，会一直跳转到此。一般推荐 默认值 false
+- successForwardUrl(String forwardUrl) 效果等同于上面 defaultSuccessUrl 的 alwaysUse 为 true 但是要注意 RequestMethod 。 
+- successHandler(AuthenticationSuccessHandler successHandler) 自定义认证成功处理 器，可替代上面所有的 success 方式 
+- failureHandler(AuthenticationFailureHandler authenticationFailureHandler) 自定 义失败处理器，可替代上面所有的 failure 方式 
+- permitAll(boolean permitAll) form 表单登录是否放开
+
+例如: 对于controller
+
+```
+@RestController
+@RequestMapping("/login")
+public class LoginController {
+	@Resource
+	private SysUserService sysUserService;
+	@PostMapping("/failure")
+	public Rest loginFailure() {
+		return RestBody.failure(HttpStatus.UNAUTHORIZED.value(), "登录失败了，老哥");
+	}
+	@PostMapping("/success")
+	public Rest loginSuccess() {
+		User principal = (User) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+		String username = principal.getUsername();
+		SysUser sysUser = sysUserService.queryByUsername(username);
+		sysUser.setEncodePassword("[PROTECT]");
+		return RestBody.okData(sysUser,"登录成功");
+	}
+}
+```
+
+配置登录:
+
+```
+@Override
+protected void configure(HttpSecurity http) throws Exception {
+	http.csrf().disable()
+		.cors()
+		.and()
+		.authorizeRequests().anyRequest().authenticated()
+		.and()
+		.formLogin()
+		.loginProcessingUrl("/process")			//登录的Url
+		.successForwardUrl("/login/success")  	//登录成功后的Url, 登录成功后的转发?
+		.failureForwardUrl("/login/failure");	//登录失败后的Url
+}
+```
+
+**UsernamePasswordAuthenticationFilter** 
+
+Http登录认证由过滤器` UsernamePasswordAuthenticationFilter` 进行处理,  它的作用是拦截登录请求并获取账号和 密码，然后把账号密码封装到`UsernamePasswordAuthenticationToken` 中交给`AuthenticationManager` 去作认证。
+
+我们可以实现我们自己的登录方式(比如验证码 , json), 通过 HttpSecurity 的 `addFilterBefore(preLoginFilter, UsernamePasswordAuthenticationFilter.class) `方法进行前来实现。
+
+##  AuthenticationManager
+
+`AuthenticationManager`在`void configure(AuthenticationManagerBuilder auth)` 中配置.
+
+`AuthenticationManager` 的实现 `ProviderManager` 管理了众多的 `AuthenticationProvider` 。每一个` AuthenticationProvider `都只支持特定类型的 `Authentication` ，然后是对适配到的 Authentication 进行认证，只要有一个 AuthenticationProvider 认证成功，那么就认为认证成功，所有的都没有通过才认为是认证失败。认证成功后的 Authentication 就变成授信凭据，并触发认证成功的事件。认证失败的就抛出异常触发认证失败的事件。我们也可以借此来实现多种认证并存。
+
+ `AuthenticationManager`通过`AuthenticationConfiguration`初始化: 
+
+```
+public AuthenticationManager getAuthenticationManager() throws Exception {
+	// 先判断 AuthenticationManager 是否初始化
+	if (this.authenticationManagerInitialized) {
+		// 如果已经初始化 那么直接返回初始化的
+		return this.authenticationManager;
+	}
+	// 否则就去 Spring IoC 中获取其构建类
+	AuthenticationManagerBuilder authBuilder = this.applicationContext.getBean(AuthenticationManagerBuilder.class);
+	// 如果不是第一次构建 好像是每次总要通过Builder来进行构建
+	if (this.buildingAuthenticationManager.getAndSet(true)) {
+	// 返回 一个委托的AuthenticationManager
+		return new AuthenticationManagerDelegator(authBuilder);
+	}
+	// 如果是第一次通过Builder构建 将全局的认证配置整合到Builder中 那么以后就不用再整合全局的配置了
+	for (GlobalAuthenticationConfigurerAdapter config : globalAuthConfigurers) {
+		authBuilder.apply(config);
+	}
+	// 构建AuthenticationManager
+	authenticationManager = authBuilder.build();
+	// 如果构建结果为null
+	if (authenticationManager == null) {
+	// 再次尝试去Spring IoC 获取懒加载的 AuthenticationManager Bean
+authenticationManager = getAuthenticationManagerBean();
+}
+// 修改初始化状态
+this.authenticationManagerInitialized = true;
+return authenticationManager;
 }
 ```
 

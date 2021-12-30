@@ -89,6 +89,35 @@ Spring事件模型中三个角色:
 
 `DispatcherServlet` 根据请求信息调用 `HandlerMapping`，解析请求对应的 `Handler`。解析到对应的 `Handler`（也就是我们平常说的 `Controller` 控制器）后，开始由`HandlerAdapter` 适配器处理。`HandlerAdapter` 作为期望接口，具体的适配器实现类用于对目标类进行适配，`Controller` 作为需要适配的类。
 
+### URL中的Ant匹配
+
+Ant风格在mvc和security常用, 是一种路径匹配表达式。主要用来对 uri 的匹配。其实跟正则表达式作用是一样的，只不过正则表达式适用面更加宽泛， Ant 仅仅用于路径匹配
+
+**通配符**
+
+```
+Ant 中的通配符有三种：
+? 匹配任何单字符
+* 匹配0或者任意数量的 字符
+** 匹配0或者更多的 目录
+这里注意了单个 * 是在一个目录内进行匹配。 而 ** 是可以匹配多个目录，一定不要迷糊。
+```
+
+**最长匹配原则**
+
+一旦一个 uri 同时符合两个 Ant 匹配那么走匹配规则字符最多的。为什么走最长？因为 字符越长信息越多就越具体。比如 `/ant/a/path `同时满足` /**/path` 和` /ant/*/path` 那么走` /ant/*/path`
+
+**在mvc和security中的使用**
+
+```
+// mvc
+@GetMapping("/?ant")
+
+// security
+//... 
+.antMatchers("/index.html","/static/**").permitAll()
+```
+
 
 
 # IOC
