@@ -464,12 +464,6 @@ public class JOLDemo {
 
 
 
-
-
-
-
-
-
 ## ThreadLocal
 
 [超详细](https://javaguide.cn/java/concurrent/threadlocal/ )
