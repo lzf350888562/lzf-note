@@ -1,4 +1,4 @@
-学习多线程前, 需要先回顾对象在内存的布局:
+ jian 
 
 - markword这部分其实就是加锁的核心，同时还包含的对象的一些生命信息，例如是否GC,经过了几次Young GC还存活,锁信息。64bit
 - klass pointer记录了指向对象的class文件指针。 32bit
@@ -486,312 +486,13 @@ public class JOLDemo {
 
 > Synchronized底层通过一个monitor的对象来完成，wait/notify等方法其实也依赖于monitor对象，这就是为什么只有在同步的块或者方法中才能调用wait/notify等方法，否则会抛出java.lang.IllegalMonitorStateException的异常。
 
-## locks
 
-1. [Java并发编程：Lock](https://www.cnblogs.com/dolphin0520/p/3923167.html)
-2. [Java多线程之Lock的使用（一）](https://juejin.im/post/582169d45bbb500059f6c241)
-3. [Java锁之ReentrantReadWriteLock](https://juejin.im/post/5b7a834551882542c20f1985)
-4. [Java锁之ReentrantLock（一）](https://juejin.im/post/5b6bf4a2e51d451c4e2a8886)
-5. [Java并发（8）- 读写锁中的性能之王：StampedLock](https://juejin.im/post/5bacf523f265da0a951ee418)
-6. [Java多线程Condition接口原理详解](https://blog.csdn.net/fuyuwei2015/article/details/72602182)
-7. [Java中的Condition](https://blog.csdn.net/majinggogogo/article/details/80034585)
 
-`synchronized`的不足之处
 
-- 如果临界区是只读操作，其实可以多线程一起执行，但使用synchronized的话，**同一时间只能有一个线程执行**。
-- synchronized无法知道线程有没有成功获取到锁
-- 使用synchronized，如果临界区因为IO或者sleep方法等原因阻塞了，而当前线程又没有释放锁，就会导致**所有线程等待**。
 
-而这些都是locks包下的锁可以解决的。`java.util.concurrent.locks`包为我们提供了几个关于锁的类和接口。它们有更强大的功能或更高的性能。
 
-**锁的分类**
 
-1.**可重入锁和非可重入锁**
 
-所谓重入锁，顾名思义。就是支持重新进入的锁，也就是说这个锁支持一个**线程对资源重复加锁**。
-
-synchronized就是使用的重入锁。比如说，你在一个synchronized实例方法里面调用另一个本实例的synchronized实例方法，它可以重新进入这个锁，不会出现任何异常。
-
-如果我们自己在继承AQS实现同步器的时候，没有考虑到占有锁的线程再次获取锁的场景，可能就会导致线程阻塞，那这个就是一个“非可重入锁”。
-
-`ReentrantLock`的中文意思就是可重入锁。也是本文后续要介绍的重点类。
-
-2.**公平锁与非公平锁**
-
-这里的“公平”，其实通俗意义来说就是“先来后到”，也就是FIFO。如果对一个锁来说，先对锁获取请求的线程一定会先被满足，后对锁获取请求的线程后被满足，那这个锁就是公平的。反之，那就是不公平的。
-
-一般情况下，**非公平锁能提升一定的效率。但是非公平锁可能会发生线程饥饿（有一些线程长时间得不到锁）的情况**。所以要根据实际的需求来选择非公平锁和公平锁。
-
-ReentrantLock支持非公平锁和公平锁两种。
-
-3.**读写锁和排它锁**
-
-synchronized和ReentrantLock都是“排它锁”。也就是说，这些锁在同一时刻只允许一个线程进行访问。
-
-而读写锁可以在同一时刻允许多个读线程访问。Java提供了ReentrantReadWriteLock类作为读写锁的默认实现，内部维护了两个锁：一个读锁，一个写锁。通过分离读锁和写锁，使得在“读多写少”的环境下，大大地提高了性能。
-
-> 注意，即使用读写锁，在写线程访问时，所有的读线程和其它写线程均被阻塞。
-
-**可见，只是synchronized是远远不能满足多样化的业务对锁的要求的**。
-
-
-
-JDK中有关锁的一些接口和类
-
-众所周知，JDK中关于并发的类大多都在`java.util.concurrent`（以下简称juc）包下。而juc.locks包看名字就知道，是提供了一些并发锁的工具类的。AQS就是在这个包下
-
-**抽象类AQS/AQLS/AOS**
-
-这三个抽象类有一定的关系，所以这里放到一起讲。
-
-首先我们看**AQS**（AbstractQueuedSynchronizer），它是在JDK 1.5 发布的，提供了一个“队列同步器”的基本功能实现。而AQS里面的“资源”是用一个`int`类型的数据来表示的，有时候我们的业务需求资源的数量超出了`int`的范围，所以在JDK 1.6 中，多了一个**AQLS**（AbstractQueuedLongSynchronizer）。它的代码跟AQS几乎一样，只是把资源的类型变成了`long`类型。
-
-AQS和AQLS都继承了一个类叫**AOS**（AbstractOwnableSynchronizer）。这个类也是在JDK 1.6 中出现的。这个类只有几行简单的代码。从源码类上的注释可以知道，它是用于表示锁与持有者之间的关系（独占模式）。可以看一下它的主要方法：
-
-```
-// 独占模式，锁的持有者  
-private transient Thread exclusiveOwnerThread;  
-
-// 设置锁持有者  
-protected final void setExclusiveOwnerThread(Thread t) {  
-    exclusiveOwnerThread = t;  
-}  
-
-// 获取锁的持有线程  
-protected final Thread getExclusiveOwnerThread() {  
-    return exclusiveOwnerThread;  
-}
-```
-
-
-
-**接口Condition/Lock/ReadWriteLock**
-
-juc.locks包下共有三个接口：`Condition`、`Lock`、`ReadWriteLock`。其中，Lock和ReadWriteLock从名字就可以看得出来，分别是锁和读写锁的意思。Lock接口里面有一些获取锁和释放锁的方法声明，而ReadWriteLock里面只有两个方法，分别返回“读锁”和“写锁”：
-
-```java
-public interface ReadWriteLock {
-    Lock readLock();
-    Lock writeLock();
-}
-```
-
-Lock接口中有一个方法是可以获得一个`Condition`:
-
-```java
-Condition newCondition();
-```
-
-### Condition
-
-每个对象都可以用继承自`Object`的**wait/notify**方法来实现**等待/通知机制**。而Condition接口也提供了类似Object监视器的方法，通过与**Lock**配合来实现等待/通知模式。
-
-那为什么既然有Object的监视器方法了，还要用Condition呢？这里有一个二者简单的对比：
-
-| 对比项                                         | Object监视器                  | Condition                                                   |
-| ---------------------------------------------- | ----------------------------- | ----------------------------------------------------------- |
-| 前置条件                                       | 获取对象的锁                  | 调用Lock.lock获取锁，调用Lock.newCondition获取Condition对象 |
-| 调用方式                                       | 直接调用，比如object.notify() | 直接调用，比如condition.await()                             |
-| 等待队列的个数                                 | 一个                          | 多个                                                        |
-| 当前线程释放锁进入等待状态                     | 支持                          | 支持                                                        |
-| 当前线程释放锁进入等待状态，在等待状态中不中断 | 不支持                        | 支持                                                        |
-| 当前线程释放锁并进入超时等待状态               | 支持                          | 支持                                                        |
-| 当前线程释放锁并进入等待状态直到将来的某个时间 | 不支持                        | 支持                                                        |
-| 唤醒等待队列中的一个线程                       | 支持                          | 支持                                                        |
-| 唤醒等待队列中的全部线程                       | 支持                          | 支持                                                        |
-
-Condition和Object的wait/notify基本相似。其中，Condition的**await**方法对应的是Object的wait方法，而Condition的**signal/signalAll**方法则对应Object的notify/notifyAll()。但Condition类似于Object的等待/通知机制的加强版。我们来看看主要的方法：
-
-| 方法名称               | 描述                                                         |
-| ---------------------- | ------------------------------------------------------------ |
-| await()                | 当前线程进入等待状态直到被通知（signal）或者中断；当前线程进入运行状态并从await()方法返回的场景包括：（1）其他线程调用相同Condition对象的signal/signalAll方法，并且当前线程被唤醒；（2）其他线程调用interrupt方法中断当前线程； |
-| awaitUninterruptibly() | 当前线程进入等待状态直到被通知，在此过程中对中断信号不敏感，不支持中断当前线程 |
-| awaitNanos(long)       | 当前线程进入等待状态，直到被通知、中断或者超时。如果返回值小于等于0，可以认定就是超时了 |
-| awaitUntil(Date)       | 当前线程进入等待状态，直到被通知、中断或者超时。如果没到指定时间被通知，则返回true，否则返回false |
-| signal()               | 唤醒一个等待在Condition上的线程，被唤醒的线程在方法返回前必须获得与Condition对象关联的锁 |
-| signalAll()            | 唤醒所有等待在Condition上的线程，能够从await()等方法返回的线程必须先获得与Condition对象关联的锁 |
-
-
-
-### **ReentrantLock**
-
-ReentrantLock是一个非抽象类，它是Lock接口的JDK默认实现，实现了锁的基本功能。从名字上看，它是一个”可重入“锁，从源码上看，它内部有一个抽象类`Sync`，是继承了AQS，自己实现的一个同步器。同时，ReentrantLock内部有两个非抽象类`NonfairSync`和`FairSync`，它们都继承了Sync。从名字上看得出，分别是”非公平同步器“和”公平同步器“的意思。这意味着ReentrantLock可以支持”公平锁“和”非公平锁“。
-
-通过看这两个同步器的源码可以发现，它们的实现都是”独占“的。都调用了AOS的`setExclusiveOwnerThread`方法，所以ReentrantLock的锁是”独占“的，也就是说，它的锁都是”排他锁“，不能共享。
-
-在ReentrantLock的构造方法里，可以传入一个`boolean`类型的参数，来指定它是否是一个公平锁，默认情况下是非公平的。这个参数一旦实例化后就不能修改，只能通过`isFair()`方法来查看。
-
-与synchronized区别:
-
-1.两者都是可重入锁;
-
-**“可重入锁”** 指的是自己可以再次获取自己的内部锁。比如一个线程获得了某个对象的锁，此时这个对象锁还没有释放，当其再次想要获取这个对象的锁的时候还是可以获取的，**如果不可锁重入的话，就会造成死锁**。同一个线程每次获取锁，锁的计数器都自增 1，所以要等到锁的计数器下降为 0 时才能释放锁。 
-
-2.synchronized 依赖于 JVM 而 ReentrantLock 依赖于 API;
-
-`synchronized` 是依赖于 JVM 实现的，虚拟机团队在 JDK1.6 为 `synchronized` 关键字进行很多优化都是在虚拟机层面实现的，并没有直接暴露给我们。`ReentrantLock` 是 JDK 层面实现的（也就是 API 层面，需要 lock() 和 unlock() 方法配合 try/finally 语句块来完成），所以我们可以通过查看它的源代码，来看它是如何实现的
-
-3.ReentrantLock 比 synchronized 增加了一些高级功能;
-
-**等待可中断** : `ReentrantLock`提供了一种能够中断等待锁的线程的机制，通过 `lock.lockInterruptibly()` 来实现这个机制。也就是说正在等待的线程可以选择放弃等待，改为处理其他事情。
-
-**可实现公平锁** : `ReentrantLock`可以指定是公平锁还是非公平锁。而`synchronized`只能是非公平锁。所谓的公平锁就是先等待的线程先获得锁。`ReentrantLock`默认情况是非公平的，可以通过 `ReentrantLock`类的`ReentrantLock(boolean fair)`构造方法来制定是否是公平的。
-
-**可实现选择性通知（锁可以绑定多个条件）**: `synchronized`关键字与`wait()`和`notify()`/`notifyAll()`方法相结合可以实现等待/通知机制。`ReentrantLock`类当然也可以实现，但是需要借助于`Condition`接口与`newCondition()`方法。
-
-
-
-### StampedLock
-
-先了解一下`ReentrantReadWriteLock`
-
-这个类也是一个非抽象类，它是ReadWriteLock接口的JDK默认实现。它与ReentrantLock的功能类似，同样是可重入的，支持非公平锁和公平锁。不同的是，它还支持”读写锁“。
-
-ReentrantReadWriteLock内部的结构大概是这样：
-
-```java
-// 内部结构
-private final ReentrantReadWriteLock.ReadLock readerLock;
-private final ReentrantReadWriteLock.WriteLock writerLock;
-final Sync sync;
-abstract static class Sync extends AbstractQueuedSynchronizer {
-    // 具体实现
-}
-static final class NonfairSync extends Sync {
-    // 具体实现
-}
-static final class FairSync extends Sync {
-    // 具体实现
-}
-public static class ReadLock implements Lock, java.io.Serializable {
-    private final Sync sync;
-    protected ReadLock(ReentrantReadWriteLock lock) {
-            sync = lock.sync;
-    }
-    // 具体实现
-}
-public static class WriteLock implements Lock, java.io.Serializable {
-    private final Sync sync;
-    protected WriteLock(ReentrantReadWriteLock lock) {
-            sync = lock.sync;
-    }
-    // 具体实现
-}
-
-// 构造方法，初始化两个锁
-public ReentrantReadWriteLock(boolean fair) {
-    sync = fair ? new FairSync() : new NonfairSync();
-    readerLock = new ReadLock(this);
-    writerLock = new WriteLock(this);
-}
-
-// 获取读锁和写锁的方法
-public ReentrantReadWriteLock.WriteLock writeLock() { return writerLock; }
-public ReentrantReadWriteLock.ReadLock  readLock()  { return readerLock; }
-```
-
-可以看到，它同样是内部维护了两个同步器。且维护了两个Lock的实现类ReadLock和WriteLock。从源码可以发现，这两个内部类用的是外部类的同步器。
-
-ReentrantReadWriteLock实现了读写锁，但它有一个小弊端，就是在“写”操作的时候，其它线程不能写也不能读。我们称这种现象为“写饥饿”, 将在后文的StampedLock类继续讨论这个问题。
-
-
-
-**重头戏StampedLock**
-
-`StampedLock`类是在Java 8 才发布的，也是Doug Lea大神所写，有人号称它为锁的性能之王。它没有实现Lock接口和ReadWriteLock接口，但它其实是实现了“读写锁”的功能，并且性能比ReentrantReadWriteLock更高。StampedLock还把读锁分为了“乐观读锁”和“悲观读锁”两种。
-
-前面提到了ReentrantReadWriteLock会发生“写饥饿”的现象，但StampedLock不会。它是怎么做到的呢？它的核心思想在于，**在读的时候如果发生了写，应该通过重试的方式来获取新的值，而不应该阻塞写操作。这种模式也就是典型的无锁编程思想，和CAS自旋的思想一样**。这种操作方式决定了StampedLock在读线程非常多而写线程非常少的场景下非常适用，同时还避免了写饥饿情况的发生。
-
-这里篇幅有限，就不介绍StampedLock的源码了，只是分析一下官方提供的用法（在JDK源码类声明的上方或Javadoc里可以找到）。
-
-```java
-class Point {
-   private double x, y;
-   private final StampedLock sl = new StampedLock();
-
-   // 写锁的使用
-   void move(double deltaX, double deltaY) {
-     long stamp = sl.writeLock(); // 获取写锁
-     try {
-       x += deltaX;
-       y += deltaY;
-     } finally {
-       sl.unlockWrite(stamp); // 释放写锁
-     }
-   }
-
-   // 乐观读锁的使用
-   double distanceFromOrigin() {
-     long stamp = sl.tryOptimisticRead(); // 获取乐观读锁
-     double currentX = x, currentY = y;
-     if (!sl.validate(stamp)) { // //检查乐观读锁后是否有其他写锁发生，有则返回false
-        stamp = sl.readLock(); // 获取一个悲观读锁
-        try {
-          currentX = x;
-          currentY = y;
-        } finally {
-           sl.unlockRead(stamp); // 释放悲观读锁
-        }
-     }
-     return Math.sqrt(currentX * currentX + currentY * currentY);
-   }
-
-   // 悲观读锁以及读锁升级写锁的使用
-   void moveIfAtOrigin(double newX, double newY) {
-     long stamp = sl.readLock(); // 悲观读锁
-     try {
-       while (x == 0.0 && y == 0.0) {
-         // 读锁尝试转换为写锁：转换成功后相当于获取了写锁，转换失败相当于有写锁被占用
-         long ws = sl.tryConvertToWriteLock(stamp); 
-
-         if (ws != 0L) { // 如果转换成功
-           stamp = ws; // 读锁的票据更新为写锁的
-           x = newX;
-           y = newY;
-           break;
-         }
-         else { // 如果转换失败
-           sl.unlockRead(stamp); // 释放读锁
-           stamp = sl.writeLock(); // 强制获取写锁
-         }
-       }
-     } finally {
-       sl.unlock(stamp); // 释放所有锁
-     }
-   }
-}
-```
-
-> 乐观读锁的意思就是先假定在这个锁获取期间，共享变量不会被改变，既然假定不会被改变，那就不需要上锁。在获取乐观读锁之后进行了一些操作，然后又调用了validate方法，这个方法就是用来验证tryOptimisticRead之后，是否有写操作执行过，如果有，则获取一个悲观读锁，这里的悲观读锁和ReentrantReadWriteLock中的读锁类似，也是个共享锁。
-
-可以看到，StampedLock获取锁会返回一个`long`类型的变量，释放锁的时候再把这个变量传进去。简单看看源码：
-
-```java
-// 用于操作state后获取stamp的值
-private static final int LG_READERS = 7;
-private static final long RUNIT = 1L;               //0000 0000 0001
-private static final long WBIT  = 1L << LG_READERS; //0000 1000 0000
-private static final long RBITS = WBIT - 1L;        //0000 0111 1111
-private static final long RFULL = RBITS - 1L;       //0000 0111 1110
-private static final long ABITS = RBITS | WBIT;     //0000 1111 1111
-private static final long SBITS = ~RBITS;           //1111 1000 0000
-
-// 初始化时state的值
-private static final long ORIGIN = WBIT << 1;       //0001 0000 0000
-
-// 锁共享变量state
-private transient volatile long state;
-// 读锁溢出时用来存储多出的读锁
-private transient int readerOverflow;
-```
-
-StampedLock用这个long类型的变量的前7位（LG_READERS）来表示读锁，每获取一个悲观读锁，就加1（RUNIT），每释放一个悲观读锁，就减1。而悲观读锁最多只能装128个（7位限制），很容易溢出，所以用一个int类型的变量来存储溢出的悲观读锁。
-
-写锁用state变量剩下的位来表示，每次获取一个写锁，就加0000 1000 0000（WBIT）。需要注意的是，**写锁在释放的时候，并不是减WBIT，而是再加WBIT**。这是为了**让每次写锁都留下痕迹**，解决CAS中的ABA问题，也为**乐观锁检查变化**validate方法提供基础。
-
-乐观读锁就比较简单了，并没有真正改变state的值，而是在获取锁的时候记录state的写状态，在操作完成后去检查state的写状态部分是否发生变化，上文提到了，每次写锁都会留下痕迹，也是为了这里乐观锁检查变化提供方便。
-
-总的来说，StampedLock的性能是非常优异的，基本上可以取代ReentrantReadWriteLock的作用。
 
 
 
@@ -1289,7 +990,7 @@ FutureTask的另一个巧妙的地方就是借用RunnableAdapter内部类，将s
 
 - shutdownNow => 立刻关闭，停止正在执行的任务，并返回队列中未执行的任务。
 
-## CAS+Atomic
+## CAS
 
 **悲观锁：**
 
@@ -1445,113 +1146,9 @@ pause指令能让自旋失败时cpu睡眠一小段时间再继续自旋，从而
 
 ## AQS
 
-https://www.cnblogs.com/waterystone/p/4920797.html
+通过同步状态标志+双向队列(链表)实现
 
-https://www.cnblogs.com/chengxiao/archive/2017/07/24/7141160.html
-
-[从ReentrantLock的实现来看AQS](https://javaguide.cn/java/concurrent/reentrantlock/)
-
-[Java技术之AQS详解](https://www.jianshu.com/p/da9d051dcc3d)
-
-[JDK源码之AQS源码剖析](https://www.cnblogs.com/showing/p/6858410.html)
-
-[JUC解析-AQS(1)](https://juejin.im/post/5ab92f50518825558949d1a6)
-
-**AQS**是`AbstractQueuedSynchronizer`的简称，即`抽象队列同步器`，从字面意思上理解:
-
-- 抽象：抽象类，只实现一些主要逻辑，有些方法由子类实现；
-- 队列：使用先进先出（FIFO）队列存储数据；
-- 同步：实现了同步的功能。
-
-`java.util.concurrent.locks.AbstractQueuedSynchronizer`
-
-AQS 是一个用来构建锁和同步器的框架，使用 AQS 能简单且高效地构造出大量应用广泛的同步器，比如我们提到的 `ReentrantLock`，`Semaphore`，其他的诸如 `ReentrantReadWriteLock`，`SynchronousQueue`，`FutureTask` 等等皆是基于 AQS 的。当然，我们自己也能利用 AQS 非常轻松容易地构造出符合我们自己需求的同步器。只要子类实现它的几个`protected`方法就可以了.
-
-**AQS的数据结构**
-
-AQS内部使用了一个volatile的变量state来作为资源的标识。同时定义了几个获取和改变state的protected方法，子类可以覆盖这些方法来实现自己的逻辑：
-
-```java
-getState()
-setState()
-compareAndSetState()
-```
-
-这三种操作均是原子操作，其中compareAndSetState的实现依赖于Unsafe的compareAndSwapInt()方法。
-
-而AQS类本身实现的是一些排队和阻塞的机制，比如具体线程等待队列的维护（如获取资源失败入队/唤醒出队等）。它内部使用了一个先进先出（FIFO）的双端队列，并使用了两个指针head和tail用于标识队列的头部和尾部。其数据结构如图：
-
-> CLH(Craig,Landin and Hagersten)队列是一个虚拟的双向队列（虚拟的双向队列即不存在队列实例，仅存在结点之间的关联关系）。AQS 是将每条请求共享资源的线程封装成一个 CLH 锁队列的一个结点（Node）来实现锁的分配。
-
-![AQS原理图](picture/AQS原理图.png)
-
-**资源共享模式**
-
-资源有两种共享模式，或者说两种同步方式：
-
-**Exclusive**（独占）：资源是独占的，一次只能一个线程获取。，如 `ReentrantLock`。又可分为公平锁和非公平锁：
-
-- 公平锁：按照线程在队列中的排队顺序，先到者先拿到锁
-- 非公平锁：当线程要获取锁时，无视队列顺序直接去抢锁，谁抢到就是谁的
-
-**Share**（共享）：同时可以被多个线程获取，具体的资源个数可以通过参数指定，如`CountDownLatch`、`Semaphore`、 `CyclicBarrier`、`ReadWriteLock` 。
-
-- `Semaphore`(信号量)-允许多个线程同时访问： `synchronized` 和 `ReentrantLock` 都是一次只允许一个线程访问某个资源，`Semaphore`(信号量)可以指定多个线程同时访问某个资源。
-- `CountDownLatch`（倒计时器）： `CountDownLatch` 是一个同步工具类，用来协调多个线程之间的同步。这个工具通常用来控制线程等待，它可以让某一个线程等待直到倒计时结束，再开始执行。
-- `CyclicBarrier`(循环栅栏)： `CyclicBarrier` 和 `CountDownLatch` 非常类似，它也可以实现线程间的技术等待，但是它的功能比 `CountDownLatch` 更加复杂和强大。主要应用场景和 `CountDownLatch` 类似。`CyclicBarrier` 的字面意思是可循环使用（`Cyclic`）的屏障（`Barrier`）。它要做的事情是，让一组线程到达一个屏障（也可以叫同步点）时被阻塞，直到最后一个线程到达屏障时，屏障才会开门，所有被屏障拦截的线程才会继续干活。`CyclicBarrier` 默认的构造方法是 `CyclicBarrier(int parties)`，其参数表示屏障拦截的线程数量，每个线程调用 `await()` 方法告诉 `CyclicBarrier` 我已经到达了屏障，然后当前线程被阻塞。
-
-一般情况下，子类只需要根据需求实现其中一种模式，当然也有同时实现两种模式的同步类，如`ReadWriteLock`。
-
-AQS中关于这两种资源共享模式的定义源码（均在内部类Node中）。我们来看看Node的结构：
-
-```
-static final class Node {
-    // 标记一个结点（对应的线程）在共享模式下等待
-    static final Node SHARED = new Node();
-    // 标记一个结点（对应的线程）在独占模式下等待
-    static final Node EXCLUSIVE = null; 
-
-    // waitStatus的值，表示该结点（对应的线程）已被取消
-    static final int CANCELLED = 1; 
-    // waitStatus的值，表示后继结点（对应的线程）需要被唤醒
-    static final int SIGNAL = -1;
-    // waitStatus的值，表示该结点（对应的线程）在等待某一条件
-    static final int CONDITION = -2;
-    /*waitStatus的值，表示有资源可用，新head结点需要继续唤醒后继结点（共享模式下，多线程并发释放资源，而head唤醒其后继结点后，需要把多出来的资源留给后面的结点；设置新的head结点时，会继续唤醒其后继结点）*/
-    static final int PROPAGATE = -3;
-
-    // 等待状态，取值范围，-3，-2，-1，0，1
-    volatile int waitStatus;
-    volatile Node prev; // 前驱结点
-    volatile Node next; // 后继结点
-    volatile Thread thread; // 结点对应的线程
-    Node nextWaiter; // 等待队列里下一个等待条件的结点
-
-
-    // 判断共享模式的方法
-    final boolean isShared() {
-        return nextWaiter == SHARED;
-    }
-
-    Node(Thread thread, Node mode) {     // Used by addWaiter
-        this.nextWaiter = mode;
-        this.thread = thread;
-    }
-
-    // 其它方法忽略，可以参考具体的源码
-}
-
-// AQS里面的addWaiter私有方法
-private Node addWaiter(Node mode) {
-    // 使用了Node的这个构造函数
-    Node node = new Node(Thread.currentThread(), mode);
-    // 其它代码省略
-}
-```
-
-> 注意：通过Node我们可以实现两个队列，一是通过prev和next实现CLH队列(线程同步队列,双向队列)，二是nextWaiter实现Condition条件上的等待线程队列(单向队列)，这个Condition主要用在ReentrantLock类中。
-
-
+链表的第一个node自旋获取状态, 后继node阻塞, 等待前一个node的唤醒( 通过LockSupport实现) 
 
 **AQS的主要方法解析**
 
@@ -1571,312 +1168,35 @@ protected boolean tryAcquire(int arg) {
 }
 ```
 
-而AQS实现了一系列主要的逻辑。下面我们从源码来分析一下获取和释放资源的主要逻辑：
+具体见《Java并发编程的艺术5.2》
 
-1.**获取资源**
+### **ReentrantLock**
 
-获取资源的入口是acquire(int arg)方法。arg是要获取的资源的个数，在独占模式下始终为1。我们先来看看这个方法的逻辑：
+**重入锁** , 属于排他锁
 
-```java
-public final void acquire(int arg) {
-    if (!tryAcquire(arg) &&
-        acquireQueued(addWaiter(Node.EXCLUSIVE), arg))
-        selfInterrupt();
-}
-```
+与synchronized区别:
 
-首先调用tryAcquire(arg)尝试去获取资源。前面提到了这个方法是在子类具体实现的。
+1.两者都是可重入锁;
 
-如果获取资源失败，就通过addWaiter(Node.EXCLUSIVE)方法把这个线程插入到等待队列中。其中传入的参数代表要插入的Node是独占式的。这个方法的具体实现：
+2.synchronized 依赖于 JVM 而 ReentrantLock 依赖于 API;
 
-```java
-private Node addWaiter(Node mode) {
-    // 生成该线程对应的Node节点
-    Node node = new Node(Thread.currentThread(), mode);
-    // 将Node插入队列中
-    Node pred = tail;
-    if (pred != null) {
-        node.prev = pred;
-        // 使用CAS尝试，如果成功就返回
-        if (compareAndSetTail(pred, node)) {
-            pred.next = node;
-            return node;
-        }
-    }
-    // 如果等待队列为空或者上述CAS失败，再自旋CAS插入
-    enq(node);
-    return node;
-}
+3.ReentrantLock 比 synchronized 增加了一些高级功能;
 
-// 自旋CAS插入等待队列
-private Node enq(final Node node) {
-    for (;;) {
-        Node t = tail;
-        if (t == null) { // Must initialize
-            if (compareAndSetHead(new Node()))
-                tail = head;
-        } else {
-            node.prev = t;
-            if (compareAndSetTail(t, node)) {
-                t.next = node;
-                return t;
-            }
-        }
-    }
-}
-```
+**等待可中断** : `ReentrantLock`提供了一种能够中断等待锁的线程的机制，通过 `lock.lockInterruptibly()` 来实现这个机制。也就是说正在等待的线程可以选择放弃等待，改为处理其他事情。
 
-> 在队列的尾部插入新的Node节点，但是需要注意的是由于AQS中会存在多个线程同时争夺资源的情况，因此肯定会出现多个线程同时插入节点的操作，在这里是通过CAS自旋的方式保证了操作的线程安全性。
+**可实现公平锁** : `ReentrantLock`可以指定是公平锁还是非公平锁。而`synchronized`只能是非公平锁。所谓的公平锁就是先等待的线程先获得锁。`ReentrantLock`默认情况是非公平的，可以通过 `ReentrantLock`类的`ReentrantLock(boolean fair)`构造方法来制定是否是公平的。
 
-现在通过addWaiter方法，已经把一个Node放到等待队列尾部了。而处于等待队列的结点是从头结点一个一个去获取资源的。具体的实现我们来看看acquireQueued方法
+**可实现选择性通知（锁可以绑定多个条件）**: `synchronized`关键字与`wait()`和`notify()`/`notifyAll()`方法相结合可以实现等待/通知机制。`ReentrantLock`类当然也可以实现，但是需要借助于`Condition`接口与`newCondition()`方法。
 
-```java
-final boolean acquireQueued(final Node node, int arg) {
-    boolean failed = true;
-    try {
-        boolean interrupted = false;
-        // 自旋
-        for (;;) {
-            final Node p = node.predecessor();
-            // 如果node的前驱结点p是head，表示node是第二个结点，就可以尝试去获取资源了
-            if (p == head && tryAcquire(arg)) {
-                // 拿到资源后，将head指向该结点。
-                // 所以head所指的结点，就是当前获取到资源的那个结点或null。
-                setHead(node); 
-                p.next = null; // help GC
-                failed = false;
-                return interrupted;
-            }
-            // 如果自己可以休息了，就进入waiting状态，直到被unpark()
-            if (shouldParkAfterFailedAcquire(p, node) &&
-                parkAndCheckInterrupt())
-                interrupted = true;
-        }
-    } finally {
-        if (failed)
-            cancelAcquire(node);
-    }
-}
-```
+具体见《Java并发编程的艺术5.3》
 
->这里parkAndCheckInterrupt方法内部使用到了LockSupport.park(this)，顺便简单介绍一下park。
+### ReentrantReadWriteLock
 
-> LockSupport类是Java 6 引入的一个类，提供了基本的线程同步原语。LockSupport实际上是调用了Unsafe类里的函数，归结到Unsafe里，只有两个函数：
->
-> - park(boolean isAbsolute, long time)：阻塞当前线程
-> - unpark(Thread jthread)：使给定的线程停止阻塞
+是ReadWriteLock接口的JDK默认实现。它与ReentrantLock的功能类似，同样是可重入的，支持非公平锁和公平锁。不同的是，它还支持”读写锁“。
 
-所以**结点进入等待队列后，是调用park使它进入阻塞状态的。只有头结点的线程是处于活跃状态的**。
+两个锁, 读锁为共享锁, 写锁为独占锁, 在一个state上维护16位读+16位写两个状态.
 
-当然，获取资源的方法除了acquire外，还有以下三个：
-
-- acquireInterruptibly：申请可中断的资源（独占模式）
-- acquireShared：申请共享模式的资源
-- acquireSharedInterruptibly：申请可中断的资源（共享模式）
-
->  可中断的意思是，在线程中断时可能会抛出`InterruptedException`
-
-总结图
-
-![acquire流程](picture/acquire流程.jpg)
-
-2.**释放资源**
-
-释放资源相比于获取资源来说，会简单许多。在AQS中只有一小段实现。源码：
-
-```java
-public final boolean release(int arg) {
-    if (tryRelease(arg)) {
-        Node h = head;
-        if (h != null && h.waitStatus != 0)
-            unparkSuccessor(h);
-        return true;
-    }
-    return false;
-}
-
-private void unparkSuccessor(Node node) {
-    // 如果状态是负数，尝试把它设置为0
-    int ws = node.waitStatus;
-    if (ws < 0)
-        compareAndSetWaitStatus(node, ws, 0);
-    // 得到头结点的后继结点head.next
-    Node s = node.next;
-    // 如果这个后继结点为空或者状态大于0
-    // 通过前面的定义我们知道，大于0只有一种可能，就是这个结点已被取消
-    if (s == null || s.waitStatus > 0) {
-        s = null;
-        // 等待队列中所有还有用的结点，都向前移动
-        for (Node t = tail; t != null && t != node; t = t.prev)
-            if (t.waitStatus <= 0)
-                s = t;
-    }
-    // 如果后继结点不为空，
-    if (s != null)
-        LockSupport.unpark(s.thread);
-}
-```
-
-
-
-### ReentrantLock
-
-ReentrantLock的lock（），unlock（）等API其实依赖于内部的Synchronizer. 
-
-Synchronizer又分为FairSync和NonfairSync，顾名思义是指公平和非公平。
-
-当调用ReentrantLock的lock方法时，其实就只是简单地转交给Synchronizer的lock（）方法:
-
-```
-	public void lock() {
-        sync.lock();
-    }
-```
-
-Sync 继承自AbstractQueueSynchronizer），AQS是concurrent包的基石，**AQS本身并不实现任何同步接口**（比如lock,unlock,countDown等等)，但是它定义了一个并发资源控制逻辑的框架（模板设计模式），**它定义了acquire和release方法用于独占地（exclusive）获取和释放资源**，以及**acquireShared和releaseShared方法用于共享地获取和释放资源**。比如acquire/release用于实现ReentrantLock，而acquireShared/releaseShared用于实现CountDownLacth，Semaphore。
-
-比如acquire的框架如下：
-
-```
-    public final void acquire(int arg) {
-        if (!tryAcquire(arg) &&
-            acquireQueued(addWaiter(Node.EXCLUSIVE), arg))
-            selfInterrupt();
-    }
-```
-
-整体逻辑是，先进行一次tryAcquire，如果成功了，就继续执行自己后面的代码;   如果失败，则执行addWaiter和acquireQueued。其中tryAcquire()需要子类根据自己的同步需求进行实现，而acquireQueued() 和addWaiter() 已经由AQS实现。addWaiter的作用是把当前线程加入到AQS内部同步队列的尾部，而acquireQueued的作用是当tryAcquire()失败的时候阻塞当前线程。
-
-addWaiter的代码如下：
-
-```
-	private Node addWaiter(Node mode) {
-        //创建节点,设置关联线程和模式(独占或共享)
-        Node node = new Node(Thread.currentThread(), mode);
-        // Try the fast path of enq; backup to full enq on failure
-        Node pred = tail;
-        // 如果尾节点不为空,说明同步队列已经初始化过
-        if (pred != null) {
-            //新节点的前驱节点设置为尾节点
-            node.prev = pred;
-            // 设置新节点为尾节点
-            if (compareAndSetTail(pred, node)) {
-                //老的尾节点的后继节点设置为新的尾节点。 所以同步队列是一个双向列表。
-                pred.next = node;
-                return node;
-            }
-        }
-        //如果尾节点为空,说明队列还未初始化,需要初始化head节点并加入新节点
-        enq(node);
-        return node;
-    }
-```
-
-enq(node)的代码如下：
-
-```
-	private Node enq(final Node node) {
-        for (;;) {
-            Node t = tail;
-            if (t == null) { // Must initialize
-                // 如果tail为空,则新建一个head节点,并且tail和head都指向这个head节点
-                //队列头节点称作“哨兵节点”或者“哑节点”，它不与任何线程关联
-                if (compareAndSetHead(new Node()))
-                    tail = head;
-            } else {
-                //第二次循环进入这个分支，
-                node.prev = t;
-                if (compareAndSetTail(t, node)) {
-                    t.next = node;
-                    return t;
-                }
-            }
-        }
-    }
-```
-
-acquireQueued的代码如下：
-
-```
- 	final boolean acquireQueued(final Node node, int arg) {
-        boolean failed = true;
-        try {
-            boolean interrupted = false;
-            for (;;) {
-                //获取当前node的前驱node
-                final Node p = node.predecessor();
-                //如果前驱node是head node，说明自己是第一个排队的线程，则尝试获锁
-                if (p == head && tryAcquire(arg)) {
-                    //把获锁成功的当前节点变成head node（哑节点）。
-                    setHead(node);
-                    p.next = null; // help GC
-                    failed = false;
-                    return interrupted;
-                }
-                if (shouldParkAfterFailedAcquire(p, node) &&
-                    parkAndCheckInterrupt())
-                    interrupted = true;
-            }
-        } finally {
-            if (failed)
-                cancelAcquire(node);
-        }
-    }
-```
-
-acquireQueued的逻辑是：判断自己是不是同步队列中的第一个排队的节点，则尝试进行加锁，如果成功，则把自己变成head node.
-
-如果自己不是第一个排队的节点或者tryAcquire失败，则调用shouldParkAfterFailedAcquire，其主要逻辑是使用CAS将节点状态由 INITIAL 设置成 SIGNAL，表示当前线程阻塞等待SIGNAL唤醒。如果设置失败，会在 acquireQueued 方法中的死循环中继续重试，直至设置成功，然后调用parkAndCheckInterrupt 方法。parkAndCheckInterrupt的作用是把当前线程阻塞挂起，等待唤醒。parkAndCheckInterrupt的实现需要借助下层的能力unsafe.park。
-
-具体到ReentrantLock内部中使用的FairSync和NonfairSync，它们都是AQS的子类，比如FairSync的主要代码如下：
-
-```
-	static final class FairSync extends Sync {
-        private static final long serialVersionUID = -3000897897090466540L;
-
-        final void lock() {
-            acquire(1);
-        }
-
-        /**
-         * Fair version of tryAcquire.  Don't grant access unless
-         * recursive call or no waiters or is first.
-         */
-        protected final boolean tryAcquire(int acquires) {
-            final Thread current = Thread.currentThread();
-            int c = getState();
-            if (c == 0) {
-                if (!hasQueuedPredecessors() &&
-                    compareAndSetState(0, acquires)) {
-                    setExclusiveOwnerThread(current);
-                    return true;
-                }
-            }
-            else if (current == getExclusiveOwnerThread()) {
-                int nextc = c + acquires;
-                if (nextc < 0)
-                    throw new Error("Maximum lock count exceeded");
-                setState(nextc);
-                return true;
-            }
-            return false;
-        }
-    }
-```
-
-AQS中最重要的一个字段就是state，锁和同步器的实现都是围绕着这个字段的修改展开的。AQS可以实现各种不同的锁和同步器的原因之一就是，不同的锁或同步器按照自己的需要可以对同步状态的含义有不同的定义，并重写对应的tryAcquire, tryRelease或tryAcquireshared, tryReleaseShared等方法来操作同步状态。
-
-ReentrantLock的FairSync的tryAcquire的逻辑：
-
-1. 如果此时state（private volatile int state）是0，那么就表示这个时候没有人占有锁。但因为是公平锁，所以还要判断自己是不是首节点，然后才尝试把状态设置为1，假如成功的话，就成功的占有了锁。compareAndSetState 也是通过CAS来实现。CAS 是原子操作，而且state的类型是volatile，所以state 的值是线程安全的。
-2. 如果此时状态不是0，那么再判断当前线程是不是锁的owner，如果是的话，则state 递增，当state溢出时，会抛错。如果没溢出，则返回true，表示成功获取锁。
-3. 上述都不满足，则返回false，获取锁失败。
-
-具体见https://mp.weixin.qq.com/s/224pnAA6e8LvFcbJNHpWug
-
-
-
-
+具体见《Java并发编程的艺术5.4》
 
 ## JUC
 
@@ -1943,65 +1263,45 @@ JDK并没有提供线程安全的List类，因为对List来说，**很难去开�
 
 ### Map
 
-- [Java集合-ConcurrentHashMap原理分析](https://www.cnblogs.com/ITtangtang/p/3948786.html)
-- [ConcurrentHashMap的put源码解析](https://yasinshaw.com/articles/27)
-- [从ConcurrentHashMap能学到哪些并发编程技巧？](https://yasinshaw.com/articles/30)
-
-**ConcurrentMap**
-
-ConcurrentMap接口继承了Map接口，在Map接口的基础上又定义了四个方法：
-
-```java
-public interface ConcurrentMap<K, V> extends Map<K, V> {
-
-    //插入元素
-    V putIfAbsent(K key, V value);
-
-    //移除元素
-    boolean remove(Object key, Object value);
-
-    //替换元素
-    boolean replace(K key, V oldValue, V newValue);
-
-    //替换元素
-    V replace(K key, V value);
-
-}
-```
-
-**putIfAbsent：**与原有put方法不同的是，putIfAbsent方法中如果插入的key相同，则不替换原有的value值；
-
-**remove：**与原有remove方法不同的是，新remove方法中增加了对value的判断，如果要删除的key-value不能与Map中原有的key-value对应上，则不会删除该元素;
-
-**replace(K,V,V)：**增加了对value值的判断，如果key-oldValue能与Map中原有的key-value对应上，才进行替换操作；
-
-**replace(K,V)：**与上面的replace不同的是，此replace不会对Map中原有的key-value进行比较，如果key存在则直接替换；
-
-
-
 **ConcurrentHashMap**
 
-ConcurrentHashMap同HashMap一样也是基于散列表的map，但是它提供了一种与Hashtable完全不同的加锁策略，提供更高效的并发性和伸缩性。
+> HashMap在并发put时会引起死循环, 导致Entry链表形成环形数据结构, next节点永远不为空. 从而在get的时候死循环获取.
+>
+> HashTable锁整个结构效率低下
 
-ConcurrentHashMap在JDK 1.7 和JDK 1.8中有一些区别。这里我们分开介绍一下。
+通过Segment+HashEntry实现, 一个ConcurrentHashMap中包含一个Segment数组, 一个Segment里包含一个HashEntry数组.
 
-**JDK 1.7**
+Segment是一种可重入锁, 结构与HashMap类似, 是一种数组+链表结构.
 
-ConcurrentHashMap在JDK 1.7中，提供了一种粒度更细的加锁机制来实现在多线程下更高的性能，这种机制叫分段锁(Lock Striping)。
+HashEntry用于存储键值对数据.
 
-提供的优点是：在并发环境下将实现更高的吞吐量，而在单线程环境下只损失非常小的性能。
+因为要使得元素能均匀的分布在不同的Segment下, 在插入和获取元素的时候, 必须通过再散列(对元素的hashCode再进行一次散列)的方式定位到Segment.
 
-可以这样理解分段锁，就是**将数据分段，对每一段数据分配一把锁**。当一个线程占用锁访问其中一个段数据的时候，其他段的数据也能被其他线程访问。
+**对于get操作**:
 
-有些方法需要跨段，比如size()、isEmpty()、containsValue()，它们可能需要锁定整个表而不仅仅是某个段，这需要按顺序锁定所有段，操作完毕后，又按顺序释放所有段的锁。如下图：![分段锁机制](picture/分段锁机制.png)
+不加锁, 通过将get方法要使用的共享变量都定义成volatile类型, 如HashEntry的value, 因为get不需要对共享变量进行写, 所以可以不用加锁, 即使多个线程进行put也能get到最新的值. **这是使用volatile替换锁的经典使用场景**.
 
-ConcurrentHashMap是由Segment数组结构和HashEntry数组结构组成。Segment是一种可重入锁ReentrantLock，HashEntry则用于存储键值对数据。
+**对于put操作**:
 
-一个ConcurrentHashMap里包含一个Segment数组，Segment的结构和HashMap类似，是一种数组和链表结构， 一个Segment里包含一个HashEntry数组，每个HashEntry是一个链表结构的元素， 每个Segment守护着一个HashEntry数组里的元素，当对HashEntry数组的数据进行修改时，必须首先获得它对应的Segment锁。
+必须要对Segment加锁, **在插入前**, 先会判断Segment里的HashEntry数组是否超过容量(threshold), 如果超过, 则进行二倍扩容.
 
-**JDK 1.8**
+> HashMap是在插入元素后判断是否需要扩容后再扩容的, 很有可能扩容之后没有新元素插入, 那么这次扩容就是无效的扩容.
+>
+> 所以Segment的扩容判断比HashMap更恰当.
 
-而在JDK 1.8中，ConcurrentHashMap主要做了两个优化：
+**对于size操作**:
+
+因为分段, 所以需要统计所有Segment里元素的大小后求和. 即使Segment里的count是一个volatile变量, 在相加时可以获取到最新值, 但在累加统计前count如果发生变化, 则统计结果就不准了.
+
+但是ConcurrentHashMap并没有在size的时候把所有Segemtn的put、remove和clean方法锁住. 因为在累加count的过程中, 之前累加过的count发生变化的几率非常小, 所以先尝试2次不锁住Segment的方式来统计各个Segment大小. 如果在统计过程中, count发生了变化再采用加锁的方式来统计.
+
+> 如何判断在统计时Segment的count发生了变化?
+>
+> 使用`modCount`变量: 在每次put、remove和clean方法里操作元素前都会将modCount加1, 在统计size前后比较modCount是否发生了变化从而得知Segment的count是否发生变化.
+
+
+
+在JDK 1.8中，对ConcurrentHashMap主要做了两个优化：
 
 - 同HashMap一样，链表也会在长度达到8的时候转化为红黑树，这样可以提升大量冲突时候的查询效率；
 - 以某个位置的头结点（链表的头结点或红黑树的root结点）为锁，配合自旋+CAS避免不必要的锁开销，进一步提升并发性能。
@@ -2009,11 +1309,6 @@ ConcurrentHashMap是由Segment数组结构和HashEntry数组结构组成。Segme
 
 
 **ConcurrentNavigableMap接口与ConcurrentSkipListMap类**
-
-```
-跳表:
-对于一个单链表，即使链表是有序的，如果我们想要在其中查找某个数据，也只能从头到尾遍历链表，这样效率自然就会很低，跳表就不一样了。跳表是一种可以用来快速查找的数据结构，有点类似于平衡树。它们都可以对元素进行快速的查找。但一个重要的区别是：对平衡树的插入和删除往往很可能导致平衡树进行一次全局的调整。而对跳表的插入和删除只需要对整个数据结构的局部进行操作即可。这样带来的好处是：在高并发的情况下，你会需要一个全局锁来保证整个平衡树的线程安全。而对于跳表，你只需要部分锁即可。这样，在高并发环境下，你就可以拥有更好的性能。而就查询的性能而言，跳表的时间复杂度也是 O(logn) 所以在并发数据结构中，JDK 使用跳表来实现一个 Map。
-```
 
 >跳表的本质是同时维护了多个链表，并且链表是分层的
 >
@@ -2041,13 +1336,15 @@ Set<String> s = Sets.newConcurrentHashSet();
 
 Java 提供的线程安全的 `Queue` 可以分为**阻塞队列**和**非阻塞队列**，其中阻塞队列的典型例子是 `BlockingQueue`，非阻塞队列的典型例子是 `ConcurrentLinkedQueue`，在实际应用中要根据实际需要选用阻塞队列或者非阻塞队列。 **阻塞队列可以通过加锁来实现，非阻塞队列可以通过 CAS 操作实现。** 
 
-`ConcurrentLinkedQueue` 适合在对性能要求相对较高，同时对队列的读写存在多个线程同时进行的场景，即如果对队列加锁的成本较高则适合使用无锁的 `ConcurrentLinkedQueue` 来替代。
+**非阻塞队列**
 
-[ConcurrentLinkedQueue的实现原理分析](http://ifeve.com/concurrentlinkedqueue/)
+ConcurrentLinkedQueue是一个基于链表节点的无界线程安全队列. 由head节点和tail节点组成.
+
+具体见《Java并发编程的艺术6.2》
+
+
 
 **阻塞队列**
-
-[解读BlockingQueue](https://javadoop.com/post/java-concurrent-queue)
 
 阻塞队列来源于生产者-消费者模式.
 
@@ -2071,13 +1368,15 @@ BlockingQueue一般用于生产者-消费者模式和线程池，生产者是往
 
 可以初始化队列大小， 且一旦初始化不能改变。构造方法中的fair表示控制对象的内部锁是否采用公平锁，默认是**非公平锁**。
 
+访问者额公平性是通过ReentrantLock实现的.
+
 2.**LinkedBlockingQueue**
 
 由**链表**结构组成的**有界**阻塞队列。内部结构是链表，具有链表的特性。默认队列的大小是`Integer.MAX_VALUE`，也可以指定大小。此队列按照**先进先出**的原则对元素进行排序。
 
 3.**DelayQueue**
 
-该队列中的元素只有当其指定的延迟时间到了，才能够从队列中获取到该元素 。注入其中的元素必须实现 java.util.concurrent.Delayed 接口。 
+该队列中的元素只有当其指定的延迟时间到了，才能够从队列中获取到该元素 。注入其中的元素必须实现 java.util.concurrent.Delayed 接口来指定多久才能从队列中获取当前元素。 
 
 DelayQueue是一个没有大小限制的队列，因此往队列中插入数据的操作（生产者）永远不会被阻塞，而只有获取数据的操作（消费者）才会被阻塞。 
 
@@ -2113,122 +1412,6 @@ public PriorityBlockingQueue(int initialCapacity,
 - poll() 取出并且remove掉queue里的element，只有到碰巧另外一个线程正在往queue里offer数据或者put数据的时候，该方法才会取到东西。否则立即返回null。
 - isEmpty() 永远返回true
 - remove()&removeAll() 永远返回false
-
-
-
-**ArrayBlockingQueue**分析
-
-利用Lock锁的多条件（Condition）阻塞控制.
-
-首先是构造器，除了初始化队列的大小和是否是公平锁之外，还对同一个锁（lock）初始化了两个监视器，分别是notEmpty和notFull。这两个监视器的作用目前可以简单理解为标记分组，当该线程是put操作时，给他加上监视器notFull,标记这个线程是一个生产者；当线程是take操作时，给他加上监视器notEmpty，标记这个线程是消费者。
-
-```
-//数据元素数组
-final Object[] items;
-//下一个待取出元素索引
-int takeIndex;
-//下一个待添加元素索引
-int putIndex;
-//元素个数
-int count;
-//内部锁
-final ReentrantLock lock;
-//消费者监视器
-private final Condition notEmpty;
-//生产者监视器
-private final Condition notFull;  
-
-public ArrayBlockingQueue(int capacity, boolean fair) {
-    //..省略其他代码
-    lock = new ReentrantLock(fair);
-    notEmpty = lock.newCondition();
-    notFull =  lock.newCondition();
-}
-```
-
-**put操作**
-
-```java
-public void put(E e) throws InterruptedException {
-    checkNotNull(e);
-    final ReentrantLock lock = this.lock;
-    // 1.自旋拿锁
-    lock.lockInterruptibly();
-    try {
-        // 2.判断队列是否满了
-        while (count == items.length)
-            // 2.1如果满了，阻塞该线程，并标记为notFull线程，
-            // 等待notFull的唤醒，唤醒之后继续执行while循环。
-            notFull.await();
-        // 3.如果没有满，则进入队列
-        enqueue(e);
-    } finally {
-        lock.unlock();
-    }
-}
-private void enqueue(E x) {
-    // assert lock.getHoldCount() == 1;
-    // assert items[putIndex] == null;
-    final Object[] items = this.items;
-    items[putIndex] = x;
-    if (++putIndex == items.length)
-        putIndex = 0;
-    count++;
-    // 4 唤醒一个等待的线程
-    notEmpty.signal();
-}
-```
-
-总结put的流程：
-
-1. 所有执行put操作的线程竞争lock锁，拿到了lock锁的线程进入下一步，没有拿到lock锁的线程自旋竞争锁。
-2. 判断阻塞队列是否满了，如果满了，则调用await方法阻塞这个线程，并标记为notFull（生产者）线程，同时释放lock锁,等待被消费者线程唤醒。
-3. 如果没有满，则调用enqueue方法将元素put进阻塞队列。注意这一步的线程还有一种情况是第二步中阻塞的线程被唤醒且又拿到了lock锁的线程。
-4. 唤醒一个标记为notEmpty（消费者）的线程。
-
-**take操作**
-
-```java
-public E take() throws InterruptedException {
-    final ReentrantLock lock = this.lock;
-    lock.lockInterruptibly();
-    try {
-        while (count == 0)
-            notEmpty.await();
-        return dequeue();
-    } finally {
-        lock.unlock();
-    }
-}
-private E dequeue() {
-    // assert lock.getHoldCount() == 1;
-    // assert items[takeIndex] != null;
-    final Object[] items = this.items;
-    @SuppressWarnings("unchecked")
-    E x = (E) items[takeIndex];
-    items[takeIndex] = null;
-    if (++takeIndex == items.length)
-        takeIndex = 0;
-    count--;
-    if (itrs != null)
-        itrs.elementDequeued();
-    notFull.signal();
-    return x;
-}
-```
-
-take操作和put操作的流程是类似的，总结一下take操作的流程：
-
-1. 所有执行take操作的线程竞争lock锁，拿到了lock锁的线程进入下一步，没有拿到lock锁的线程自旋竞争锁。
-2. 判断阻塞队列是否为空，如果是空，则调用await方法阻塞这个线程，并标记为notEmpty（消费者）线程，同时释放lock锁,等待被生产者线程唤醒。
-3. 如果没有空，则调用dequeue方法。注意这一步的线程还有一种情况是第二步中阻塞的线程被唤醒且又拿到了lock锁的线程。
-4. 唤醒一个标记为notFull（生产者）的线程。
-
-**注意**
-
-1. put和take操作都需要**先获取锁**，没有获取到锁的线程会被挡在第一道大门之外自旋拿锁，直到获取到锁。
-2. 就算拿到锁了之后，也**不一定**会顺利进行put/take操作，需要判断**队列是否可用**（是否满/空），如果不可用，则会被阻塞，**并释放锁**。
-3. 在第2点被阻塞的线程会被唤醒，但是在唤醒之后，**依然需要拿到锁**才能继续往下执行，否则，自旋拿锁，拿到锁了再while判断队列是否可用（这也是为什么不用if判断，而使用while判断的原因）。
 
 
 
@@ -2733,13 +1916,7 @@ Fork/Join框架是一个实现了ExecutorService接口的多线程处理器，�
 
 **fork**在英文里有分叉的意思，**join**在英文里连接、结合的意思。顾名思义，fork就是要使一个大任务分解成若干个小任务，而join就是最后将各个小任务的结果结合起来得到大任务的结果。
 
-Fork/Join的运行流程大致如下所示：![fork/join流程图](picture/fork_join流程图.png)
-
 **工作窃取算法**指的是在多线程执行不同任务队列的过程中，某个线程执行完自己队列的任务后从其他线程的任务队列里窃取任务来执行。
-
-工作窃取算法流程:
-
-![](picture/工作窃取算法运行流程图.png)
 
 值得注意的是，当一个线程窃取另一个线程的时候，为了减少两个任务线程之间的竞争，我们通常使用**双端队列**来存储任务。被窃取的任务线程都从双端队列的**头部**拿任务执行，而窃取其他任务的线程从双端队列的**尾部**执行任务。
 
@@ -2749,7 +1926,7 @@ Fork/Join的运行流程大致如下所示：![fork/join流程图](picture/fork_
 
  **ForkJoinTask**
 
-ForkJoinTask是一个类似普通线程的实体，但是比普通线程轻量得多。
+ForkJoinPool由ForkJoinTask数组和ForkJoinWorkerThread数组组成, ForkJoinTask数组负责将存放程序提交给ForkJoinPool的任务, 而ForkJoinWorkThread数组负责执行这些任务.
 
 **fork()方法**:使用线程池中的空闲线程异步提交任务
 
@@ -2806,10 +1983,6 @@ private int doJoin() {
 }
 ```
 
-之前介绍过说Thread.join()会使线程阻塞，而ForkJoinPool.join()会使线程免于阻塞，下面是ForkJoinPool.join()的流程图：
-
-![join流程图](picture/join流程图.png)
-
 **RecursiveAction和RecursiveTask**
 
 通常情况下，在创建任务的时候我们一般不直接继承ForkJoinTask，而是继承它的子类**RecursiveAction**和**RecursiveTask**。
@@ -2825,8 +1998,6 @@ private int doJoin() {
 ForkJoinPool是用于执行ForkJoinTask任务的执行（线程）池。
 
 ForkJoinPool管理着执行池中的线程和任务队列，此外，执行池是否还接受任务，显示线程的运行状态也是在这里处理。
-
-我们来大致看下ForkJoinPool的源码：
 
 ```java
 @sun.misc.Contended
@@ -2885,11 +2056,8 @@ ForkJoinPool的运行状态。**SHUTDOWN**状态用负数表示，其他用2的�
 
 ```
 public class FibonacciTest {
-
     class Fibonacci extends RecursiveTask<Integer> {
-
         int n;
-
         public Fibonacci(int n) {
             this.n = n;
         }
@@ -2937,94 +2105,9 @@ CPU核数：4
 
 需要注意的是，上述计算时间复杂度为`O(2^n)`，随着n的增长计算效率会越来越低，这也是上面的例子中n不敢取太大的原因。
 
-此外，也并不是所有的任务都适合Fork/Join框架，比如上面的例子任务划分过于细小反而体现不出效率，下面我们试试用普通的递归来求f(n)的值，看看是不是要比使用Fork/Join快：
-
-```java
-// 普通递归，复杂度为O(2^n)
-public int plainRecursion(int n) {
-    if (n == 1 || n == 2) {
-        return 1;
-    } else {
-        return plainRecursion(n -1) + plainRecursion(n - 2);
-    }
-}
-
-@Test
-public void testPlain() {
-    long start = System.currentTimeMillis();
-    int result = plainRecursion(40);
-    long end = System.currentTimeMillis();
-    System.out.println("计算结果:" + result);
-    System.out.println(String.format("耗时：%d millis",  end -start));
-}
-```
-
-普通递归的例子输出：
-
-```
-计算结果:102334155
-耗时：436 millis
-```
-
-通过输出可以很明显的看出来，使用普通递归的效率都要比使用Fork/Join框架要高很多。
-
-这里我们再用另一种思路来计算：
-
-```java
-// 通过循环来计算，复杂度为O(n)
-private int computeFibonacci(int n) {
-    // 假设n >= 0
-    if (n <= 1) {
-        return n;
-    } else {
-        int first = 1;
-        int second = 1;
-        int third = 0;
-        for (int i = 3; i <= n; i ++) {
-            // 第三个数是前两个数之和
-            third = first + second;
-            // 前两个数右移
-            first = second;
-            second = third;
-        }
-        return third;
-    }
-}
-
-@Test
-public void testComputeFibonacci() {
-    long start = System.currentTimeMillis();
-    int result = computeFibonacci(40);
-    long end = System.currentTimeMillis();
-    System.out.println("计算结果:" + result);
-    System.out.println(String.format("耗时：%d millis",  end -start));
-}
-```
-
-上面例子在笔者所用电脑的输出为：
-
-```
-计算结果:102334155
-耗时：0 millis
-```
-
-这里耗时为0不代表没有耗时，是表明这里计算的耗时几乎可以忽略不计，大家可以在自己的电脑试试，即使是n取大很多量级的数据（注意int溢出的问题）耗时也是很短的，或者可以用System.nanoTime()统计纳秒的时间。
-
-为什么在这里普通的递归或循环效率更快呢？因为Fork/Join是使用多个线程协作来计算的，所以会有线程通信和线程切换的开销。
-
-如果要计算的任务比较简单（比如我们案例中的斐波那契数列），那当然是直接使用单线程会更快一些。但如果要计算的东西比较复杂，计算机又是多核的情况下，就可以充分利用多核CPU来提高计算速度。
+此外，也并不是所有的任务都适合Fork/Join框架，比如上面的例子任务划分过于细小反而体现不出效率,使用普通递归的效率要比使用Fork/Join框架要高很多。
 
 另外，Java 8 Stream的并行操作底层就是用到了Fork/Join框架.
-
-- [Wikipedia](https://en.wikipedia.org/wiki/Fork–join_model)
-- [聊聊并发（八）——Fork/Join 框架介绍](https://www.infoq.cn/article/fork-join-introduction)
-- [浅谈Java的Fork/Join并发框架](https://my.oschina.net/jack90john/blog/1501634)
-- [Fork/Join 框架-设计与实现（翻译自论文《A Java Fork/Join Framework》原作者 Doug Lea）](https://www.cnblogs.com/suxuan/p/4970498.html)
-- [Java 并发编程笔记：如何使用 ForkJoinPool 以及原理](http://blog.dyngr.com/blog/2016/09/15/java-forkjoinpool-internals/)
-- [jdk1.8-ForkJoin框架剖析](https://www.jianshu.com/p/f777abb7b251)
-- [Fork-Join 原理深入分析（二）](https://www.cnblogs.com/jinggod/p/8490573.html)
-
-
 
 ### Stream并行计算
 
@@ -3174,7 +2257,102 @@ long actualTotal = customThreadPool
 
 
 
+## StampedLock
 
+`StampedLock`类是在Java 8 才发布的，也是Doug Lea大神所写，有人号称它为锁的性能之王。它没有实现Lock接口和ReadWriteLock接口，但它其实是实现了“读写锁”的功能，并且性能比ReentrantReadWriteLock更高。StampedLock还把读锁分为了“乐观读锁”和“悲观读锁”两种。
+
+前面提到了ReentrantReadWriteLock会发生“写饥饿”的现象，但StampedLock不会。它是怎么做到的呢？它的核心思想在于，**在读的时候如果发生了写，应该通过重试的方式来获取新的值，而不应该阻塞写操作。这种模式也就是典型的无锁编程思想，和CAS自旋的思想一样**。这种操作方式决定了StampedLock在读线程非常多而写线程非常少的场景下非常适用，同时还避免了写饥饿情况的发生。
+
+这里篇幅有限，就不介绍StampedLock的源码了，只是分析一下官方提供的用法（在JDK源码类声明的上方或Javadoc里可以找到）。
+
+```java
+class Point {
+   private double x, y;
+   private final StampedLock sl = new StampedLock();
+
+   // 写锁的使用
+   void move(double deltaX, double deltaY) {
+     long stamp = sl.writeLock(); // 获取写锁
+     try {
+       x += deltaX;
+       y += deltaY;
+     } finally {
+       sl.unlockWrite(stamp); // 释放写锁
+     }
+   }
+
+   // 乐观读锁的使用
+   double distanceFromOrigin() {
+     long stamp = sl.tryOptimisticRead(); // 获取乐观读锁
+     double currentX = x, currentY = y;
+     if (!sl.validate(stamp)) { // //检查乐观读锁后是否有其他写锁发生，有则返回false
+        stamp = sl.readLock(); // 获取一个悲观读锁
+        try {
+          currentX = x;
+          currentY = y;
+        } finally {
+           sl.unlockRead(stamp); // 释放悲观读锁
+        }
+     }
+     return Math.sqrt(currentX * currentX + currentY * currentY);
+   }
+
+   // 悲观读锁以及读锁升级写锁的使用
+   void moveIfAtOrigin(double newX, double newY) {
+     long stamp = sl.readLock(); // 悲观读锁
+     try {
+       while (x == 0.0 && y == 0.0) {
+         // 读锁尝试转换为写锁：转换成功后相当于获取了写锁，转换失败相当于有写锁被占用
+         long ws = sl.tryConvertToWriteLock(stamp); 
+
+         if (ws != 0L) { // 如果转换成功
+           stamp = ws; // 读锁的票据更新为写锁的
+           x = newX;
+           y = newY;
+           break;
+         }
+         else { // 如果转换失败
+           sl.unlockRead(stamp); // 释放读锁
+           stamp = sl.writeLock(); // 强制获取写锁
+         }
+       }
+     } finally {
+       sl.unlock(stamp); // 释放所有锁
+     }
+   }
+}
+```
+
+> 乐观读锁的意思就是先假定在这个锁获取期间，共享变量不会被改变，既然假定不会被改变，那就不需要上锁。在获取乐观读锁之后进行了一些操作，然后又调用了validate方法，这个方法就是用来验证tryOptimisticRead之后，是否有写操作执行过，如果有，则获取一个悲观读锁，这里的悲观读锁和ReentrantReadWriteLock中的读锁类似，也是个共享锁。
+
+可以看到，StampedLock获取锁会返回一个`long`类型的变量，释放锁的时候再把这个变量传进去。简单看看源码：
+
+```java
+// 用于操作state后获取stamp的值
+private static final int LG_READERS = 7;
+private static final long RUNIT = 1L;               //0000 0000 0001
+private static final long WBIT  = 1L << LG_READERS; //0000 1000 0000
+private static final long RBITS = WBIT - 1L;        //0000 0111 1111
+private static final long RFULL = RBITS - 1L;       //0000 0111 1110
+private static final long ABITS = RBITS | WBIT;     //0000 1111 1111
+private static final long SBITS = ~RBITS;           //1111 1000 0000
+
+// 初始化时state的值
+private static final long ORIGIN = WBIT << 1;       //0001 0000 0000
+
+// 锁共享变量state
+private transient volatile long state;
+// 读锁溢出时用来存储多出的读锁
+private transient int readerOverflow;
+```
+
+StampedLock用这个long类型的变量的前7位（LG_READERS）来表示读锁，每获取一个悲观读锁，就加1（RUNIT），每释放一个悲观读锁，就减1。而悲观读锁最多只能装128个（7位限制），很容易溢出，所以用一个int类型的变量来存储溢出的悲观读锁。
+
+写锁用state变量剩下的位来表示，每次获取一个写锁，就加0000 1000 0000（WBIT）。需要注意的是，**写锁在释放的时候，并不是减WBIT，而是再加WBIT**。这是为了**让每次写锁都留下痕迹**，解决CAS中的ABA问题，也为**乐观锁检查变化**validate方法提供基础。
+
+乐观读锁就比较简单了，并没有真正改变state的值，而是在获取锁的时候记录state的写状态，在操作完成后去检查state的写状态部分是否发生变化，上文提到了，每次写锁都会留下痕迹，也是为了这里乐观锁检查变化提供方便。
+
+总的来说，StampedLock的性能是非常优异的，基本上可以取代ReentrantReadWriteLock的作用。
 
 ## CompletableFuture
 

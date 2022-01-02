@@ -164,6 +164,8 @@ public class MapperConfig {
 
 **二级缓存**：它指得是Mybatis中SqlSessionFactory对象的缓存，**由同一个SqlSessionFactory对象创建的SqlSession共享其缓存**，但是其中**缓存的是数据而不是对象**，通过存储的数据构造对象返回, 所以从二级缓存再次查询出得结果的对象与第一次存入的对象是不一样的。
 
+> 因为mybatis缓存在本地, 所以在分布式情况下, 这种缓存策略存在不一致问题.
+
 一级缓存命中情况:
 
 ```
