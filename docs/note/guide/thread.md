@@ -1272,7 +1272,7 @@ HashEntry用于存储键值对数据.
 在JDK 1.8中，对ConcurrentHashMap主要做了两个优化：
 
 - 同HashMap一样，链表也会在长度达到8的时候转化为红黑树，这样可以提升大量冲突时候的查询效率；
-- 以某个位置的头结点（链表的头结点或红黑树的root结点）为锁，配合自旋+CAS避免不必要的锁开销，进一步提升并发性能。
+- 以某个位置的头结点（链表的头结点或红黑树的root结点）为锁，配合自旋+CAS避免不必要的锁开销，进一步提升并发性能。只要 hash 不冲突，就不会产生并发，
 
 
 
@@ -2331,7 +2331,7 @@ jdk8引入 https://javaguide.cn/java/concurrent/completablefuture-intro/#
 ```
 ompletableFuture<Void> task1 =
     CompletableFuture.supplyAsync(()->{
-        //自定义业务操作
+    //自定义业务操作
     });
 ......
 CompletableFuture<Void> task6 =
@@ -2349,6 +2349,8 @@ try {
 ```
 
 > CompletableFuture同样支持返回值.
+
+如果存在一个异步调用依赖另一个异步调用的结果, 在多个异步调用嵌套依赖的情况下, CompletableFuture可以解决回调地狱问题, 通过thenCompose和whenComplete方法
 
 
 
