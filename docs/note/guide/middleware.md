@@ -372,6 +372,20 @@ Consumer多次重试后, 选择从提取积压数据;
 
 broker-a数据不会丢失, 但无法被消费, 直到网络a与NameServer2网络恢复.
 
+### 主从复制
+
+**同步复制**:阻塞,效率低,没有丢数风险.
+
+Producer把消息发送给a主, a主在本地日志中写入后在a从同步前Producer都是阻塞的, 直到同步完成在返回响应.
+
+如果出现断网则会导致消息失败而整体回滚, 保证主从一致.
+
+**异步复制**:非阻塞,效率高,有丢数风险.
+
+Producer把消息发送给a主, a主在本地日志中写入后就立即返回响应给Producer. 
+
+而a从在响应过程中进行同步复制 , 加入在**响应后但未完成异步同步前主从断网**, a从会丢失数据, 从而主从不一致. 
+
 ### 保证消息可靠性
 
 从消息发送、消息存储和消息消费三个阶段考虑可靠性.
@@ -446,19 +460,111 @@ RockerMQ默认提供了至少消费一次的消费语义来保证消息的可靠
 
 回溯消费是指Consumer已经消费成功的消息，或者之前消费业务逻辑有问题，现在需要重新消费。要支持此功能，则Broker存储端在向Consumer消费端投递成功消息后，消息仍然需要保留。重新消费一般是按照时间维度，例如由于Consumer系统故障，恢复后需要重新消费1小时前的数据。RocketMQ Broker提供了一种机制，可以按照时间维度来回退消费进度，这样就可以保证只要发送成功的消息，只要消息没有过期，消息始终是可以消费到的。
 
-### 主从复制
 
-**同步复制**:阻塞,效率低,没有丢数风险.
 
-Producer把消息发送给a主, a主在本地日志中写入后在a从同步前Producer都是阻塞的, 直到同步完成在返回响应.
+### 保证消息与事务一致性
 
-如果出现断网则会导致消息失败而整体回滚, 保证主从一致.
+先写库还是先发消息?
 
-**异步复制**:非阻塞,效率高,有丢数风险.
+1.先写库再发送消息, 在消息发送完提交事务, 如果消息发送失败, 则回滚. (通常的选择方案)
 
-Producer把消息发送给a主, a主在本地日志中写入后就立即返回响应给Producer. 
+问题: 如果生产者发送消息时, 因为网络原因导致消息很久才返回结果, 这就意味着这段时间内数据库事务无法提交, 大量并发下, 数据库连接资源会在这段时间内迅速耗尽, 后续请求进入连接池等待状态, 最终导致系统终止响应.
 
-而a从在响应过程中进行同步复制 , 加入在**响应后但未完成异步同步前主从断网**, a从会丢失数据, 从而主从不一致. 
+2.先发送消息再写库, 在消息发送完收到成功返回后开始一次性写库提交.(问题更严重)
+
+问题: 如果生产者发送完消息收到成功, 在执行写库的时候数据产生异常导致业务失败, 需要撤销已发送的消息. 这是只能再发送一个'撤销'的消息, 因为这样增加了额外的处理, 提高了要求与难度.
+
+**RocketMQ的事务消息可保证应用本地事务与MQ最终一致性**
+
+事务消息使用`TransactionMQProducer` 而不是默认的DefaultMQProducer, 并给Procucer绑定事务监听器`TransactionListener`(需要自己实现), 最后通过Producer的sendMessageInTransaction方法发送消息:
+
+```
+TransactionMQProducer producer = new TransactionMQProducer("transaction_producer_group");
+//用于异步回查本地事务状态的线程
+ExecutorService cachedThreadPool = Executors.newCachedThreadPool(new ThreadFactory(){
+	@Override 	//指定ThreadFactory仅用于设置名称方便测试
+	public Thread newThread(Runnable r){
+		Thread thread = new Thread(r);
+		thread.setName("check-thread");
+		return thread;
+	}
+});
+//绑定线程池
+producer.setExecutorService(cachedThreadPool);
+//绑定事务监听器, 用于执行代码
+TransactionListener transactionListener = new OrderTransactionListenerImpl();
+producer.setTransactionListener(transactionListener);
+//启动生产者
+producer.start();
+
+//之后就可以发送消息交给RocketMQ事务消息自动处理啦~
+//最主要的参数为第三个, 表示业务id
+Message msg = new Message("order","order-1010","1010","模拟JSON数据".getBytes());
+//使用sendMessageInTransaction发送消息 , 可指定附带参数
+producer.sendMessageInTransaction(msg,null);
+```
+
+TransactionListener执行本地事务代码与回查代码:
+
+```
+public class OrderTransactionListenerImpl implements TransactionListener{
+	//具体执行本地业务逻辑代码 msg.getkeys() 可获得业务id
+	@Override
+	public LocalTransactionState executeLocalTransaction(Message msg,Object arg){
+		try{
+			orderDao.insert(msg.getkeys(),xxx); //参数从消息和附带参数中获取
+			orderDetailDao.insert(msg.getkeys(),xxx);
+			//...
+			connection.commit();  //提交;
+			return LocalTransactionState.COMMIT_MESSAGE;   //提交消息
+		}catch(Exception e){
+			connection.rollback();  //回滚
+			return LocalTransactionState.ROLLBACK_MESSAGE;	//回滚消息
+		}
+	}
+	//回查逻辑 验证本地事务是否执行成功
+	@Override
+	public LocalTransactionState checkLocalTransaction(MessageExt msg){
+		Order order = orderDao.selectById(msg.getkeys());
+		OrderDetail orderDetail = orderDetailDao.selectById(msg.getkeys());
+		if(order ! = null && orderDetail != null){
+			return LocalTransactionState.COMMIT_MESSAGE;   //提交消息
+		}else{
+			return LocalTransactionState.ROLLBACK_MESSAGE;	//回滚消息
+		}
+	}
+}
+```
+
+**正常流程**:
+
+1.producer.sendMessageInTransaction(msg,null);执行成功
+
+此时订单消息已经发送到MQ服务器(Broker), 不过该消息在Broker中的状态为"half-message",相当于存储在MQ中的临时消息, 此状态下的消息无法投递给消费者.
+
+2.**生产者发送消息成功后自动触发监听器的executeLocalTransaction方法执行本地事务**.
+
+当消息发送成功, 紧接着生产者向本地数据库写数据, 写入后commit事务, 同时executeLocalTransaction方法返回COMMIT_MESSAGE, 生产者会再次向MQ服务器发送一个commit提交消息, 此前在Broker中保存的订单消息状态就从"half-message"变为真正的已提交, 之后broker就可以将消息发送给下游的消费者.
+
+**异常流程**:
+
+1.producer.sendMessageInTransaction(msg,null);执行失败.
+
+没有任何消息发出, 本地事务也不会执行, 仅报错.
+
+2.在执行本地事务过程中发送异常,比如事务中的某一条insert语句报错.
+
+本地事务执行rollback回滚, 数据库数据被撤销, 同时executeLocalTransaction方法返回ROLLBACK_MESSAGE代表消息回滚, 生产者再次向MQ服务器发送一个rollback消息, 将broker中保存的订单消息直接删除, 不会发送给消费者, 可以保证本地事务与MQ消息一致.
+
+3.本地事务执行成功后executeLocalTransaction给broker返回COMMIT_MESSAGE时断网.
+
+此时broker中的订单数据一直处于"half-message"状态被投递到消费者, 导致了本地事务与MQ消息的不一致性.
+
+Rocket提供了**回查机制**解决此问题, 此时我们定义的监听器的checkLocalTransaction方法起到了作用~
+
+**对于broker中的half-message, 每过一段时间就自动尝试与生产者通信, 试图调用回查方法确认之前的本地事务是否执行成功.**
+
+如果在checkLocalTransaction方法中查询到了之前事务中插入的数据, 说明之前事务已经完成, 返回COMMIT_MESSAGE给MQ服务器, 这样Broker中的订单消息就可以被发送给消费者进行消费了.
 
 ## RabbitMQ
 

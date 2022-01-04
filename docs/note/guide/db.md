@@ -1119,7 +1119,7 @@ MySQL折中方案:从 MySQL 5.7.6 开始，MySQL内置了[ngram全文解析器](
 像 MySQL 这类的数据库的 QPS 大概都在 1w 左右（4 核 8g）, Redis虽然是单进程单线程模型，但是读写性能非常优异，单机可支持10wQPS，原因主要有以下几点：
 
 1. 纯内存操作，避免了与磁盘的交互
-2. 用hash table作为键空间，查找任意的key只需O(1)
+2. 用全局hash table作为键空间，查找任意的key只需O(1)
 3. 单线程，天生的队列模式，避免了因多线程竞争而导致的上下文切换和抢锁的开销
 4. 事件机制，Redis服务器将所有处理的任务分为两类事件，一类是采用I/O多路复用处理客户端请求的网络事件；一类是处理定时任务的时间事件，包括更新统计信息、清理过期键、持久化、主从同步等；
 
@@ -1161,19 +1161,23 @@ Memcached 过期数据的删除策略只用了惰性删除，而 Redis 同时使
 
 > Redis 中除了字符串类型有自己独有设置过期时间的命令 `setex` 外，其他方法都需要依靠 `expire` 命令来设置过期时间 。另外， `persist` 命令可以移除一个键的过期时间。
 
+> 可通过object encoding key 查看该value的实际SDS类型, 可自增的数组优先为int, 否则为embstr.
+
 **2.List**
 
-双向链表,支持反向查找和遍历，更方便操作，不过带来了部分额外的内存开销。
+双向链表,支持反向查找和遍历，更方便操作，不过带来了部分额外的内存开销。可作为
 
-应用场景:  发布与订阅或者说消息队列、慢查询。
+应用场景:  发布与订阅或者说消息队列, 比如微博、朋友圈和公众号消息流(lpush)、慢查询。
 
-相关命令: `rpush,lpop,lpush,rpop,lrange,llen`
+相关命令: `rpush,lpop,lpush,rpop,lrange,llen,brpop(阻塞队列)`
+
+> list存在索引, 正向索引从0开始, 反向索引从-1开始, 使用于lrange
 
 **3.Hash**
 
 hash 类似于 JDK1.8 前的 HashMap，内部实现也差不多(数组 + 链表)。不过，Redis 的 hash 做了更多优化。另外，hash 是一个 string 类型的 field 和 value 的映射表，**特别适合用于存储对象**，后续操作的时候，你可以直接仅仅修改这个对象中的某个字段的值。 
 
-应用场景: 系统中对象数据的存储。
+应用场景: 系统中对象数据的存储, 如电商购物车(用户id为key, 商品id为field, 商品数量为value)。
 
 相关命令:`hset,hmset,hexists,hget,hgetall,hkeys,hvals`
 
@@ -1183,7 +1187,7 @@ hash 类似于 JDK1.8 前的 HashMap，内部实现也差不多(数组 + 链表)
 
 并且 **set 提供了判断某个成员是否在一个 set 集合内的重要接口，这个也是 list 所不能提供的。**
 
-应用场景:需要存放的数据不能重复以及需要获取多个数据源交集(将用户关注存到set,利用sinterstore实现共同关注)和并集等场景.
+应用场景:需要存放的数据不能重复以及需要获取多个数据源交集(将用户关注存到set,利用sinterstore实现共同关注)和并集等场景. 比如抽奖(srandmember key [count]/spop key [count] 随机抽取count个)、 点赞(可通过交集显示共同好友).
 
 相关命令:`sadd,spop,smembers,sismember,scard,sinterstore,sunion`
 
