@@ -2142,7 +2142,11 @@ TestB: com.java.loader.MyClassLoaderCustom@1d44bcfa
 
 # Zookeeper
 
+> 在读取多于写入的应用程序中具有特别高的性能，因为写入涉及同步所有服务器的状态。
 
+> 临时节点只要创建 znode 的会话处于活动状态，这些 znode 就存在。当会话结束时，znode 被删除。临时 znode 不允许有子节点。
+
+> 顺序节点在创建 znode 时，您还可以请求 ZooKeeper 在路径末尾附加一个单调递增的计数器。此计数器对于父 znode 是唯一的。
 
 ## Apache Curator
 

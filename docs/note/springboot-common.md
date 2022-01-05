@@ -180,7 +180,7 @@ System.out.println(posts);
 
 除了再IDEA中手动取消警告,更合适的方式是配置元数据.
 
-在spring boot 项目autoconfigure依赖包下 ,可以考到一个名为additional-spring-configuration-metadata.json文件.
+在spring boot 项目autoconfigure依赖包下 ,可以看到一个名为additional-spring-configuration-metadata.json文件.
 
 里面指定了属性配置的元数据信息,它可以帮助IDE来完成配置联想和配置提示的展示。
 
@@ -303,7 +303,7 @@ public class SpringBootPlusConfig {
 
 3.或者在每个字段上通过@Value获取(冗余)
 
-
+> 使用方式1和2会在classpath:/META-INF下生成spring-configuration-metadata.json记录所有配置元数据
 
 ## @PropertySource
 

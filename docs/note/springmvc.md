@@ -988,6 +988,7 @@ public class WebConfig {
         urlList.add("/*");
 		//配置了URL匹配规则
         filterRegistrationBean.setUrlPatterns(urlList);
+        filterRegistrationBean.setO
         return filterRegistrationBean;
     }
 }

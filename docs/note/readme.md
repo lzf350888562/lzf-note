@@ -30,26 +30,6 @@
 
 # Dev
 
-[云端开发](https://coding.net/products/cloudstudio)
-
-[数据结构可视化](https://www.cs.usfca.edu/~galles/visualization/Algorithms.html)
-
-## 软件与插件
-
-[大白](https://win.o--o.win/)
-
-[收藏猫](https://chrome.pictureknow.com/?id=42293a97d32f44fab67debba86d1f98f)
-
-插件:ElasticSearch Head, Json Handler
-
-vscode: appworks pack,
-
-前端美工软件 AXURE
-
-JPom 简单低侵入的在线构建,自动构建,日常运维,项目监控的功能
-
-[密钥对生成](http://web.chacuo.net/netrsakeypair)
-
 ## java
 
 **GC**
@@ -206,21 +186,34 @@ StarUML: 开源简洁的UML图编辑软件
 
 [electerm](https://electerm.github.io/electerm/) 远程连接
 
+[云端开发](https://coding.net/products/cloudstudio)
+
+[数据结构可视化](https://www.cs.usfca.edu/~galles/visualization/Algorithms.html)
+
+[大白](https://win.o--o.win/)
+
+[收藏猫](https://chrome.pictureknow.com/?id=42293a97d32f44fab67debba86d1f98f)
+
+插件:ElasticSearch Head, Json Handler
+
+vscode: appworks pack,
+
+前端美工软件 AXURE
+
+JPom 简单低侵入的在线构建,自动构建,日常运维,项目监控的功能
+
+[密钥对生成](http://web.chacuo.net/netrsakeypair)
+
 ## face
 
-- [知识总结](https://hub.fastgit.org/liyupi/free-programming-resources/blob/main/面试合集/知识总结.md)
-- [面试题解](https://hub.fastgit.org/liyupi/free-programming-resources/blob/main/面试合集/面试题解.md)
+- [知识总结](https://hub.fastgit.org/xingshaocheng/architect-awesome)
 - [优秀面经](https://hub.fastgit.org/liyupi/free-programming-resources/blob/main/面试合集/优秀面经.md)
 
 ## Other
 
 [wechaty](http://wechaty.js.org/) 微信聊天机器人  (+ 微信对话开放平台 实现自动恢复)
 
-
-
-**面试**
-
-https://hub.fastgit.org/tomsun28/pdf
+[书籍](https://hub.fastgit.org/tomsun28/pdf)
 
 # Demo
 

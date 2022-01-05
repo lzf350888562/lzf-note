@@ -89,7 +89,7 @@ Spring事件模型中三个角色:
 
 `DispatcherServlet` 根据请求信息调用 `HandlerMapping`，解析请求对应的 `Handler`。解析到对应的 `Handler`（也就是我们平常说的 `Controller` 控制器）后，开始由`HandlerAdapter` 适配器处理。`HandlerAdapter` 作为期望接口，具体的适配器实现类用于对目标类进行适配，`Controller` 作为需要适配的类。
 
-### URL中的Ant匹配
+# URL中的Ant匹配
 
 Ant风格在mvc和security常用, 是一种路径匹配表达式。主要用来对 uri 的匹配。其实跟正则表达式作用是一样的，只不过正则表达式适用面更加宽泛， Ant 仅仅用于路径匹配
 
@@ -121,8 +121,6 @@ Ant 中的通配符有三种：
 
 
 # IOC
-
-[源码深入](https://javadoop.com/post/spring-ioc)
 
 ## Bean
 
@@ -172,7 +170,16 @@ BeanDefinition  bean定义信息   -->  ioc容器
 >
 > 如mvc init-param属性
 
+### BeanFactory
+
+1. ApplicationContext 继承了 ListableBeanFactory，这个 Listable 的意思就是，通过这个接口，我们可以获取多个 Bean，大家看源码会发现，最顶层 BeanFactory 接口的方法都是获取单个 Bean 的。
+2. ApplicationContext 继承了 HierarchicalBeanFactory，Hierarchical 单词本身已经能说明问题了，也就是说我们可以在应用中起多个 BeanFactory，然后可以将各个 BeanFactory 设置为父子关系。
+3. AutowireCapableBeanFactory 用来自动装配 Bean 用的，但是ApplicationContext 并没有继承它，不过不使用继承，不代表不可以使用组合，如果你看到 ApplicationContext 接口定义中的最后一个方法 getAutowireCapableBeanFactory() 就知道了。
+4. ConfigurableListableBeanFactory 也是一个特殊的接口，继承了ListableBeanFactory、AutowireCapableBeanFactory和ConfigurableBeanFactory
+
 ### refresh
+
+> 为什么命名refresh而不叫init, 因为 ApplicationContext 建立起来以后，其实我们是可以通过调用 refresh() 这个方法重建的，refresh() 会将原来的 ApplicationContext 销毁，然后再重新执行一次初始化操作。
 
 ClassPathXmlApplicationContext.refresh
 
@@ -186,29 +193,41 @@ ClassPathXmlApplicationContext.refresh
 
 ③设置关闭状态为false;
 
-④获取Environment对象并加载当前系统的属性值到Environment对象中;
+④获取Environment对象并加载当前系统的属性值到Environment对象中(处理配置文件中的占位符);
 
 ⑤准备监听器和事件的集合对象,默认为空的集合.
 
 2.obtainFreshBeanFactory()
 
-创建容器对象**DefaultListableBeanFactory**  完成配置文件加载和解析工作 ,转换为beanDefine,比如xml配置的bean
+创建容器对象**DefaultListableBeanFactory**  完成配置文件加载和解析工作 ,**转换为beanDefine**,比如xml配置的bean( 通过XmlBeanDefinitionReader).
+
+DefaultListableBeanFactory是ConfigurableListableBeanFactory的实现类, 是一个功能强大的真实BeanFactory,
+
+不管是类的初始化, 还是用户在ioc运行时动态注册bean, 都可以使用此类(ApplicationContext接口可获取AutowireCapableBeanFactory, 然后向下转型可得到该类).
+
+核心实际上为beanName -> beanDefinition的map.
+
+> ApplicationContext 继承自 BeanFactory，但是它不应该被理解为 BeanFactory 的实现类，而是说其内部持有一个实例化的 BeanFactory（DefaultListableBeanFactory）。以后所有的 BeanFactory 相关的操作其实是委托给这个实例来处理的。
+
+> BeanDefinition 中保存了Bean 信息，比如这个 Bean 指向的是哪个类、是否是单例的、是否懒加载、这个 Bean 依赖了哪些 Bean 等。
 
 3.prepareBeanFactory(beanFactory)
 
 beanFactory的准备工作, 对其各种属性进行填充.
 
-4.**post**ProcesssBeanFactoryPostProcessors(beanFactory)
+设置 BeanFactory 的类加载器，添加几个 BeanPostProcessor,如用于回调实现了Aware接口的beans方法的ApplicationContextAwareProcessor，添加ApplicationListener, 手动注册几个特殊的 bean.
 
-子类覆盖方法做额外的处理
+4.postProcesssBeanFactoryPostProcessors(beanFactory)
+
+子类可以在这步的时候添加一些特殊的 BeanFactoryPostProcessor 的实现类或做点什么事
 
 5.invokeBeanFactoryPostProcessors(beanFactory)
 
-调用各种beanFactory处理器 如beanFactoryPostProcessor
+调用各种BeanFactoryPostProcessor的postProcessBeanFactory(factory)方法
 
 6.registerBeanPostProcessors(beanFactory)
 
-注册bean处理器,这里仅注册,真正执行是在getBean方法
+注册`BeanPostProcessor`,这里仅注册,真正执行是在getBean方法, 其两个方法分别在 Bean 初始化之前和初始化之后得到执行.
 
 7.initMessageSource()
 
@@ -222,7 +241,7 @@ beanFactory的准备工作, 对其各种属性进行填充.
 
 9.onRefresh
 
-子类实现 , 初始化其他bean
+子类实现 , 初始化特殊的bean（在初始化 singleton beans 之前）,  典型的**模板方法**
 
 10.RegisterListeners
 
@@ -232,7 +251,9 @@ beanFactory的准备工作, 对其各种属性进行填充.
 
 11.finishBeanFactoryInitialization(beanFactory)
 
-初始化剩下的非懒加载的单实例
+**初始化剩下的非懒加载的单实例**
+
+在方法一开始, 初始化了名为 conversionService 的 Bean
 
 ```
 beanFactory.preInstantiateSingletons() --> beanFactory.getBean(name)
@@ -260,7 +281,9 @@ invokeInitMethods(xxx) 调用用户自定义init方法
 applyBeanPostProcessorsBeforeInitialization(existingBean ,beanName)  -->
 ```
 
+12.finishRefresh
 
+最后广播事件, ApplicationContext初始化完成.
 
 ### 循环依赖
 
@@ -1250,7 +1273,7 @@ public static <T> T toBean(Map<String, Object> map, Class<T> beanType) {
     }
 ```
 
-
+1. 
 
 
 
