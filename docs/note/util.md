@@ -104,6 +104,44 @@ public static String getFileSuffix(String filePath) {
 
 pdf分页
 
+## 下载
+
+Content-Disposition 属性是作为对下载文件的一个标识字段
+
+Content-Disposition属性有两种类型：
+
+inline 和 attachment inline ：将文件内容直接显示在页面
+
+ attachment：弹出对话框让用户下载具体例子：
+
+```
+response.addHeader("Content-Disposition","inline;filename=" + new String(filename.getBytes(),"utf-8"));
+```
+
+所以,在页面打开:
+
+```
+File file = new File("rfc1806.txt");  
+String filename = file.getName();  
+response.setHeader("Content-Type","text/plain");  
+response.addHeader("Content-Disposition","inline;filename=" + new String(filename.getBytes(),"utf-8"));  
+response.addHeader("Content-Length","" + file.length());  
+```
+
+> 前端可以使用<embed :src="xxx+'#toolbar=0&scrollbar=0&navpanes=0'" type="application/pdf" />
+
+而弹出下载保存框:
+
+```
+File file = new File("rfc1806.txt");  
+String filename = file.getName();  
+response.setHeader("Content-Type","text/plain");  
+response.addHeader("Content-Disposition","attachment;filename=" + new String(filename.getBytes(),"utf-8"));  
+response.addHeader("Content-Length","" + file.length());  
+```
+
+
+
 # poi
 
 ## poi原生

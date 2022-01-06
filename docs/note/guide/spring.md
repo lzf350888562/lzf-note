@@ -335,8 +335,6 @@ private final Map<String, Object> earlySingletonObjects = new ConcurrentHashMap<
 
 StandardEnvironment配置了两个PropertySource对象 - 一个表示JVM系统属性集`System.getProperties（）`，另一个表示系统环境变量集`System.getenv（）`。
 
-![](picture/spring-propertySource.webp)
-
 如果想要集成到此搜索中的自定义属性源。为此，请实现并实例化你自己的 PropertySource，并将其添加到当前环境的 PropertySource 集合中:
 
 ```java
