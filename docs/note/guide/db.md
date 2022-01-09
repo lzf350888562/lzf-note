@@ -1400,11 +1400,64 @@ Redis 提供 6 种数据淘汰策略：
 
 近似LRU:
 
-可以先试想严格LRU的实现。假设Redis当前有50W规模的key，先通过Keys 遍历获得所有Key，然后比对出空闲时间最长的某个key，最后执行淘汰。这样的流程下来，是非常昂贵的，Keys命令是一笔不小的开销，其次大规模执行比对也很昂贵。 
-
-当然严格LRU实现的优化空间还是有的，YY一下，可以通过活跃度分离出活跃Key和待回收Key， 淘汰时只关注待回收key即可;回收算法引入链表或者树的结构，使Key按空闲时间有序，淘汰时直接获取。然而这些优化不可避免的是，在缓存读写时，这些辅助的数据结构需要同步更新，带来的存储以及计算的成本很高。
+在严格LRU下,  假设Redis当前有50W规模的key，先通过Keys 遍历获得所有Key，然后比对出空闲时间最长的某个key，最后执行淘汰,  非常耗时
 
 在Redis中它采用了近似LRU的实现，它随机采样5个Key，淘汰掉其中空闲时间最长的那个。近似LRU实现起来更简单、成本更低，在效果上接近严格LRU。它的缺点是存在一定的几率淘汰掉最近被访问的Key，即在TTL到期前也可能被淘汰。
+
+**LRU代码**
+
+```
+//注意, Node需要保存key, 用于删除时
+class Node {
+	public int key, val;
+	public Node next, prev;
+	public Node(int k, int v) {
+		this.key = k;
+		this.val = v;
+	}
+}
+
+class LRUCache {
+	private HashMap<Integer, Node> map;
+	private Queue<Node> cache;
+	private int cap;
+	public LRUCache(int capacity) {
+		this.cap = capacity;
+		map = new HashMap<>();
+		cache = new LinkedList<>();
+	}
+	public int get(int key) {
+		if (!map.containsKey(key))
+			return -1;
+		int val = map.get(key).val;
+		// 利⽤ put ⽅法把该数据提前
+		put(key, val);
+		return val;
+	}
+	public void put(int key, int val) {
+		// 先把新节点 x 做出来
+		Node x = new Node(key, val);
+		if (map.containsKey(key)) {
+			// 删除旧的节点，新的插到头部
+			cache.remove(map.get(key));
+			cache.addFirst(x);
+			// 更新 map 中对应的数据
+			map.put(key, x);
+		} else {
+			if (cap == cache.size()) {
+				// 删除链表最后⼀个数据
+				Node last = cache.removeLast();
+				map.remove(last.key);
+			}
+			// 直接添加到头部
+			cache.addFirst(x);
+			map.put(key, x);
+		}
+	}
+}
+```
+
+
 
 ### 避免短期大量失效
 
