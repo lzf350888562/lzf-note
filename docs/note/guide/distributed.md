@@ -1894,3 +1894,44 @@ if(!员工已调薪){进行调薪}
 如果是新增数据, 可以通过数据库的唯一索引解决问题.
 
 对于修改, 通过只能使用分布式锁来解决了.
+
+# APM链路跟踪
+
+指运行时通过某种方式记录下服务之间的调用过程, 在通过可视化的UI界面快速定位到出错点.
+
+- 基于日志收集调用链路:Sleuth & Zipkin
+
+Sleuth额外生成链路跟踪日志, 如
+
+```
+2021-01-01 15:00:31.441 INFO [a-serivce, 4f34v3c5545646,x234v543534,true]
+```
+
+该格式为OpenTracing规范, OpenTracing为一致的链路追踪日志规范与API接口, 格式为
+
+```
+[微服务ID,Trace ID,Span ID,导出标识]
+```
+
+比如下单业务需要经过订单服务->库存服务->账务服务, 这三个步骤的Trace ID相同, 每个步骤的Span ID不同; 
+
+导出标识表示日志是否被发送给了日志收集组件(如Zipkin).
+
+> Sleuth只需要导入springboot依赖即可产生该日志
+
+Zipkin为推特开发的分布式链路追踪系统, Zipkin客户端收集Sleuth产生的日志发送到Zipkin服务端, Zipkin服务端采用可视化方式展示.
+
+- 基于Agent(运行时二进制)收集调用链路:SkyWalking
+
+```
+java -javaagent:skywalking-agent.jar
+-Dskywalking.agent.service_name=a-service
+-Dskywalking.collector.backend_serivce=192.168.31.10:11800
+-Dskywalking.logging.file_name=a-serivce-api.log
+-jar a-service.jar 
+```
+
+侵入程序运行过程, 监听代码执行过程进行, 对调用关系进行梳理. 其收集的指标比日志方式要多很多.
+
+> 链路跟踪产品还有pinpoint,istio,cat,jeager等等
+

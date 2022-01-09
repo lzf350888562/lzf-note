@@ -210,7 +210,7 @@ axios.defaults.withCredentials = true
 axios.defaults.headers['X-Requested-With'] = 'XMLHttpRequest'
 axios.defaults.headers['token'] = localStorage.getItem('token') || ''
 axios.defaults.headers.post['Content-Type'] = 'application/json'
-//响应拦截器 还有请求拦截器
+//响应拦截器 有请求拦截器
 axios.interceptors.response.use(res => {
   if (typeof res.data !== 'object') {
     Toast.fail('服务端异常！')

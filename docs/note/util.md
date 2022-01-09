@@ -4,7 +4,7 @@
 
 # File
 
-下载远程图片
+## 下载远程图片
 
 ```
  public static File downloadFile(String remoteUrl) throws IOException {
@@ -44,7 +44,163 @@ public static String getFileSuffix(String filePath) {
 
 
 
+## RandomAccessFile
 
+既可以作为输出流也可以作为输入流, 可实现断点续传.
+
+**随机读写**
+
+```
+File file = new File("xxx");
+RandomAccessFile raf = new RandomAccessFile(file,"r");  //写替换为rw并把read替换为write即可
+//读取一个字节
+raf.read();
+//相对位置方式读取 即相对当前读到的位置进行跳过, 接下载从第7个字节开始读取
+//raf.skipBytes(5);
+//绝对位置方式读取 即总是从文件开始位置进行偏移
+raf.seek(5);
+byte[] bytes = new byte[1024*8];
+//读取
+int len = raf.read(bytes);
+System.out.println(new String(bytes,0,len));
+
+//----------------
+File file = new File("xxx");
+RandomAccessFile raf = new RandomAccessFile(file,"rw");  //写替换为rw并把read替换为write即可
+//默认从文件开始处写,  替换掉对应位置的数据 , 利用这个特性配合seek可实现断点续传
+raf.write("abcdefg".getBytes(StandardCharset.UTF_8));
+```
+
+**多线程读取**
+
+```
+File file = new File("xxx");
+int threadNum = 5;
+long length = file.length();
+//每个线程读取的大小 这里必须为向上取证, 即每个线程可以多读但不能少读, 并且必须为整数字节
+int part = Math.cell(length / threadNum); 
+for(int i = 0; i < threadNum; i++){
+	final int k = i;
+	new Thread(() -> {
+		try{
+			RandomAccessFile in = new RandomAccessFile(file,"r");  
+			RandomAccessFile out = new RandomAccessFile("xxx","rw");  
+			in.seek(k * part);	//从指定位置开始读
+			out.seek(k * part);	//从指定位置开始写 
+			byte[] bytes = new byte[1024*2];
+			int len = -1,sum = 0;
+			while(true){
+				len = in.read(bytes);
+				if(len == -1){	//如果是读取最后一个part的线程读取结束了
+					break;		//因为最后一个线程可能读取不到part个字节 所以单独进行判断
+				}
+				sum += len;
+				out.write(bytes,0,len); 	//写入
+				if(sum >= part){	//每个线程读取完毕
+					break;
+				}
+				
+			}
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+	}).start();
+}
+//可通过join 或 CountDownLautch 计时
+```
+
+> 只有在文件足够大的时候多线程读取速度才快于单线程读取
+
+### 断点续传
+
+在下载或上传时，将下载或上传任务划分为几个部分，每一个部分采用一个线程进行上传或下载，如果碰到网络故障，可以从已经上传或下载的部分开始继续上传下载未完成的部分，而没有必要从头开始上传下载。
+
+在多线程随机读取的基础上加入ConcurrentHashMap记录每个线程读取写入完成的位置,即记录断点
+
+```
+File file = new File("xxx");
+int threadNum = 5;
+long length = file.length();
+int part = Math.cell(length / threadNum); 
+// key为线程编号, value为线程读取的字节数
+final Map<Integer,Integer> map = new ConcurrentHashMap<>();
+for(int i = 0; i < threadNum; i++){
+	final int k = i;
+	new Thread(() -> {
+		RandomAccessFile log = null;
+		try{
+			RandomAccessFile in = new RandomAccessFile(file,"r");  
+			RandomAccessFile out = new RandomAccessFile("xxx","rw");  
+			log = new RandomAccessFile("xxx.log","rw");  // 日记记录位置 用于持久化
+			in.seek(k * part);	
+			out.seek(k * part);	
+			byte[] bytes = new byte[1024*2];
+			int len = -1,sum = 0;
+			while(true){
+				len = in.read(bytes);
+				if(len == -1){	
+					break;		
+				}
+				sum += len;
+				//读取的字节数写入map
+				map.put(k, k*part + sum);  
+				out.write(bytes,0,len); 	
+				//map持久化 只保留每个线程最新读取和写入完成的位置
+				log.seek(0);
+				StringJoiner joiner = new StringJoiner(",");
+				map.forEach((key,val) -> joiner.add(String.valueOf(val)));
+				log.write(joiner.toString().getBytes(StandardCharsets.UTF_8));
+				
+				if(sum >= part){	
+					break;
+				}
+				
+			}
+		}catch(Exception e){
+			e.printStackTrace();
+		}finally{
+			try{
+				if(log!=null) log.close();	//关闭流, 否则无法删除
+			} catch(Exception e){
+			 	e.printStackTrace();
+			}
+		}
+	}).start();
+	//...
+	//读取完成后删除断点log文件
+	new File("xxx.log").delete();
+}
+```
+
+如果中途发送网络故障, 可通过持久化的log文件实现续传. 
+
+下载前先判断是否存在断点log文件, 如果存在则续传.
+
+```
+File logFile = new File("xxx.log");
+String[] $data = null;
+if(logFile.exist()){
+	BufferedReader reader = new BufferedReader(new FileReader(file));
+	String data = reader.readLine();
+	$data = data.split(",");
+}
+logFile.close(); //关闭流, 否则无法删除
+final _data = $data;
+
+//----- 修改定位每个线程开始读取的位置处代码,  从断点处开始续传
+in.seek(_data == null ? k * part : Integer.parseInt(_data[k]));
+out.seek(_data == null ? k * part : Integer.parseInt(_data[k]));
+
+//----- 修改Map.put的代码
+map.put(k, (_data == null ? k * part : Integer.parseInt(_data[k])) + sum);  
+
+//----- 重点:修改判断是否读取完成的代码, 因为续传不会读取到part大小, 所以需要修改整个逻辑
+if(sum + (_data == null ? k * part : Integer.parseInt(_datak])) >= (k+1) * part){	
+	break;
+}
+```
+
+在实际使用上进行简单封装即可
 
 ## itextpdf
 
