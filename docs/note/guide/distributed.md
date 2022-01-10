@@ -306,8 +306,8 @@ vrrp_instance VI_1 {
 > 	// 增⼤窗⼝
 > 	window.add(s[right]);
 > 	right++;
-> while (window needs shrink) {
-> // 缩⼩窗⼝
+> 	while (window needs shrink) {
+> 	// 缩⼩窗⼝
 > window.remove(s[left]);
 > left++;
 > }

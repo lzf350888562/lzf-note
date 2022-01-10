@@ -321,9 +321,7 @@ private final Map<String, Object> earlySingletonObjects = new ConcurrentHashMap<
 
 
 
-而使用第三级缓存原因在于使用aop代理问题
-
-
+第三级缓存原因在于使用aop代理问题
 
 ## Enviroment
 

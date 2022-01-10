@@ -774,8 +774,6 @@ public PropertyValues postProcessPropertyValues(PropertyValues pvs, PropertyDesc
 }
 ```
 
-介绍和源码解析见https://blog.csdn.net/qq_38526573/article/details/88091702
-
 ## BeanFactoryPostProcessor
 
 该接口包含一个方法:postProcessBeanFactory.
@@ -826,8 +824,6 @@ postProcessBeanDefinitionRegistry方法 -->
 postProcessBeanFactory 方法 -->
 
 其他的bean的构造函数
-
-源码解析https://mrbird.cc/%E6%B7%B1%E5%85%A5%E7%90%86%E8%A7%A3BeanFactoryPostProcessor-BeanDefinitionRegistryPostProcessor.html
 
 
 
