@@ -188,103 +188,6 @@ BitMap通常用来去重 & 取两个集合的交集或并集等.
 要对43亿QQ号进行去重, 需要总共至少43位的多个结构类型标识每个QQ号:
 4300000000/8/1024/1024≈ 512MB .  即该大小足够标识所有QQ号存在与否.
 
-# IO
-
-**io模型**
-
-为了保证操作系统的稳定性和安全性，一个进程的地址空间划分为 **用户空间（User space）** 和 **内核空间（Kernel space ）** 。
-
-**用户空间的程序不能直接访问内核空间**。
-
-用户进程想要执行 IO 操作的话，必须通过 **系统调用** 来间接访问内核空间.(常有磁盘io和网络io)
-
-我们的应用程序实际上只是发起了 IO 操作的调用而已，具体 IO 的执行是由操作系统的内核来完成的。
-
-> 当应用程序发起 I/O 调用后，会经历两个步骤：
->
-> 1. 内核等待 I/O 设备准备好数据
-> 2. 内核将数据从内核空间拷贝到用户空间。
-
-**bio**
-
-BIO是同步阻塞模型，一个客户端连接对应一个处理线程。在BIO中，accept和read方法都是阻塞操作，如果没有连接请求，accept方法阻塞；如果无数据可读取，read方法阻塞。
-
-![](picture/6a9e704af49b4380bb686f0c96d33b81tplv-k3u1fbpfcp-watermark.image)
-
-**nio**
-
-Java 中的 NIO 是 **I/O 多路复用模型** 还是 同步非阻塞 IO 模型。
-
-**同步非阻塞 IO 模型**
-
-![图源：《深入拆解Tomcat & Jetty》](picture/bb174e22dbe04bb79fe3fc126aed0c61tplv-k3u1fbpfcp-watermark.image)
-
-同步非阻塞 IO 模型中，应用程序会一直发起 read 调用，等待数据从内核空间拷贝到用户空间的这段时间里，线程依然是阻塞的，直到在内核把数据拷贝到用户空间。
-
-相比于同步阻塞 IO 模型，同步非阻塞 IO 模型确实有了很大改进。通过轮询操作，避免了一直阻塞。
-
-但是，这种 IO 模型同样存在问题：**应用程序不断进行 I/O 系统调用轮询数据是否已经准备好的过程是十分消耗 CPU 资源的。**
-
-这个时候，**I/O 多路复用模型** 就上场了。
-
-![img](picture/88ff862764024c3b8567367df11df6abtplv-k3u1fbpfcp-watermark.image)
-
-IO 多路复用模型中，线程首先发起 select 调用，询问内核数据是否准备就绪，等内核把数据准备好了，用户线程再发起 read 调用。read 调用的过程（数据从内核空间->用户空间）还是阻塞的。
-
-**IO 多路复用模型，通过减少无效的系统调用，减少了对 CPU 资源的消耗。**
-
-Java 中的 NIO ，有一个非常重要的**选择器 ( Selector )** 的概念，也可以被称为 **多路复用器**。通过它，只需要一个线程便可以管理多个客户端连接。当客户端数据到了之后，才会为其服务。
-
-客户端发送的连接请求注册在多路复用器Selector上，服务端线程通过轮询多路复用器查看是否有IO请求，有则进行处理。
-
-![img](picture/0f483f2437ce4ecdb180134270a00144tplv-k3u1fbpfcp-watermark.image)
-
-> Epoll是Linux下多路复用IO接口select/poll的增强版本，它能显著提高程序在大量并发连接中只有少量活跃的情况下的系统CPU利用率，获取事件的时候，它无须遍历整个被侦听的描述符集，只要遍历那些被内核IO事件异步唤醒而加入Ready队列的描述符集合就行了。
-
-**aio**
-
-AIO 也就是 NIO 2。Java 7 中引入了 NIO 的改进版 NIO 2,它是异步 IO 模型。
-
-异步 IO 是基于事件和回调机制实现的，也就是应用操作之后会直接返回，不会堵塞在那里，当后台处理完成，操作系统会通知相应的线程进行后续的操作。
-
-![img](picture/3077e72a1af049559e81d18205b56fd7tplv-k3u1fbpfcp-watermark.image)
-
-## 使用缓冲流减少IO
-
-如果使用普通的FileInputStream/FileOutputStream实现文件读写:
-
-```
-long begin = System.currentTimeMillis();
-        try (FileInputStream input = new FileInputStream("C:/456.png");
-             FileOutputStream output = new FileOutputStream("C:/789.png")) {
-            byte[] bytes = new byte[1024];
-            int i;
-            while ((i = input.read(bytes)) != -1) {
-                output.write(bytes,0,i);
-            }
-        } catch (IOException e) {
-            log.error("复制文件发生异常",e);
-        }
-        log.info("常规流读写，总共耗时ms："+(System.currentTimeMillis() - begin));
-```
-
-如果是不带缓冲的流，读取到一个字节或者字符的，就会直接输出数据了。而带缓冲的流，读取到一个字节或者字符时，先不输出，而是等达到缓冲区的最大容量，才一次性输出: 
-
-```
-long begin = System.currentTimeMillis();
-        try (BufferedInputStream bufferedInputStream = new BufferedInputStream(new FileInputStream("C:/456.png"));
-        BufferedOutputStream  bufferedOutputStream = new BufferedOutputStream(new FileOutputStream("C:/789.png"))) {
-            byte[] bytes = new byte[1024];
-            int i;
-            while ((i = input.read(bytes)) != -1) {
-                output.write(bytes,0,i);
-            }
-        } catch (IOException e) {
-            log.error("复制文件发生异常",e);
-        }
-        log.info("总共耗时ms"+(System.currentTimeMillis() - begin));
-```
-
 
 
 # 设计模式
@@ -1005,4 +908,300 @@ public static void main(String[] args){
     subject.setState(0);
 }
 ```
+
+# IO
+
+**io模型**
+
+为了保证操作系统的稳定性和安全性，一个进程的地址空间划分为 **用户空间（User space）** 和 **内核空间（Kernel space ）** 。
+
+**用户空间的程序不能直接访问内核空间**。用户进程想要执行 IO 操作的话，必须通过 **系统调用** 来间接访问内核空间.(常有磁盘io和网络io)
+
+我们的应用程序实际上只是发起了 IO 操作的调用而已，具体 IO 的执行是由操作系统的内核来完成的。
+
+> 当应用程序发起 I/O 调用后，会经历两个步骤：
+>
+> 1. 内核等待 I/O 设备准备好数据
+> 2. 内核将数据从内核空间拷贝到用户空间。
+
+**BIO**
+
+BIO是同步阻塞模型，一个客户端连接对应一个处理线程。在BIO中，accept和read方法都是阻塞操作，如果没有连接请求，accept方法阻塞；如果无数据可读取，read方法阻塞。
+
+BIO是基于字节流和字符流进行操作的.
+
+**NIO**
+
+Java 中的 NIO 是 **I/O 多路复用模型** 还是 同步非阻塞 IO 模型?
+
+1.**同步非阻塞 IO 模型**
+
+同步非阻塞 IO 模型中，应用程序会一直发起 read 调用，等待数据从内核空间拷贝到用户空间的这段时间里，线程依然是阻塞的，直到在内核把数据拷贝到用户空间。相比于同步阻塞 IO 模型，通过轮询操作，避免了一直阻塞。
+
+但是，这种 IO 模型同样存在问题：**应用程序不断进行 I/O 系统调用轮询数据是否已经准备好的过程是十分消耗 CPU 资源的。**
+
+2.**I/O 多路复用模型** 
+
+线程首先发起 select / poll / epoll 调用，询问内核数据是否准备就绪，等内核把数据准备好了，用户线程再发起 read 调用。read 调用的过程（数据从内核空间->用户空间）还是阻塞的。
+
+**通过减少无效的系统调用，减少了对 CPU 资源的消耗。**
+
+Java 的 NIO中 ，客户端发送的连接请求注册在多路复用器Selector上，服务端线程通过**轮询**多路复用器查看是否有IO请求，有则进行处理。
+
+> Epoll是Linux下多路复用IO接口select/poll的增强版本，它能显著提高程序在大量并发连接中只有少量活跃的情况下的系统CPU利用率，获取事件的时候，它无须遍历整个被侦听的描述符集，只要遍历那些被内核IO事件异步唤醒而加入Ready队列的描述符集合就行了。
+
+**AIO**
+
+AIO 即 NIO 2。Java 7 中引入了 NIO 的改进版 NIO 2,它是异步 IO 模型。
+
+异步 IO 是基于**事件和回调**机制实现的，也就是应用操作之后会直接返回，不会堵塞在那里，当后台处理完成，操作系统会通知相应的线程进行后续的操作。
+
+
+
+## Java NIO
+
+Java NIO三大组件: Channel,Buffer,Selector
+
+Java NIO是基于Channel和Buffer进行操作的, 数据总是从channel读取到buffer, 或从buffer写入到channel, (每个channel对应一个buffer, buffer可读可写, 通过flip切换) , 并通过selector(单线程)监听多个channel事件, 根据不同的事件在各个channel上切换.
+
+buffer为顶层抽象类, 其下有针对各种数据类型实现的具体类. 本质为一个可读可写的内存块, 底层为一个数组.
+
+channel类似于流, 但channel是双向的. 它是一个接口, 场景的实现类有FileChannel用于文件数据读写(可通过文件流的getChannel获取), DatagramChannel用于UDP数据读写, ServerSocketChannel 和 SockelChannel用于TCP读写.
+
+Selector为抽象类, 可通过register方法将从ServerSocketChannel得到的SocketChannel注册到Selector上, 并返回SelectionKey, 并通过SelectionKey判断当前channel是否有事件.
+
+Java NIO实现非阻塞简单示例:
+
+```java
+// ------------------------服务端
+ServerSocketChannel serverSocketChannel = ServerSocketChannel.open();
+Selector selector = Selector.open();
+serverSocketChannel.socket().bind(new InetSocketAddress(6666));
+serverSocketChannel.configureBlocking(false); //设置为非阻塞
+serverSocketChannel.register(selector, SelectionKey.OP_ACCEPT);	//注册channel关注accept事件
+while (true) {								//循环等待客户端连接
+	if(selector.select(1000) == 0) {		//没有事件发生
+		System.out.println("服务器等待了1秒，无连接");
+		continue;
+	}
+	Set<SelectionKey> selectionKeys = selector.selectedKeys();
+	Iterator<SelectionKey> keyIterator = selectionKeys.iterator();
+	while(keyIterator.hasNext()){
+		SelectionKey key = keyIterator.next();
+		if(key.isAcceptable()) { 			//发生accept事件,即有新的客户端连接
+			SocketChannel socketChannel = serverSocketChannel.accept();
+			socketChannel.configureBlocking(false);	//设置为非阻塞
+            //注册channel,关注read事件,指定Buffer
+			socketChannel.register(selector,SelectionKey.OP_READ,ByteBuffer.allocate(1024));
+        if(key.isReadable())				//发生read事件,即内核数据准备就绪
+			SocketChannel channel = (SocketChannel)key.channel();	
+			ByteBuffer buffer = (ByteBuffer)key.attachment();		
+			channel.read(buffer);
+			System.out.println(new String(buffer.array()));
+        }
+       keyIterator.remove();			//手动移除selectionKey,防止重复操作
+    }
+}
+
+//--------------------------客户端
+SocketChannel socketChannel = SocketChannel.open();
+socketChannel.configureBlocking(false);
+InetSocketAddress inetSocketAddress = new InetSocketAddress("127.0.0.1", 6666);
+if (!socketChannel.connect(inetSocketAddress)) {
+	while (!socketChannel.finishConnect()) {
+		//未连接, 不会阻塞，可以做其它工作 ..
+    }
+}
+String str = "Hello World",
+ByteBuffer buffer = ByteBuffer.wrap(str.getBytes());
+socketChannel.write(buffer);
+System.in.read();
+```
+
+**零拷贝**
+
+零拷贝技术用来避免在读写操作时操作时cpu将内核态(磁盘对应页缓存, 网络对应Socket缓冲区)复制到用户态(用户空间缓存)的过程, 具体的实现有mmap 和 sendFile.
+
+FileChannel的transfer方法底层使用零拷贝:
+
+```java
+//-------------------服务端
+InetSocketAddress address = new InetSocketAddress(8000);
+ServerSocketChannel serverSocketChannel = ServerSocketChannel.open();
+ServerSocket serverSocket = serverSocketChannel.socket();
+serverSocket.bind(address);
+ByteBuffer byteBuffer = ByteBuffer.allocate(4096);
+while (true) {
+	SocketChannel socketChannel = serverSocketChannel.accept();
+	int readcount = 0;
+	while (-1 != readcount) {
+		try {
+			readcount = socketChannel.read(byteBuffer);
+		}catch (Exception ex) {
+			break;
+		}
+		byteBuffer.rewind(); //position = 0
+    }
+}
+
+//-----------------客户端
+SocketChannel socketChannel = SocketChannel.open();
+socketChannel.connect(new InetSocketAddress("localhost", 8000));
+String filename = "xxx.xx";
+FileChannel fileChannel = new FileInputStream(filename).getChannel();
+longstartTime=System.currentTimeMillis();
+long transferCount = fileChannel.transferTo(0, fileChannel.size(), socketChannel);
+System.out.println("发送的总的字节数=" + transferCount + " 耗时：" + (System.currentTimeMillis()-startTime));
+fileChannel.close();
+```
+
+## Netty
+
+Netty对Java NIO进行封装, 解决Java NIO存在的问题, 具有更好的性能和优化.
+
+### Reactor模式
+
+Reactor模式思想为结合 I/O多路复用模型 与 线程池.
+
+Reactor模式中核心成员为:
+
+1.Reactor, 在一个单独的线程中运行, 负责监听和分发事件, 分发给适当的handler对IO事件进行处理.
+
+2.Handlers, 执行I/O事件要完成的实际事件, 非阻塞式.
+
+Netty基于Reactor模型根据Reactor的数量和线程的数量, 有3种实现:
+
+1.单Reactor单线程
+
+Reactor 对象通过 Select 监控客户端请求事件，收到事件后通过 Dispatch 进行分发;
+如果是建立连接请求事件，则由 Acceptor 通过 Accept 处理连接请求，然后创建一个 Handler 对象处理连接完成后的后续业务处理;
+如果不是建立连接事件，则 Reactor 会分发调用连接对应的 Handler 来响应;
+Handler 会完成 Read→业务处理→Send 的完整业务流程.
+
+优点：模型简单, 无线程通信竞争.
+缺点：因为是单线程, 无法发挥多核CPU优势, Handler在处理某个连接上的业务时, 整个进程无法处理其他连接事件, 性能瓶颈显著;不可靠, 如果线程终止或死循环, 导致整个通信模块不可用.
+
+
+
+2.单Reactor多线程
+
+在单Reactor单线程基础上进行改进:
+
+handler 只负责响应事件，不做具体的业务处理，通过read 读取数据后，会分发给worker线程池的某个线程处理业务;
+worker 线程池会分配独立线程完成真正的业务，并将结果返回给handler;
+handler 收到响应后，通过 send 将结果返回给 client.
+
+优点：可以充分的利用多核 cpu 的处理能力.
+缺点：需要处理多线程数据共享问题;  reactor 依旧以单线程方式处理所有的事件的监听和分发，在高并发场景容易出现性能瓶颈.
+
+
+
+3.主从Reactor多线程.
+
+在单Reactor多线程基础上进行改进:
+
+Reactor主线程 MainReactor 对象通过select监听**连接**事件，收到事件后，通过Acceptor处理连接事件;
+当Acceptor处理连接事件后，MainReactor将连接分配给SubReactor;
+Subreactor 将连接加入到连接队列进行监听,并创建handler进行后续工作, 结果不经MainReactor直接返回给client.
+
+优点：主从Reactor线程分工明确, 主只需要负责接收连接并将新连接传给子, 子负责业务处理(可以有多个); 
+缺点：实现复杂.
+
+应用场景广泛,  如Nginx主从Reactor多线程模型, Memcached主从多线程, Netty主从多线程模型.
+
+
+
+### **Netty模型**
+
+Netty主要对主从Reactor多线程模型进行了改造:
+
+抽象出线程池 BossGroup 和 WorkerGroup,  BossGroup负责接收客户端的连接, WorkerGroup负责网络的读写, 它们的类型都是NioEventLoopGroup;
+NioEventLoopGroup 为一个事件循环组, 组中含有多个事件循环，每一个事件循环是 NioEventLoop;
+NioEventLoop 表示一个不断循环的执行处理任务的线程， 每个NioEventLoop都有一个selector，用于监听绑定在其上的socket的网络通讯;
+NioEventLoopGroup可以有多个线程,即可以含有多个NioEventLoop.
+
+每个Boss NioEventLoop循环执行的步骤为轮询accept事件 -> 处理accept事件(创建NioSocketChannel并注册到某个Worker NioEventLoop中的Selector) --> 处理任务队列的任务(runAllTasks)
+
+每个Worker NioEventLoop循环执行的步骤为轮询read/write事件 -> 处理I/O事件(通过pipeline) --> 处理任务队列的任务(runAllTasks)
+
+Pipeline维护多个ChannelHandler处理I/O事件.
+
+### 组件
+
+1.Bootstrap/ServerBootstrap
+
+Netty客户端/服务端引导类, 引导Netty应用, 配置整个Netty程序, 串联各个组件. 
+
+2.Future/ChannelFuture
+
+监听Netty异步IO操作任务, 操作完成或失败自动触发监听事件.
+
+3.Channel
+
+Netty网络通信组件, 用于执行网络IO. 通过其可获取当前网络连接channel的状态和连接配置参数等.
+
+异步网络IO操作返回一个ChannelFuture.
+
+根据协议与阻塞类型的不同, 有不同的Channel:
+NioSocketChannel，异步的客户端 TCP Socket 连接。
+NioServerSocketChannel，异步的服务器端TCP Socket 连接。
+NioDatagramChannel，异步的UDP连接。
+NioSctpChannel，异步的客户端 Sctp 连接。
+NioSctpServerChannel，异步的Sctp服务器端连接，这些通道涵盖了UDP和TCP网络IO以及文件IO。
+
+> Channel支持关联IO操作与对应的Handler
+
+> 一个Channel包含一个ChannelPipeline
+
+4.Selector
+
+Netty基于Selector来实现I/O多路复用, 一个线程监听多个连接的channel, 轮询channels是否存在就绪的I/O事件.
+
+5.ChannelHandler
+
+接口, 负责处理I/O事件(业务处理), 并转发到其所在的ChannelPipeline中下一个Handler.
+
+> 通常我们可以通过继承ChannelHandler的子类来使用, 如ChannelInbountHandler/ChannelOutboundHandler.
+
+6.ChannelPipeline
+
+包含在Channel中, 维护一个ChannelHandlerContext双向链表, 每个ChannelHandlerContext包含一个ChannelHandler, 负责处理和拦截inbound 和 outbound 事件与操作.
+
+在链表中, Inbound事件从head向后传递到最后一个inbound handler,  outbound事件会从tail往前传递到最前一个outbound hander.
+
+> 通过addFirst和addLast添加handler
+
+7.ChannelHandlerContext
+
+保存Channel上下文信息, 并关联一个ChannelHandler.
+
+8.ChannelOption
+
+Channel配置参数:
+
+SO_BACKLOG: 等待处理的客户端连接请求大小
+
+SO_KEEPALIVE: 一直保持连接活动状态
+
+9.EventLoopGroup
+
+抽象一组EventLoop, 每个EventLoop维护一个Selector. 实现类NioEventLoopGroup.
+
+Boss EventLoopGroup通常为一个单线程的的EventLoop ( 主从Reactor中的MainReactor ), EventLoop维护一个注册了ServerSocketChannel的Selector.  通过不断轮询Selector将OP_ACCEPT事件分离出来交给 Wocker EventLoopGroup 进行IO处理.
+
+Worker EventLoopGroup通过next方法可以按照一定规则获取一个EventLoop将SocketChannel注册到其维护的Selector中并处理后续IO事件.( 主从Reactor中的SubReactor)
+
+10.Unpooled
+
+操作缓冲区的工具类, 如copiedBuffer方法根据给定的数据和编码返回一个ByteBuf对象.
+
+ByteBuf不同于NIO中的ByteBuffer对象, 其不需要通过flip反转, 底层维护了readerIndex和writerIndex.
+
+结合capacity可将buffer分为:
+
+0 -- readerIndex							已读区域
+
+readerIndex -- writerIndex		  可读区域
+
+writerIndex -- capacity 				 可写区域
 

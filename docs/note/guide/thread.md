@@ -1,4 +1,4 @@
- jian 
+前提知识:
 
 - markword这部分其实就是加锁的核心，同时还包含的对象的一些生命信息，例如是否GC,经过了几次Young GC还存活,锁信息。64bit
 - klass pointer记录了指向对象的class文件指针。 32bit
@@ -685,11 +685,11 @@ if (workerCountOf(c) < corePoolSize) {
 
 所以, 在1.6版本之后，如果corePoolSize=0，提交任务时如果线程池为空，则会**立即创建一个线程**来执行任务（先排队再获取）；如果提交任务的时候，线程池不为空，则先在等待队列中排队，只有队列满了才会创建新线程。
 
- **线程池创建之后，会立即创建核心线程么?**
+ **2.线程池创建之后，会立即创建核心线程么?**
 
 不会。从上面的源码可以看出，在刚刚创建ThreadPoolExecutor的时候，线程并不会立即启动，而是要等到有任务提交时才会启动，除非调用了`prestartCoreThread/prestartAllCoreThreads`事先启动核心线程。
 
-**核心线程会不会销毁?**
+**3.核心线程会不会销毁?**
 
 在JDK1.6之前，线程池会尽量保持corePoolSize个核心线程，即使这些线程闲置了很长时间。这一点曾被开发者诟病，所以从JDK1.6开始，提供了方法`allowsCoreThreadTimeOut`，如果传参为true，则允许闲置的核心线程被终止。
 
@@ -701,7 +701,7 @@ if (workerCountOf(c) < corePoolSize) {
 >
 > 所以corePoolSize=0(非核心线程, 可销毁)的效果，基本等同于allowsCoreThreadTimeOut=true && corePoolSize=1 (1个核心线程, 可销毁)，但实现细节其实不同。
 
-**如何保证线程不被销毁?**
+**4.如何保证线程不被销毁?**
 
 `ThreadPoolExecutor`有个内部类Worker，它实现了Runnable接口, 它表示线程池中的线程; 而等待队列中的元素，是我们提交的Runnable任务。
 
@@ -801,7 +801,7 @@ final void runWorker(Worker w) {
 
 - 如果线程数超过了corePoolSize ( 超过的线程允许销毁 )，或者allowCoreThreadTimeOut ( 允许核心线程销毁 )，一个Worker在空闲了之后，会用workQueue.poll(keepAliveTime, TimeUnit.NANOSECONDS)取任务。注意，这个接口只阻塞等待keepAliveTime时间，超过这个时间返回null，则Worker的while循环执行结束，则被终止了。
 
-**空闲线程过多会有什么问题?**
+**5.空闲线程过多会有什么问题?**
 
 在空闲线程(即线程池中阻塞在队列的take方法中的线程)过多的情况下:
 
@@ -809,13 +809,13 @@ final void runWorker(Worker w) {
 - 对于局部变量, 因为线程处于阻塞状态，肯定还有栈帧没有出栈，栈帧中有局部变量表，凡是被局部变量表引用的内存都不能回收。所以如果这个线程创建了比较大的局部变量，那么这一部分内存无法GC。
 - 对于TLAB机制：如果线程数过多，那么新的线程初始化可能因为Eden没有足够的空间分配TLAB而触发YoungGC。
 
- **keepAliveTime=0会怎么样?**
+ **6.keepAliveTime=0会怎么样?**
 
 在JDK1.8中，keepAliveTime=0表示非核心线程执行完立刻终止。
 
 默认情况下，keepAliveTime小于0，初始化的时候会报错；但如果allowsCoreThreadTimeOut，keepAliveTime必须大于0，不然初始化报错。
 
-**如何处理异常?**
+**7.如何处理异常?**
 
 对于execute和submit不同场景的异常处理
 
@@ -952,7 +952,7 @@ FutureTask的另一个巧妙的地方就是借用RunnableAdapter内部类，将s
 3. 或者实现Thread.UncaughtExceptionHandler接口，实现void uncaughtException(Thread t, Throwable e);方法，并将该handler传递给线程池的ThreadFactory。
 4. 但afterExecute和UncaughtExceptionHandler都不适用submit。因为通过上面的FutureTask.run()不难发现，它自己对Throwable进行了try-catch，封装到了outcome属性，所以底层方法execute的Worker是拿不到异常信息的。
 
-**shutdown和shutdownNow的区别**
+**8.shutdown和shutdownNow的区别**
 
 - shutdown => 平缓关闭，等待所有已添加到线程池中的任务执行完再关闭。
 
