@@ -309,7 +309,7 @@ ioc中
 ```
 一级缓存 存放成品bean
 private final Map<String, Object> singletonObjects = new ConcurrentHashMap<>(256);
-三级缓存
+三级缓存 提前暴露半成品
 private final Map<String, ObjectFactory<?>> singletonFactories = new HashMap<>(16);
 二级缓存 存放半成品bean
 private final Map<String, Object> earlySingletonObjects = new ConcurrentHashMap<>(16);
@@ -321,7 +321,7 @@ private final Map<String, Object> earlySingletonObjects = new ConcurrentHashMap<
 
 
 
-第三级缓存原因在于使用aop代理问题
+第三级缓存原因在于使用aop代理问题, 为保证注入的对象不是原始对象, 需要提前创建代理对象.
 
 ## Enviroment
 

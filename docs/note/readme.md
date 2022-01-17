@@ -118,45 +118,11 @@ MyCat
 
 ## 大数据
 
-数据处理ETL
-
-​	 Kettle
+数据处理ETL Kettle
 
 # Resource
 
-## Github相关
-
-[GitHub-Chinese-Top-Charts](https://hub.fastgit.org/kon9chunkit/GitHub-Chinese-Top-Charts)：GitHub中文排行榜，帮助你发现高分优秀中文项目、更高效地吸收国人的优秀经验成果
-
-[HelloGitHub](https://www.code-nav.cn/rd/?rid=28ee4e3e60322bb106a48ba20e228d13)：分享 GitHub 上有趣、入门级的开源项目
-
-[Explore GitHub](https://www.code-nav.cn/rd/?rid=28ee4e3e60322bf906a4987d176713da)：GitHub 官方探索，基于兴趣为你推荐开源项目
-
-[GitHub Docs](https://www.code-nav.cn/rd/?rid=b00064a760322b1f064249b56a37ad98)：GitHub 中文文档，了解 GitHub 全部功能
-
-[Topics on GitHub](https://www.code-nav.cn/rd/?rid=79550af260322c41062ce93728994a21)：GitHub 官方提供的主题分类，帮助你找到合适的项目
-
-[GitHub Awesome](https://www.code-nav.cn/rd/?rid=b00064a760322c90064285ba7638805f)：GitHub 官方提供的 awesome 合集，帮助你发现特定标签的资源大全
-
-[GitHub 官方 Trending](https://www.code-nav.cn/rd/?rid=b00064a760322cd30642974900a6de7d)：GitHub 官方提供的趋势统计，帮你发现优秀、有潜力的开源项目
-
-[GitHub Trending](https://www.code-nav.cn/rd/?rid=28ee4e3e60322d1c06a4d72a2d2690ec)：GitHub 趋势，寻找最好的Github项目，让您的开发如虎添翼！
-
-[Gitstar Ranking](https://www.code-nav.cn/rd/?rid=28ee4e3e60322d7806a4e74d2da282a5)：非官方 GitHub Star 统计排名
-
-[GitHuber.cn](https://www.code-nav.cn/rd/?rid=28ee4e3e60322dec06a4fb9137c192bb)：发现优秀 GitHub 开发者
-
-[searchcode](https://www.code-nav.cn/rd/?rid=28ee4e3e600fb3900114f71f4f81db4e)：简单全面的开源代码搜索器
-
-[LibHunt](https://www.code-nav.cn/rd/?rid=28ee4e3e600fb3900114f71f4f81db4e)：汇集实用的开源项目和软件类库，让编程人员快速发现好的项目
-
-[Codelf](https://unbug.github.io/codelf/)：变量命名神器
-
-[GitClone](https://www.code-nav.cn/rd/?rid=28ee4e3e600fb3900114f71f4f81db4e)：GitHub 缓存加速网站
-
-[GitHub 加速下载](https://www.code-nav.cn/rd/?rid=b00064a760322e940642dfab7765f4ee)
-
-[GitHub 文件加速](https://www.code-nav.cn/rd/?rid=28ee4e3e60322efc06a52b49518dcd9a)
+[优秀面经](https://hub.fastgit.org/liyupi/free-programming-resources/blob/main/面试合集/优秀面经.md)
 
 ## Tool
 
@@ -176,13 +142,9 @@ Office Tool Plus :Office部署
 
 StarUML: 开源简洁的UML图编辑软件
 
-[BootCDN](https://www.code-nav.cn/rd/?rid=79550af260194b2802471c2d458d9190)：前端开源项目 CDN 加速服务
+[BootCDN](https://www.bootcdn.cn/)：前端开源项目 CDN 加速服务
 
-[uTools](https://www.code-nav.cn/rd/?rid=79550af2601a6f350269b71001f2baea)：极简、插件化、跨平台的现代桌面工具集
-
-[RegExr](https://www.code-nav.cn/rd/?rid=79550af2601114e9012110711798772b)：正则表达式的在线可视化工具
-
-[数据库大全](https://www.code-nav.cn/rd/?rid=b00064a76012546b016e274a3724c5f0)：果创云收录的各种数据库表设计
+[RegExr](https://www.code-nav.cn/rd/?rid=79550af2601114e9012110711798772b)：正则表达式可视化工具
 
 [electerm](https://electerm.github.io/electerm/) 远程连接
 
@@ -194,26 +156,13 @@ StarUML: 开源简洁的UML图编辑软件
 
 [收藏猫](https://chrome.pictureknow.com/?id=42293a97d32f44fab67debba86d1f98f)
 
-插件:ElasticSearch Head, Json Handler
-
-vscode: appworks pack,
-
-前端美工软件 AXURE
-
-JPom 简单低侵入的在线构建,自动构建,日常运维,项目监控的功能
+AXURE:前端美工软件
 
 [密钥对生成](http://web.chacuo.net/netrsakeypair)
 
-## face
-
-- [知识总结](https://hub.fastgit.org/xingshaocheng/architect-awesome)
-- [优秀面经](https://hub.fastgit.org/liyupi/free-programming-resources/blob/main/面试合集/优秀面经.md)
-
-## Other
-
-[wechaty](http://wechaty.js.org/) 微信聊天机器人  (+ 微信对话开放平台 实现自动恢复)
-
 [书籍](https://hub.fastgit.org/tomsun28/pdf)
+
+[Codelf](https://unbug.github.io/codelf/)：变量命名神器
 
 # Demo
 
@@ -256,6 +205,8 @@ JPom 简单低侵入的在线构建,自动构建,日常运维,项目监控的功
 [视频管理系统](https://hub.fastgit.org/user-xiangpeng/yaoqishan)
 
 [物流管理系统](https://gitee.com/jian_bo_bai/cable__xinrun_logistics?_from=gitee_search)
+
+[有来商城](https://gitee.com/youlaitech/youlai-mall?_from=gitee_search)
 
 ### OpenSource
 
@@ -347,7 +298,11 @@ https://gitee.com/beijing_hongye_huicheng/lilishop
 
 [Surenss](https://usthe.com/sureness)
 
+[Vue-admin-better](https://hub.fastgit.org/chuzhixin/vue-admin-better)
 
+[D2Admin](https://hub.fastgit.org/d2-projects/d2-admin)
+
+[wechaty](http://wechaty.js.org/) 微信聊天机器人  (+ 微信对话开放平台 实现自动回复)
 
 ## JS
 
@@ -410,65 +365,23 @@ ls -l -a    --> ls -la     -->   ll
 
 ls -l 条件  筛选  *匹配任意多个 ？匹配任意一个
 
-##### cat more less
+top动态查看系统整体运行情况
 
-cat 查看短文本文件
-
--A 空白字符替换 空格-》回车  制表符 -》^I -n行号
-
-more 以全屏方式展示 只能向后浏览
-
--s 压缩空行
-
-less  可以向后向前浏览
-
-:/搜索内容
-
-##### tail head
-
-查看文件后10行 前10行
-
--n 指定行数
-
-##### top
-
-动态查看系统整体运行情况
-
-##### ps进程状态
-
-ps为复杂命令之一 查看当前进程
+**ps进程状态**
 
 ps -f
 
-###### ps -aux |grep ........ 
+ps -aux |grep ........ 
 
-###### ps -ef | grep
+ps -ef | grep
 
-##### netstat -ntlp | grep 端口
+netstat -ntlp | grep 端口
 
-##### kill -9 pid
+kill -9 pid
 
-##### free
+free显示内存使用情况
 
-显示内存使用情况
-
-
-
-##### mount
-
-desktop u盘 vmwaretools等默认挂载在media/lzf/下
-
-sudo fdisk -l  查看设备   
-
-添加挂载点
-
-sudo mount /dev/sdc1 /mnt
-
-卸载挂载
-
-sudo umount /mnt
-
-##### df和du
+**df和du**
 
 df磁盘信息 （所有已挂载的）
 
@@ -478,7 +391,7 @@ du文件和目录的使用空间
 
 du -h
 
-##### 文件压缩
+**文件压缩**
 
 .gzip  ->  .gz
 
@@ -490,23 +403,21 @@ tar -zcvf 压缩目标文件 压缩的文件或目录
 
 tar -zxvf 解压文件
 
-##### ;组合执行命令
+**其他执行方式**
 
-ls ; pwd ; cd /
+ls ; pwd ; cd /   组合执行
 
-##### sleep延迟动作
+&  后台运行
 
-&后台运行
+sleep 300&    延迟执行
 
-sleep 300&  
-
-##### jobs显示后台作业状态
+**jobs显示后台作业状态**
 
 jobs -l 显示pid
 
 running done
 
-##### 后台执行用法
+**后台执行用法**
 
 &
 
@@ -536,17 +447,15 @@ running done
 
   如果后台中有多个命令，可以用 bg %jobnumber 将选中的命令调出，%jobnumber 是通过 jobs 命令查到的后台正在执行的命令的序号（不是pid）
 
-##### coproc 协程
-
-##### history
+**history**
 
 !num  执行history里面指定条数的命令
 
-#### 软件安装
+**软件安装**
 
-PMS 包管理系统 自动配置环境变量
+**PMS** 包管理系统 自动配置环境变量
 
-##### dpkg Debian:
+**dpkg Debian:**
 
 apt-get   apt-cache   aptitude
 
@@ -558,13 +467,13 @@ apt upgrade 升级  两者区别
 
 apt  remove 卸载
 
-##### rpm
+**rpm**
 
-##### red hat
+**red hat**
 
 yum install xxxxx
 
-##### vim
+## vim
 
 sudo apt install vim    
 
@@ -620,7 +529,7 @@ ngg 跳转到n行
 
 [ /] (+shift)段落跳跃
 
-##### 剪切复制粘贴
+**剪切复制粘贴**
 
 剪切+粘贴=删除dw/dd)+粘贴P
 
@@ -628,7 +537,7 @@ ngg 跳转到n行
 
 y5表示从当前复制到行尾
 
-##### 可视化模式
+**可视化模式**
 
 v->hjkl操作  y复制d删除 p粘贴
 
@@ -646,7 +555,7 @@ vaw 快速选择单词
 
 vab包含括号
 
-##### 查找替换
+**查找替换**
 
 查找 /xxxxxx        
 
@@ -660,7 +569,7 @@ n跳跃到下一个
 
 :n,ms/xxxx/xxxx/gc 替换确认
 
-##### 配置vim
+**配置vim**
 
 touch .vimrc
 

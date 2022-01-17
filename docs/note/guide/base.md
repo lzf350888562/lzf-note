@@ -1165,7 +1165,7 @@ Netty基于Selector来实现I/O多路复用, 一个线程监听多个连接的ch
 
 6.ChannelPipeline
 
-包含在Channel中, 维护一个ChannelHandlerContext双向链表, 每个ChannelHandlerContext包含一个ChannelHandler, 负责处理和拦截inbound 和 outbound 事件与操作.
+包含在Channel中, 维护一个ChannelHandlerContext双向链表, 每个ChannelHandlerContext包含一个ChannelHandler, 负责处理和拦截inbound(client -> server)和 outbound(server -> client) 事件与操作.
 
 在链表中, Inbound事件从head向后传递到最后一个inbound handler,  outbound事件会从tail往前传递到最前一个outbound hander.
 
@@ -1205,3 +1205,51 @@ readerIndex -- writerIndex		  可读区域
 
 writerIndex -- capacity 				 可写区域
 
+> ByteBuf也支持零拷贝
+
+# 序列化
+
+目前springboot , springcloud下 ,都是默认使用基于HTTP的json作为序列化的首选方案.
+
+而JDK内置的序列化却遭到抵制.
+
+因为这是java 利用自带api生成序列化二进制流, 所以接收端只能强制使用java 开发才能识别, 失去了异构系统的跨平台性.
+
+> JDK序列化可通过ByteArrayXXXputStream和ObjectXXXputStream实现
+
+连java官方也说明:" 对不信任数据的反序列化 , 从本质上来说是危险的 , 应该予以避免" . 可见java序列化是不安全的.
+
+比如在网络传输过程(网络安全由应用程序自己规定)中, 传输的序列化后的二进制流金额数据被注入攻击修改.
+
+而基于HTTP的RESTFul风格传输的话, 数据采用json传递, 可使用https的SSL加密传输 ,可保证过程的安全.
+
+
+
+另外,  还有NIO的ByteBuffer序列化方式(ObjectEn/Decoder) , 在序列化执行效率上面 , 与java序列化差距不大.
+
+但json序列化执行效率比java序列化更高(长度和速度上) , 因为java序列化需要处理对象的引用等.
+
+> 附上其他序列化方案 Dubbo内置的hessian 和 Google的Protocol Buffers
+
+> 一些情况 如Spring session用Redis做session共享时 和 spring cache 用redis做缓存时  ,默认都是使用的jdk序列化
+
+> 目前流行http + json 或 tcp + protobuf 方案
+
+## Protobuf
+
+Netty自带的编码解码器底层使用JDK序列化实现, 效率低. 因此采用Google Prototol Buffers(简称Protobuf), 因为其高效的结构化数据存储格式, 适合数据存储与RPC数据交换.
+
+Protobuf以message方式来管理数据, 具有高性能和高可靠性以及跨平台和语言特点.
+
+通过protobuf编译器编译类描述的.proto文件可以生成.java文件:
+
+```
+syntax = "proto3"; 								//版本
+option java_outer_classname = "StudentPOJO"; 	//外部类名与文件名
+message Student { 								//内部类 为真正发送的对象
+int32 id = 1; // 属性 名字id 类型int32(protobuf类型) 1表示属性序号，不是值
+string name =2;
+}
+```
+
+最后通过protoc.exe --java_out=.Student.proto编译后便可直接使用.
