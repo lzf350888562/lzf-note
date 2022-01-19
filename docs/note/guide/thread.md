@@ -468,7 +468,7 @@ public class JOLDemo {
 
 [超详细](https://javaguide.cn/java/concurrent/threadlocal/ )
 
-threadLocal初始化方式
+ThreadLocal初始化方式
 
 ```
 private static final ThreadLocal<SimpleDateFormat> formatter = new ThreadLocal<SimpleDateFormat>(){
@@ -521,7 +521,7 @@ ThreadLocalMap getMap(Thread t) {
 
 **每个`Thread`中都具备一个`ThreadLocalMap`，而`ThreadLocalMap`可以存储以`ThreadLocal`为 key ，Object 对象为 value 的键值对。**
 
-如果在同一个线程中声明了两个 `ThreadLocal` 对象的话，会使用 `Thread`内部都是使用仅有那个`ThreadLocalMap` 存放数据的，`ThreadLocalMap`的 key 就是 `ThreadLocal`对象，value 就是 `ThreadLocal` 对象调用`set`方法设置的值。
+如果在同一个线程中声明了两个 `ThreadLocal` 对象的话， `Thread`内部都是使用仅有那个`ThreadLocalMap` 存放数据的，`ThreadLocalMap`的 key 就是 `ThreadLocal`对象，value 就是 `ThreadLocal` 对象调用`set`方法设置的值。
 
 **TheadLocal内存泄漏问题**
 
