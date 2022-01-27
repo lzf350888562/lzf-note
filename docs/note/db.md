@@ -1,8 +1,6 @@
-**因为Spring Boot 2.1.x默认使用了MySQL 8.0的驱动，所以采用`com.mysql.cj.jdbc.Driver`，而不是老的`com.mysql.jdbc.Driver`。**
+因为Spring Boot 2.1.x默认使用了MySQL 8.0的驱动，所以采用`com.mysql.cj.jdbc.Driver`，而不是老的`com.mysql.jdbc.Driver`。
 
-# JDBC与数据源
-
-Java数据库连接（Java Database Connectivity，简称JDBC）是Java语言中用来规范客户端程序如何来访问数据库的应用程序接口，提供了诸如查询和更新数据库中数据的方法。JDBC也是Sun Microsystems的商标。我们通常说的JDBC是面向关系型数据库的。
+# JDBC
 
 JDBC API主要位于JDK中的`java.sql`包中（之后扩展的内容位于`javax.sql`包中），主要包括（斜体代表接口，需驱动程序提供者来具体实现）：
 

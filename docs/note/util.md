@@ -284,7 +284,7 @@ response.addHeader("Content-Disposition","inline;filename=" + new String(filenam
 response.addHeader("Content-Length","" + file.length());  
 ```
 
-> 前端可以使用<embed :src="xxx+'#toolbar=0&scrollbar=0&navpanes=0'" type="application/pdf" />
+> 前端可以使用< embed :src="xxx+'#toolbar=0&scrollbar=0&navpanes=0'" type="xxx" />
 
 而弹出下载保存框:
 
@@ -446,30 +446,21 @@ EasyExcel.read(filename,DemoData.class,new ExcelListener()).sheet().doRead();
 ##  转pdf
 
 ```
- <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-web</artifactId>
-        </dependency>
         <dependency>
             <groupId>aspose.slides</groupId>
             <artifactId>slides</artifactId>
             <version>19.3</version>
-            <scope>system</scope>
-            <systemPath>${basedir}/lib/aspose.slides-19.3.jar</systemPath>
         </dependency>
         <dependency>
             <groupId>com.aspose</groupId>
             <artifactId>aspose-cells</artifactId>
             <version>8.5.2</version>
-            <scope>system</scope>
-            <systemPath>${basedir}/lib/aspose-cells-8.5.2.jar</systemPath>
         </dependency>
         <dependency>
             <groupId>com.aspose</groupId>
             <artifactId>aspose-words</artifactId>
             <version>16.8.0</version>
-            <scope>system</scope>
-            <systemPath>${basedir}/lib/aspose-words-16.8.0-jdk16.jar</systemPath>
+            <classifier>j</classifier>
         </dependency>
 ```
 
@@ -2063,9 +2054,30 @@ public abstract class CarMapperDecorator implements CarMapper {
 
 
 
+# ASM
 
+Java字节码操控框架, 起源于java.lang.instument.Instrumentation, 它的redefineClasses和retransferClasses方法分别用于重新定义class和修改class. 但是, 运行时直接替换class很不安全, 所以Instument存在很多限制.
 
+> cglib, spring aop等都使用到了ASM
 
+## BTrace
+
+基于ASM, Attach API, 提供了注解用来编写BTrace脚本, 避免了原生ASM复杂的字节码操作. 
+
+因为Instrument存在限制, BTrace也不例外, 比如不允许创建dioxide, 不允许改变类的属性等, 只允许public static void方法存在.
+
+```
+@BtracePublicclass ArgArray{
+	@OnMethod(	clazz="/java\\.io\\..*/", method="/read.*/")
+public static void andRead(@ProbeClassName String pcn, @PromeMethodName String pmn, AnyType[] args){
+		System.out.println(pcn);
+		System.out.println(pmn);
+		System.out.println(args);
+	}
+}
+```
+
+>  Arthas :将常用的BTrace脚本进行封装, 对外直接提供简单的命令操作, 也是java诊断.
 
 # oshi软硬件监控
 

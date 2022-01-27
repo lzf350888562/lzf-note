@@ -1,22 +1,8 @@
 # Doc
 
-[Java Web 入门 ](https://skyline75489.github.io/Heart-First-JavaWeb/) √
-
-[DD Spring教程](https://blog.didispace.com/spring-boot-learning-2x/)   √
-
-[JavaGuide ](http://snailclimb.gitee.io/) √
-
 [advanced-java](https://doocs.github.io/advanced-java) 分布式 高并发 高可用 微服务试题
 
 [被删的前端游乐场](http://www.godbasin.com/) 
-
-[MrBird-SpringAll ](https://github.com/wuyouzhuguli/SpringAll)  √
-
-[各类API资料]([OverAPI.com | Collecting all the cheat sheets](https://overapi.com/))
-
-[徐亮技术文档Nginx linux docker](https://www.xuliangwei.com/)
-
-[深入浅出Java多线程 ](http://concurrent.redspider.group/RedSpider.html) √
 
 [git30days](https://hub.fastgit.org/doggy8088/Learn-Git-in-30-days)
 
@@ -269,8 +255,6 @@ https://gitee.com/beijing_hongye_huicheng/lilishop
 [云盘](https://hub.fastgit.org/zhaojun1998/zfile)
 
 [各种文件预览框架](https://hub.fastgit.org/kekingcn/kkFileView)
-
-[秒杀系统设计与实现](https://hub.fastgit.org/qiurunze123/miaosha)
 
 [邮件框架](https://hub.fastgit.org/bbottema/simple-java-mail)
 

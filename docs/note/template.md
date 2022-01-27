@@ -92,15 +92,11 @@ java序列化二进制流的方式
 ```
 public class SerializeUtils {
     private static Logger logger = LoggerFactory.getLogger(SerializeUtils.class);
-
     public static Object deserialize(byte[] bytes) {
-
         Object result = null;
-
         if (isEmpty(bytes)) {
             return null;
         }
-
         try {
             ByteArrayInputStream byteStream = new ByteArrayInputStream(bytes);
             try {

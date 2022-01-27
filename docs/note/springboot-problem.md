@@ -762,7 +762,7 @@ public class UserController {
 
 **三种依赖注入的对比**
 
-![](D:\Study notes\LZFNotes\utils\note\picture\spring-dependency-injection.jpg)
+![](.\picture\spring-dependency-injection.jpg)
 
 
 
@@ -774,7 +774,7 @@ public class UserController {
 
 从Spring Boot 2.1.0版本开始，就不再打印这些信息了，完整的启动日志变的非常少.
 
-主要是由于从该版本开始，将这些日志的打印级别做了调整：从原来的`INFO`调整为`TRACE`。
+主要是由于从该版本开始，将这些日志的打印级别做了调整：从原来的`TRACE`调整为`INFO`。
 
 增加对`RequestMappingHandlerMapping`类的打印级别设置
 
