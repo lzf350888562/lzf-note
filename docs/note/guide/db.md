@@ -1133,24 +1133,33 @@ Memcached 过期数据的删除策略只用了惰性删除，而 Redis 同时使
 
 ## 数据类型
 
+RedisObject通过encoding属性设置对象锁所使用的编码， 而不是为特定类型的对象关联一种固定的编码， 极大地提升了 Redis 的灵活性和效率， 因为 Redis 可以根据不同的使用场景来为一个对象设置不同的编码， 从而优化对象在某一场景下的效率。
+
 **1.String**
+
+> Redis键也是SDS
 
 虽然 Redis 是用 C 语言写的，但并没有使用 C 的字符串表示，而是自己构建了一种 **简单动态字符串SDS**。
 
-其数据结构为带容量和长度的字节数组(结构体).
+其数据结构为带容量和长度的**字节**数组(可以存储二进制数据)的结构体.
 
-```
-struct SDS<T> {
- T capacity; // 数组容量
- T len; // 数组长度
- byte flags; // 特殊标识位，不理睬它
- byte[] content; // 数组内容
-}
-```
+SDS 遵循 C 字符串以空字符结尾的惯例是为了兼容部分C字符串函数, 但实际上SDS是使用len属性而不是空字符来判断字符串是否结束. 
 
-> C语言获取null结尾的字符串使用strlen函数, 复杂度O(n), 这对于单线程redis无法接受.
+> C语言通过遍历到结尾符获取字符串长度使用strlen函数, 复杂度O(n), 这对于单线程redis无法接受.
 
-SDS是可以修改的字符串，内部结构实现上类似于 Java 的 ArrayList，采用预分配冗余空间的方式来减少内存的频繁分配，内部为当前字 符串实际分配的空间 capacity 一般要高于实际字符串长度 len。当字符串长度小于 1M 时， 扩容都是加倍现有的空间，如果超过 1M，扩容时一次只会多扩 1M 的空间。需要注意的是 字符串最大长度为 512M。所以SDS API 是安全的，不会造成缓冲区溢出。
+SDS是可以修改的字符串，内部结构实现上类似于 Java 的 ArrayList，采用预分配冗余空间的方式来减少内存的频繁分配, 避免C字符串API存在的溢出问题(SDS追加时先判断free空间是否足够)
+
+如果是整数, 则使用int编码; 当Redis字符串的长度小于等于44时, 使用embstr编码; 当字符串长度超过44时, 使用raw编码存储. 因为内存分配器最多分配64字节空间, RedisObject固定占用16字节, SDS固定属性占用3字节, 字符串结尾符占用1字节, 还剩下最多64-20=44字节, 超过44则为大字符串, 需要采用raw形式.
+
+embstr与raw的区别为: embstr将 RedisObject 和 SDS 对 象连续存在一起，使用 malloc 方法一次分配。而 raw 存储形式不一样，它需要两次 malloc，两个对象结构在内存地址上一般是不连续的。
+
+> 对于浮点数, redis会转换为字符串存储, 但计算时还是对浮点数操作, 如INCRBYFLOAT
+
+> int和embstr编码在特定条件下回转换为raw, 另外embstr为只读不支持修改, 如果要修改embstr编码的字符串, 需要转换为raw
+
+每次追加字符串前通过free属性判断是否需要扩容, 杜绝c字符串的缓冲区溢出问题.
+
+扩容策略为: 在字符串长度小于1M之前, 扩容空间采用加倍策略, 即保留100%的冗余空间; 当超过1M之后, 为避免加倍后的冗余空间过大导致浪费, 每次扩容只会多分配1M的空间. (扩容必定N次变为了最多N次)
 
 应用场景： 一般常用在需要计数的场景，比如用户的访问次数、热点文章的点赞转发数量等等。
 
@@ -1158,11 +1167,17 @@ SDS是可以修改的字符串，内部结构实现上类似于 Java 的 ArrayLi
 
 > Redis 中除了字符串类型有自己独有设置过期时间的命令 `setex` 外，其他方法都需要依靠 `expire` 命令来设置过期时间 。另外， `persist` 命令可以移除一个键的过期时间。
 
-> 可通过object encoding key 查看该value的实际SDS类型, 可自增的数组优先为int, 否则为embstr.
+> 可通过object encoding key 查看该value的数据结构
 
 **2.List**
 
-类似于 Java 语言里面的 LinkedList (为优化存储和减少内存碎片, 采用ziplist+链表组成的quicklist)，注意它是链表而不是数组。这意味着 list 的插入和删除操作非常快，时间复杂度为 O(1)，但是索引定位很慢，时间复杂度为 O(n)，这点让人非常意外。
+类似于 Java 语言里面的 LinkedList (采用ziplist或linkedlist实现, 为优化存储和减少内存碎片,  后续版本被quicklist替换(ziplist和linkedlist的结合体)). 
+
+linkedlist为一个双端队列, 默认情况下, 当list对象中所有字符串元素的长度都小于64字节且元素个数小于512时, 会采用ziplist编码, 可通过配置文件改变上限值.
+
+ziplist有一个zltail属性记录尾结点偏移量, 每个节点通过previous_entry_length记录前一个节点的长度结合zltail来支持反向遍历, 每个节点通过encoding记录节点的content属性所保存的数据类型(字节数组或整数类型)以及长度.
+
+> 因为前一节点长度小于254时previous_entry_length需要1字节记录, 大于等于254时previous_entry_length需要5字节记录, 所以ziplist在添加和删除元素时若存在多个连续长度介于250-253字节的节点将会导致连锁更新
 
 应用场景:  发布与订阅或者说**异步消息队列**, 比如微博、朋友圈和公众号消息流(lpush)、慢查询。
 
@@ -1176,7 +1191,13 @@ SDS是可以修改的字符串，内部结构实现上类似于 Java 的 ArrayLi
 
 **3.Hash**
 
-hash 类似于 JDK1.8 前的 HashMap(数组 + 链表)。只是redis采用渐进式rehash,  在 rehash 的同时，保留新旧两个 hash 结构，查询时会同时查询两个 hash 结构，然后在后续的定时任务中以及 hash 的子指令中，循序渐进地将旧 hash 的内容 一点点迁移到新的 hash 结构中。
+hash 类似于 JDK1.8 前的 HashMap(数组 + 链表)。包括hashtable(字典)和ziplist两种实现.
+
+字典采用渐进式rehash, 包含两个hash表指针,  在 rehash 的同时，保留新旧两个 hash 结构，查询时会同时查询两个 hash 结构，然后在后续的定时任务中以及 hash 的子指令中，循序渐进地将旧 hash 的内容 一点点迁移到新的 hash 结构中。
+
+当hash对象中键值对的键和值字符串长度都小于64字节且键值对数量小于512个时, redis会采用ziplist实现hash.可通过配置文件改变上限值. 
+
+ziplist插入键值对时先推入key到ziplist末尾, 再推入value到ziplist末尾. 因此同一键值对紧挨存储, 后添加的键值对放在尾部/
 
 应用场景: 系统中对象数据的存储, 如电商购物车(用户id为key, 商品id为field, 商品数量为value)。
 
@@ -1188,9 +1209,9 @@ hash 类似于 JDK1.8 前的 HashMap(数组 + 链表)。只是redis采用渐进�
 
 **4.set**
 
- 类似 Java 中的 `HashSet` 。Redis 中的 set 类型是一种无序集合，集合中的元素没有先后顺序。当你需要存储一个列表数据，又不希望出现重复数据时，set 是一个很好的选择.
+类似 Java 中的 `HashSet` 。通过intse(如果只有整数且元素不超过512个)t或ziplist实现.
 
-并且 **set 提供了判断某个成员是否在一个 set 集合内的重要接口，这个也是 list 所不能提供的。**
+intset可以通过判断新加入的元素长度动态扩展每个元素的空间: content数组为int8_t类型, encoding支持int16_t,int32_t和int64_t编码改变每个元素在content数组中的字节数, 只可升级不可降级.
 
 应用场景:需要存放的数据不能重复以及需要获取多个数据源交集(将用户关注存到set,利用sinterstore实现共同关注)和并集等场景. 比如抽奖(srandmember key [count]/spop key [count] 随机抽取count个)、 点赞(可通过交集显示共同好友).
 
@@ -1198,7 +1219,15 @@ hash 类似于 JDK1.8 前的 HashMap(数组 + 链表)。只是redis采用渐进�
 
 **5.sorted set** 
 
-增加了一个权重参数 score，元素按 score 排列，还可以通过 score 的范围来获取元素的列表。有点像是 Java 中 HashMap 和 TreeSet 的结合体。因为zset需要支持随机插入和删除,  所以使用链表+跳表实现
+增加了一个权重参数 score，元素按 score 排列，还可以通过 score 的范围来获取元素的列表。有ziplist和skiplist两种实现.
+
+> 在zset元素个数小于128个且元素长度小于64字节时使用ziplist编码, 可修改
+
+ziplist对每个zset元素紧挨存储, 元素存储在前面, 权重存储在后面, 集合元素按权重从小到大排序.
+
+skiplist中每个节点通过链表连接, 并包含一个后退指针指向前面一个节点以支持反向遍历, 但不能跳跃.  每一层的跳表节点包含一个跨度值记录两个节点之间的记录, 将查询某个节点时的对沿途跨度进行累加用于score rank实现. 
+
+另外, 为了提高查询效率, skiplist增加了从元素到分值的映射字典.
 
 相关命令:`zadd,zcard,zscore,zrange,zrangebyscore,zrem`
 
@@ -1365,10 +1394,8 @@ Redis 通过一个叫做过期字典（可以看作是 hash 表）来保存数�
 
 ```c
 typedef struct redisDb {
-    ...
-
     dict *dict;     //数据库键空间,保存着数据库中所有键值对
-    dict *expires   // 过期字典,保存着键的过期时间
+    dict *expires   //过期字典,保存着键的过期时间
     ...
 } redisDb;
 ```
