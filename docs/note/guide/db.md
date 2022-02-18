@@ -1133,7 +1133,19 @@ Memcached 过期数据的删除策略只用了惰性删除，而 Redis 同时使
 
 ## 数据类型
 
-RedisObject通过encoding属性设置对象锁所使用的编码， 而不是为特定类型的对象关联一种固定的编码， 极大地提升了 Redis 的灵活性和效率， 因为 Redis 可以根据不同的使用场景来为一个对象设置不同的编码， 从而优化对象在某一场景下的效率。
+RedisObject通过encoding属性设置对象所使用的编码，type属性设置对象类型,  而不是为特定类型的对象关联一种固定的编码， 极大地提升了 Redis 的灵活性和效率.
+
+执行命令前, Redis会先检查该key的值对象是否为执行命令锁需的类型, 如果是, 还会根据该key的值对象的编码来选择正确的命令实现(命令多态) 
+
+```
+struct RedisObject {
+ int4 type; // 4bits
+ int4 encoding; // 4bits
+ int24 lru; // 24bits
+ int32 refcount; // 4bytes 
+ void *ptr; // 8bytes，64-bit system
+} robj;
+```
 
 **1.String**
 
@@ -1171,7 +1183,7 @@ embstr与raw的区别为: embstr将 RedisObject 和 SDS 对 象连续存在一�
 
 **2.List**
 
-类似于 Java 语言里面的 LinkedList (采用ziplist或linkedlist实现, 为优化存储和减少内存碎片,  后续版本被quicklist替换(ziplist和linkedlist的结合体)). 
+类采用ziplist或linkedlist(双端队列)实现, 为优化存储和减少内存碎片,  后续版本被quicklist替换(ziplist和linkedlist的结合体)). 
 
 linkedlist为一个双端队列, 默认情况下, 当list对象中所有字符串元素的长度都小于64字节且元素个数小于512时, 会采用ziplist编码, 可通过配置文件改变上限值.
 
@@ -1193,7 +1205,7 @@ ziplist有一个zltail属性记录尾结点偏移量, 每个节点通过previous
 
 hash 类似于 JDK1.8 前的 HashMap(数组 + 链表)。包括hashtable(字典)和ziplist两种实现.
 
-字典采用渐进式rehash, 包含两个hash表指针,  在 rehash 的同时，保留新旧两个 hash 结构，查询时会同时查询两个 hash 结构，然后在后续的定时任务中以及 hash 的子指令中，循序渐进地将旧 hash 的内容 一点点迁移到新的 hash 结构中。
+字典dict采用渐进式rehash, 包含两个hash表指针,  在 rehash 的同时，保留新旧两个 hash 结构，查询时会同时查询两个 hash 结构，然后在后续的定时任务中以及 hash 的子指令中，循序渐进地将旧 hash 的内容 一点点迁移到新的 hash 结构中。
 
 当hash对象中键值对的键和值字符串长度都小于64字节且键值对数量小于512个时, redis会采用ziplist实现hash.可通过配置文件改变上限值. 
 
@@ -1209,7 +1221,7 @@ ziplist插入键值对时先推入key到ziplist末尾, 再推入value到ziplist�
 
 **4.set**
 
-类似 Java 中的 `HashSet` 。通过intse(如果只有整数且元素不超过512个)t或ziplist实现.
+类似 Java 中的 `HashSet` 。通过intse(如果只有整数且元素不超过512个)t或hashtable(值为null)实现.
 
 intset可以通过判断新加入的元素长度动态扩展每个元素的空间: content数组为int8_t类型, encoding支持int16_t,int32_t和int64_t编码改变每个元素在content数组中的字节数, 只可升级不可降级.
 
@@ -1310,7 +1322,9 @@ Redis 事务是不支持 roll back 的，因而不满足原子性的（而且不
 
 ## 持久化
 
-**Redis 的一种持久化方式叫快照（snapshotting，RDB），另一种方式是只追加文件（append-only file, AOF）**。
+**Redis 的持久化方式有快照（snapshotting，RDB），和只追加文件（append-only file, AOF）**。
+
+### RDB
 
 RDB快照持久化是 Redis 默认采用的持久化方式，在 Redis.conf 配置文件中默认有此下配置：
 
@@ -1320,55 +1334,99 @@ save 300 10          #在300秒(5分钟)之后，如果至少有10个key发生�
 save 60 10000        #在60秒(1分钟)之后，如果至少有10000个key发生变化，Redis就会自动触发BGSAVE命令创建快照
 ```
 
+**触发机制**
+
+1、save的规则满足的情况下
+
+2、执行save, flushall 命令
+
+3、退出redis
+
+**恢复rdb文件** 
+
+1、只需要将rdb文件放在我们redis启动目录就可以，redis启动的时候会自动检查dump.rdb 恢复其中的数据！
+
+**特点**
+
+1、适合大规模的数据恢复 
+
+2、对数据的完整性要不高. 如果redis意外宕机了，只能保留到最后一个的save的地方, 可能会丢失大量数据。
+
+
+
+通过创建快照来获得存储在内存里面的数据在某个时间点上的副本(全量), 是内存数据的**二进制**序列化形式，在存储上非常**紧凑**。
+
+Redis会单独创建（fork）一个子进程来进行持久化，会先将数据写入到一个临时文件中，待持久化过程都结束了，再用这个临时文件替换上次持久化好的文件。整个过程中，主进程是不进行任何IO操作的。(写时复制思想?)
+
+rdb保存的文件是dump.rdb, 一个完整RDB文件包含五个部分:
+
+1.REDIS: 文件的开头, 是常量, 用于标识RDB文件, 5字节, 保存二进制的"REDIS"五个字符 
+
+2.db_version: 文件的版本号, 4字节, 是一个字符串表示的整数
+
+3.databases: 各个数据库中的键值对数据. 如果各个数据库没有内容, 则为空.
+
+> databases部分中每个非空数据库又分为三个部分:
+>
+> 1.SELECTDB: 常量, 表示接下来的内容为数据库号码, 1字节
+>
+> 2.db_number: 数据库号码, 1/2/5字节, 服务器读入该部分后, 会调用SELECT命令切换数据库
+>
+> 3.key_value_pairs: 数据库中所有键值对数据, 如果key存在过期时间, 也会一同保存.
+>
+> 在不带过期时间下key_value_pairs由三部分组成:
+>
+> TYPE, key和value, 其中TYPE表示value的类型, 1字节. 
+>
+> 服务器读入rdb键值对时会根据TYPE来解析value.
+>
+> 如果带过期时间, 会在头部增加EXPIREIMTE_MS和ms. 前者标识接下来的内容为过期时间, 1字节; ms为8字节带符号整数, 毫秒UNIX时间戳, 为键值对的过期时间.
+>
+> 具体的不同类型value结构见《Redis设计与实现》
+
+4.EOF: 标识文件正文内容(所有数据库的键值对)的结束, 1字节.
+
+5.check_sum: 前面四部分计算后的校验和, 是8字节无符号整数. 务器在载入 RDB 文件时， 会将载入数据所计算出的校验和与 `check_sum` 所记录的校验和进行对比， 以此来检查 RDB 文件是否有出错或者损坏的情况出现。
+
+
+
+
+
+### AOF
+
 AOF持久化的实时性更好，因此已成为主流的持久化方案。默认情况下 Redis 没有开启 AOF（append only file）方式的持久化，可以通过 appendonly 参数开启：
 
 ```
 appendonly yes
 ```
 
-
-
-**RDB**
-
-通过创建快照来获得存储在内存里面的数据在某个时间点上的副本(全量), 是内存数据的二进制序列化形式，在存储上非常紧凑。
-
-Redis会单独创建（fork）一个子进程来进行持久化，会先将数据写入到一个临时文件中，待持久化过程都结束了，再用这个临时文件替换上次持久化好的文件。整个过程中，主进程是不进行任何IO操作的。(写时复制思想?)
-
-rdb保存的文件是dump.rdb
-
-**触发机制**
-
-1、save的规则满足的情况下，会自动触发rdb规则 
-
-2、执行save, flushall 命令，也会触发rdb规则！ 
-
-3、退出redis，也会产生 rdb 文件！  (shutdown)
-
-备份就自动生成一个 dump.rdb
-
-**恢复rdb文件** 
-
-1、只需要将rdb文件放在我们redis启动目录就可以，redis启动的时候会自动检查dump.rdb 恢复其中 的数据！
-
- 2、查看需要存在的位置 
-
-优点： 1、适合大规模的数据恢复！ 2、对数据的完整性要不高！ 
-
-缺点： 如果redis意外宕机了，这个最后一次修改数据就没有的了！只能保留到最后一个的save的地方, 这意味着使用rdb恢复内存状态可能会丢失大量数据。
-
-**AOF**
-
 `AOF`以日志的形式来记录每个写操作，将Redis执行过的所有指令记录下来（读操作不记录），只许追加文件，但不可以改写文件。
 
 aof保存的是 appendonly.aof 文件
 
-开启 AOF 持久化后每执行一条会更改 Redis 中的数据的命令，Redis 就会将该命令写入到**内存缓存** `server.aof_buf` 中(redis单线程串行同步写入)，然后再根据 `appendfsync` 配置来决定何时将其同步到硬盘中的 AOF 文件(fsync命令, 独立线程**异步**刷回, 真正的磁盘IO, 耗时!)。
+如果一个事件循环中执行了写命令，Redis 就会将该命令写入到**内存缓存** `server.aof_buf` 中(redis单线程串行写入)，然后再根据 `appendfsync` 配置来决定何时将其同步到硬盘中的 AOF 文件(fsync命令, 独立线程**异步**刷回, 真正的磁盘IO, 耗时!)。
+
+> Redis服务器进程就是一个事件循环, 伪代码如下:
+>
+> ```
+> def eventLoop():
+>     while True:
+>         # 处理文件事件，接收命令请求以及发送命令回复
+>         # 处理命令请求时可能会有新内容被追加到 aof_buf 缓冲区中
+>         processFileEvents()
+>         # 处理时间事件
+>         processTimeEvents()
+>         # 考虑是否要将 aof_buf 中的内容写入和保存到 AOF 文件里面
+>         flushAppendOnlyFile()
+> ```
+>
+> 
 
 在 Redis 的配置文件中存在三种不同的 AOF 持久化方式，它们分别是：
 
 ```text
-appendfsync always    #每次有数据修改发生时都会写入AOF文件,这样会严重降低Redis的速度
-appendfsync everysec  #每秒钟同步一次，显式地将多个写命令同步到硬盘  常用
+appendfsync always    #每个事件循环都会同步AOF文件,这样会严重降低Redis的速度
+appendfsync everysec  #每个事件循环判断距离上次同步aof文件是否超过1s, 如果是, 则同步AOF文件
 appendfsync no        #让操作系统决定何时进行同步
 ```
 
@@ -1442,13 +1500,17 @@ Redis 提供 6 种数据淘汰策略：
 
 在严格LRU下,  假设Redis当前有50W规模的key，先通过Keys 遍历获得所有Key，然后比对出空闲时间最长的某个key，最后执行淘汰,  非常耗时
 
-在Redis中它采用了近似LRU的实现，它随机采样5个(可设置)Key，淘汰掉其中空闲时间最长的那个。近似LRU实现起来更简单、成本更低，在效果上接近严格LRU。它的缺点是存在一定的几率淘汰掉最近被访问的Key，即在TTL到期前也可能被淘汰。
+在Redis中它采用了近似LRU的实现，它随机采样5个(可设置)Key，淘汰掉其中空闲时间最长的那个。近似LRU实现起来更简单、成本更低，在效果上接近严格LRU。它的缺点是存在一定的几率淘汰掉最近被访问的Key
 
 > 样本数越多效果越接近严格LRU, 代价为一些额外的CPU开销
 >
 > Redis3.0使用10样本非常接近严格LRU
 
-**LRU代码**
+RedisObject的lru属性记录了对象最后一次被命令程序访问的时间, OBJECT IDLETIME 命令可以打印出给定键的空转时长， 空转时长就是通过将当前时间减去键的值对象的 `lru` 时间.  
+
+> OBJECT IDLETIME 命令访问对象时不会修改lru属性.
+
+**LRU简单代码**
 
 ```
 //注意, Node需要保存key, 用于删除时
