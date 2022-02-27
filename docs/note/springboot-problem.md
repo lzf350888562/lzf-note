@@ -490,7 +490,6 @@ Spring 4.2后提供了`@CrossOrigin`注解，该注解可以标注于方法或�
 ```
 @Configuration
 public class WebConfigurer implements WebMvcConfigurer {
-
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/**")
@@ -501,7 +500,11 @@ public class WebConfigurer implements WebMvcConfigurer {
 ```
 
 ```
- @Override    public void addCorsMappings(CorsRegistry registry) {        registry.addMapping("/**").allowedOrigins("*")                .allowedMethods("GET", "HEAD", "POST", "PUT", "DELETE", "OPTIONS")                .allowCredentials(true).maxAge(3600);    }
+ @Override    
+ public void addCorsMappings(CorsRegistry registry) {        
+ 	registry.addMapping("/**").allowedOrigins("*")                
+ 		.allowedMethods("GET", "HEAD", "POST", "PUT", "DELETE", "OPTIONS")                				 			.allowCredentials(true).maxAge(3600);    
+ 		}
 ```
 
 **3.过滤器实现**

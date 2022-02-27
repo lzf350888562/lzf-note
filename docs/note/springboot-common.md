@@ -1,4 +1,4 @@
-
+(
 
 # 配置文件
 
@@ -245,12 +245,11 @@ public class RsaProperties {
 
 **模块装配技术**
 
-如果一个配置类只配置@ConfigurationProperties注解，而没有使用@Component，那么在IOC容器中是获取不到properties 配置文件转化的bean。说白了 @EnableConfigurationProperties 相当于把使用  @ConfigurationProperties 的类进行了一次注入。
+如果一个配置类只配置@ConfigurationProperties注解，而没有使用@Component，那么在IOC容器中是获取不到properties 配置文件转化的bean。 @EnableConfigurationProperties 相当于把使用  @ConfigurationProperties 的类进行了一次注入。
 
-`@EnableConfigurationProperties` 文档中解释：
- 当`@EnableConfigurationProperties`注解应用到你的`@Configuration`时， 任何被`@ConfigurationProperties`注解的beans将自动被Environment属性配置。 这种风格的配置特别适合与SpringApplication的外部YAML配置进行配合使用。
+bean的属性配置加载属性
 
-bean的属性配置加载
+
 
 1.(使用(Component)).
 
@@ -406,65 +405,7 @@ org.springframework.context.ApplicationListener=  com.didispace.ApplicationPrepa
 
 在使用Spring构建的应用程序中，适当使用事件发布与监听的机制可以使我们的代码灵活度更高，降低耦合度。Spring提供了完整的事件发布与监听模型，在该模型中，事件发布方只需将事件发布出去，无需关心有多少个对应的事件监听器；监听器无需关心是谁发布了事件，并且可以同时监听来自多个事件发布方发布的事件，通过这种机制，事件发布与监听是解耦的。
 
-自定义事件
-
-```
-public class MyEvent extends ApplicationEvent {
-//构造器source参数表示当前事件的事件源，一般传入Spring的context上下文对象即可。
-    public MyEvent(Object source) {
-        super(source);
-    }
-}
-```
-
-事件发布器,需要通过事件发布器ApplicationEventPublisher完成,而可以通过实现ApplicationEventPublisherAware接口获取,  实现ApplicationContextAware接口获取上下文对象.
-
-```
-@Component
-public class MyEventPublisher implements ApplicationEventPublisherAware, ApplicationContextAware {
-
-    private ApplicationContext applicationContext;
-    private ApplicationEventPublisher applicationEventPublisher;
-
-    private final Logger logger = LoggerFactory.getLogger(this.getClass());
-
-    @Override
-    public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
-        this.applicationContext = applicationContext;
-    }
-
-    @Override
-    public void setApplicationEventPublisher(ApplicationEventPublisher applicationEventPublisher) {
-        this.applicationEventPublisher = applicationEventPublisher;
-    }
-
-    public void publishEvent() {
-        logger.info("开始发布自定义事件MyEvent");
-        MyEvent myEvent = new MyEvent(applicationContext);
-        applicationEventPublisher.publishEvent(myEvent);
-        logger.info("发布自定义事件MyEvent结束");
-    }
-}
-```
-
-**监听**
-
-方式1:注解监听
-
-```
-@Component
-public class MyAnnotationEventListener {
-    private final Logger logger = LoggerFactory.getLogger(this.getClass());
-    @EventListener
-    public void onMyEventPublished(MyEvent myEvent) {
-        logger.info("收到自定义事件MyEvent -- MyAnnotationEventListener");
-    }
-}
-```
-
-被@EventListener注解标注的方法入参为MyEvent类型，所以只要MyEvent事件被发布了，该监听器就会起作用，即该方法会被回调。
-
-方式2:编程实现监听
+## 
 
 ```
 @Component

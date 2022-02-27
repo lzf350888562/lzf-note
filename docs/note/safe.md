@@ -203,6 +203,8 @@ spring boot 1.x
 
 自定义认证的过程需要实现Spring Security提供的`UserDetailService`接口，该接口只有一个抽象方法`loadUserByUsername`
 
+>还可以通过实现AuthenticationProvider接口自定义认证, 二者有区别!
+
 ```
 public interface UserDetailsService {
     UserDetails loadUserByUsername(String username) throws UsernameNotFoundException;
@@ -285,7 +287,7 @@ public class BrowserSecurityConfig extends WebSecurityConfigurerAdapter {
 
 `PasswordEncoder`是一个密码加密接口，而`BCryptPasswordEncoder`是Spring Security提供的一个实现方法，我们也可以自己实现`PasswordEncoder`。不过Spring Security实现的`BCryptPasswordEncoder`已经足够强大，它对相同的密码进行加密后可以生成不同的结果。
 
-这时候重启项目，访问http://localhost:8080/login，便可以使用任意用户名以及123456作为密码登录系统。我们多次进行登录操作，可以看到控制台输出的加密后的密码每次都不相同.
+这时候重启项目，访问http://localhost:8080/login，便可以使用任意用户名以及123456作为密码登录系统。多次进行登录操作，可以看到控制台输出的加密后的密码每次都不相同.
 
 **拓展**
 
@@ -367,7 +369,7 @@ protected void configure(HttpSecurity http) throws Exception {
 .and().csrf().disable();
 ```
 
-### 未登录限制访问
+### 限制访问
 
 需求:在未登录的情况下，当用户访问html资源的时候跳转到登录页，否则返回JSON格式数据，状态码为401。
 
@@ -388,7 +390,7 @@ protected void configure(HttpSecurity http) throws Exception {
 }
 ```
 
-#### 接口放行
+
 
 **1、使用注解方式**
 
@@ -444,13 +446,9 @@ public class BrowserSecurityController {
 
 其中`HttpSessionRequestCache`为Spring Security提供的用于缓存请求的对象，通过调用它的`getRequest`方法可以获取到本次请求的HTTP信息。`DefaultRedirectStrategy`的`sendRedirect`为Spring Security提供的用于处理重定向的方法。(两者配合使用可以使登录后跳转到原来页面,在处理成功这一内容中有示例)
 
-上面代码获取了引发跳转的请求，根据请求是否以`.html`为结尾来对应不同的处理方法。如果是以`.html`结尾，那么重定向到登录页面，否则返回”访问的资源需要身份认证！”信息，并且HTTP状态码为401（`HttpStatus.UNAUTHORIZED`）。
-
-这样当我们访问http://localhost:8080/hello的时候页面便会跳转到http://localhost:8080/authentication/require，并且输出”访问的资源需要身份认证！”，当我们访问http://localhost:8080/hello.html的时候，页面将会跳转到登录页面。
-
 ### 处理成功和失败和登出+获取认证对象
 
-Spring Security有一套默认的处理登录成功和失败的方法：当用户登录成功时，页面会跳转会引发登录的请求，比如在未登录的情况下访问http://localhost:8080/hello，页面会跳转到登录页，登录成功后再跳转回来；登录失败时则是跳转到Spring Security默认的错误提示页面。下面我们通过一些自定义配置来替换这套默认的处理机制。
+Spring Security有一套默认的处理登录成功和失败的方法：当用户登录成功时，页面会跳转会引发登录的请求，比如在未登录的情况下访问http://localhost:8080/hello，页面会跳转到登录页，登录成功后再跳转回来；登录失败时则是跳转到Spring Security默认的错误提示页面。可自定义配置来替换这套默认的处理机制。
 
 **自定义登录成功逻辑**
 
@@ -543,7 +541,7 @@ public class MyAuthenticationSucessHandler implements AuthenticationSuccessHandl
     @Autowired
     private ObjectMapper mapper;
     @Override
-    public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,Authentication authentication) throws IOException {
+    public void onAuthenticationSuccess(HttpServletRequest request,  response,Authentication authentication) throws IOException {
         SavedRequest savedRequest = requestCache.getRequest(request, response);
         redirectStrategy.sendRedirect(request, response, savedRequest.getRedirectUrl());
     }
@@ -636,45 +634,6 @@ public class MyAuthenticationFailureHandler implements AuthenticationFailureHand
 **处理登出**
 
 类似的处理登出的接口为`LogoutSuccessHandler`
-
-## 认证方式
-
-`WebSecurityConfigurerAdapter`配置类下：
-
-```
-	@Bean
-    @Override
-    public AuthenticationManager authenticationManagerBean() throws Exception
-    {
-        return super.authenticationManagerBean();
-    }
-    
-    @Override
-    protected void configure(AuthenticationManagerBuilder auth) throws Exception
-    {
-        auth.userDetailsService(userDetailsService).passwordEncoder(bCryptPasswordEncoder());
-    }
-```
-
-实现UserDetailService接口， 在`public UserDetails loadUserByUsername(String username)`方法返回当前认证用户（实现了UserDetail接口）
-
-认证最终会调用上面的方法
-
-```
-Authentication authentication = null;
-try{
-    authentication = authenticationManager
-           .authenticate(new UsernamePasswordAuthenticationToken(username, password));
-}
-```
-
-认证过后，可通过
-
-```
-authentication.getPrincipal()
-```
-
-获取当前认证用户
 
 
 

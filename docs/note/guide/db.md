@@ -1344,7 +1344,7 @@ save 60 10000        #在60秒(1分钟)之后，如果至少有10000个key发生
 
 **恢复rdb文件** 
 
-1、只需要将rdb文件放在我们redis启动目录就可以，redis启动的时候会自动检查dump.rdb 恢复其中的数据！
+1、只需要将rdb文件放在我们redis启动目录就可以，redis启动的时候会自动检查dump.rdb 恢复其中的数据(阻塞载入)
 
 **特点**
 
@@ -1492,7 +1492,7 @@ Redis 提供 6 种数据淘汰策略：
 1. **volatile-lfu（least frequently used）**：从已设置过期时间的数据集（server.db[i].expires）中挑选最不经常使用的数据淘汰
 2. **allkeys-lfu（least frequently used）**：当内存不足以容纳新写入数据时，在键空间中，移除最不经常使用的 key
 
-> LRU可使用队列实现, LFU可通过给每个key添加一个计数器实现, 这个计数器还要支持自动衰减, 防止霸榜
+> 如果redis服务器内存分配不足, 可能会导致热点数据覆盖度不足, 频繁触发LRU清除, 导致缓存穿透, 这样通常可通过扩大redis服务内存或更换key存储结构实现以提高QPS
 
 ### LRU
 
