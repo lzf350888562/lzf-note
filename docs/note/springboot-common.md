@@ -353,7 +353,9 @@ springboot 2.x引入Binder用于对象与多个属性的绑定:
       .bind( "kaka.cream.list",Bindable.listOf(String.class) ).get();	
 ```
 
+## EnvironmentPostProcessor
 
+springboot包下接口, 可以在创建应用程序上下文之前, 添加或修改环境配置.
 
 # 事件模型
 

@@ -80,9 +80,9 @@ B+树:所有数据存储在叶子节点,非叶子只存储指针和索引值,每
 
 聚簇索引默认是主键,唯一非空索引,rowid.
 
-访问同一数据页(datapage)不同 行记录时,都会在一次IO 操作中被读取到缓存中,下一次访问直接在内存操作.
+访问同一数据页(datapage)不同行记录时,都会在一次IO 操作中被读取到缓存中,下一次访问直接在内存操作. 如果出现行移动或页分裂仅需修改聚簇索引即可.
 
-而MyISAM因为没有聚簇索引,数据随机存储,获取每条数据都要进行一次io
+而MyISAM因为直接存储行号,数据随机存储,获取每条数据都要进行一次io. 并且如果出现行移动或者页分裂会导致更新所有二级索引存储的行地址都要更新.
 
 > 如果已经设置了主键为聚簇索引又希望再单独设置聚簇索引，必须先删除主键，然后添加我们想要的聚簇索引， 最后恢复设置主键即可。
 
@@ -285,7 +285,7 @@ Index与All区别：index只遍历索引树，通常比All快 因为索引文件
 2.Using temporary : 使用了临时表保存中间结果，MySQL在对结果排序时使用临时表，常见于排序order by 和分组查询group by
 	优化方式,给分组字段建索引
 3.Using index : 表示相应的select操作中使用了覆盖索引(Covering Index ,就是select的数据列只用从索引中就能够取得，不必从数据表中读取，换句话说查询列要被所使用的索引覆盖)，避免访问了表的数据行，效率不错！
-4.Using where : 使用了where条件,表示优化器需要通过索引回表查询数据
+4.Using where : 使用了where条件,表示优化器需要通过索引回表查询数据 或 服务器将在存储引擎返回行之后再利用where过滤数据
 5.Using join buffer :使用了连接缓存 
 	explain select student.*,teacher.*,subject.* from student,teacher,subject;
 	explain select * from emp ,dept where emp.empno = dept.ceo ;
