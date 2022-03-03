@@ -280,7 +280,7 @@ explain * from t where a like '张%' and b=23
 #索引选择性较差
 #如果姓张的人超过一个比例mysql可能不会走索引而全表扫描
 #5.6以前基于a列对'张%'进行筛选然后回表对b列23进行筛选,速度较慢
-#5.6以后基于联合索引对a筛选'张%'再对b筛选23,再将复合条件的id进行回表提取(索引)
+#5.6以后基于联合索引对a筛选'张%'再对b过滤23,再将复合条件的id进行回表提取(索引下推)
 ```
 
 > 索引选择性:mysql中的查询优化器 会自动根据索引和数据分布情况决定是否走索引.
@@ -296,6 +296,32 @@ explain * from t where a like '张%' and b=23
 4.硬件调优, 增大innodb_buffer_pool, 多利用内存, 减少硬盘回表;
 
 5.分库分表等
+
+## 多个范围查询如何利用索引
+
+对于索引(sex,country,last_login,age), 某相亲app用户如果想查询性别男, 中国, 年龄大于20小于25的最近7天登录过的用户.
+
+```
+where sex = '男'
+and country = '中国'
+and last_login > DATE_SUB(NOW(),INTERVAL 7 DAY)
+and age between 20 and 25
+```
+
+因为存在两个范围查询, 所以想同时使用两个索引是不可能的, 只能寻找其他途径.
+
+可通过新增一个列active, 用户每次登录将active设为1, 然后通过定时任务修改7天未登录过的用户active为0.
+
+然后通过索引(sex,country,active,age)就可以进行查询啦
+
+```
+where sex = '男'
+and country = '中国'
+and active = 1
+and age between 20 and 25
+```
+
+
 
 ## mysq时间格式选择
 
