@@ -266,23 +266,19 @@ Extra: NULL
 6.UNION RESULT : 从UNION表获取结果的select (去重)
 ```
 
-**type字段**(关键)
+**type字段**(关键): 访问类型
 
 ```
-表示索引检索类型, 以下顺序从好到差
-1.NULL : MySQL能够在优化阶段分解查询语句，在执行阶段用不着再访问表或索引.
-比如通过id没有找到 explain select min(id) from subject;
-2.system : 表只有一行记录（等于系统表），这是const类型的特列，平时不大会出现，
-3.const : 表示通过索引一次就找到了，const用于比较primary key或uique索引，因为只匹配一行数据，所以很快，如主键置于where列表中，MySQL就能将该查询转换为一个常量.
-4.eq_ref :唯一性索引扫描，对于每个索引键，表中只有一条记录与之匹配，常见于主键或唯一索引扫描
-5.ref : 非唯一性索引扫描，返回匹配某个单独值的所有行, 本质上也是一种索引访问，返回所有匹配某个单独值的行,然而可能会找到多个符合条件的行，应该属于查找和扫描的混合体
+1.NULL : 优化阶段分解查询语句，执行阶段不用再访问表或索引.
+2.system : 表只有一行记录（等于系统表），const类型特列，
+3.const : 常数引用访问
+4.eq_ref :唯一性索引扫描
+5.ref : 非唯一性索引扫描
 6.ref_or_null : 类似ref, 但是可以搜索值为null的行
-7.index_merge : 表示使用了索引合并的优化方法
-8.range : 只检索给定范围的行，使用一个索引来选择行，key列显示使用了哪个索引 一般就是在你的where语句中出现between、<>、in等的查询。
+7.index_merge : 索引合并扫描
+8.range : 范围扫描
 9.index : Full index Scan
-如explain select id from subject; 
-10.ALL : Full Table Scan，将遍历全表以找到匹配行.
-Index与All区别：index只遍历索引树，通常比All快 因为索引文件通常比数据文件小，也就是虽然all和index都是读全表，但index是从索引中读取的，而all 是从硬盘读的。
+10.ALL : 全表扫描
 ```
 
 **Extra字段**(关键)
@@ -293,8 +289,8 @@ Index与All区别：index只遍历索引树，通常比All快 因为索引文件
 	优化方式,给排序字段建索引，并使用where或limit激活
 2.Using temporary : 使用了临时表保存中间结果，MySQL在对结果排序时使用临时表，常见于排序order by 和分组查询group by
 	优化方式,给分组字段建索引
-3.Using index : 表示相应的select操作中使用了覆盖索引(Covering Index ,就是select的数据列只用从索引中就能够取得，不必从数据表中读取，换句话说查询列要被所使用的索引覆盖)，避免访问了表的数据行，效率不错！
-4.Using where : 使用了where条件,表示优化器需要通过索引回表查询数据 或 服务器将在存储引擎返回行之后再利用where过滤数据
+3.Using index : 使用了覆盖索引,不必回表
+4.Using where : 从数据表中返回数据再过过滤
 5.Using join buffer :使用了连接缓存 
 	explain select student.*,teacher.*,subject.* from student,teacher,subject;
 	explain select * from emp ,dept where emp.empno = dept.ceo ;
@@ -2245,69 +2241,9 @@ runid 参数的值和源Sentinel的运行ID一致，那么表示目标Sentinel�
 
 在旧主服务器重新上线时, Sentinel向他发送SLAVEOF命令即可
 
-## Scan
-
-keys命令用来查找key, 并支持正则, 但是其存在缺点:
-
-1. 无法进行如limit、offset的限制, 不利于浏览;
-2. 遍历算法, 复杂度O(n).
-3. 阻塞redis server.
-
-为了解决此问题, redis 2.8引入了scan指令, 采用游标的方式分步进行而不会阻塞线程, 并可限制最大返回数量.
-
-如要在10000个key中查找key99开头的key:
-
-```
-# 第一次遍历cursor从0开始 最大返回1000条 将返回结果的第一个整数作为下一次遍历的cursor, 直到返回0
-127.0.0.1:6379> scan 0 match key99* count 1000
-1) "13976"
-2) 	1) "key9911"
- 	2) "key9974"
- 	3) "key9994"
- 	4) "key9910"
- 	...
-127.0.0.1:6379> scan 13976 match key99* count 1000
-1) "1996"
-2) 	1) "key9982"
- 	2) "key9997"
- 	3) "key9963"
- 	4) "key996"
- 	...
-127.0.0.1:6379> scan 1996 match key99* count 1000
-1) "12594"
-2) 	1) "key9939"
- 	2) "key9941"
- 	3) "key9967"
- 	...
-127.0.0.1:6379> scan 11687 match key99* count 1000
-1) "0"
-```
-
-> limit1000并不意味着会返回1000个key, 只是限定redis单词遍历的字典槽位数量, 在上面每1000个槽位返回10个左右的key
-
-> 返回的结果可能重复, 所以客户端需要手动去重, 并且如果遍历的过程中有数据修改，改动后的数据能不能遍历到是不确定的.
-
-**字典与游标**
-
-在 Redis 中所有的 key 都存储在一个很大的字典中，这个字典的结构和 Java 中的 HashMap 一样，是一维数组 + 二维链表结构，第一维数组的大小总是 2^n(n>=0)，扩容一 次数组大小空间加倍，也就是 n++。
-
-scan 指令返回的游标就是第一维数组的位置索引，我们将这个位置索引称为槽 (slot)。 如果不考虑字典的扩容缩容，直接按数组下标挨个遍历就行了。limit 参数就表示需要遍历的 槽位数，之所以返回的结果可能多可能少，是因为不是所有的槽位上都会挂接链表，有些槽 位可能是空的，还有些槽位上挂接的链表上的元素可能会有多个。每一次遍历都会将 limit 数量的槽位上挂接的所有链表元素进行模式匹配过滤后，一次性返回给客户端。
-
-scan 的遍历顺序非常特别。它不是从第一维数组的第 0 位一直遍历到末尾，而是采用 了高位进位加法来遍历。之所以使用这样特殊的方式进行遍历，是考虑到字典的扩容和缩容 时避免槽位的遍历重复和遗漏。
-
-详细见《Redis深度历险》
-
->  另外,scan命令可以用来扫描大key, 步骤为将scan扫描出来的每一个 key，使用 type 指令获得 key 的类型，然后使用相应数据结构的 size 或者 len 方法来得到 它的大小, 最后统计出大key.
->
-> 上面这个过程需要编写脚本, 繁琐, redis-cli提供了对应的指令:
->
-> redis-cli -h 127.0.0.1 -p 7001 –-bigkeys
-
 ## Cluster
 
-Redis Cluster是分布式架构：即Redis Cluster中有多个节点，每个节点都负责进行数据读写操作, 且每个节点之间会进行通信。
-
-> cluster利用多台服务器构建集群提高超大规模数据处理能力 ,同时提供高可用支持
+Redis Cluster是Redis分布式数据库方案：即Redis Cluster中有多个节点，每个节点都负责进行数据读写操作, 且每个节点之间会进行通信。
 
 •Cluster模式是Redis3.0开始推出
 
@@ -2369,6 +2305,204 @@ redis-cluster.conf
 ![image-20211207194107617](picture/image-20211207194107617.png)
 
 如果一对主从都挂了 , 整个集群变为fail状态而不可用 . 所以redis规定最少一个副本 , 条件允许可以弄两个副本.
+
+### 节点
+
+客户端可通过向一个note发送`CLUSTER MEET <ip> <port>`命令用于与另一个node**握手**, 将其加入到当前集群. 通过`CLUSTER NODES`命令可以查看当前集群中的所有node(myself代表当前node)
+
+Redis服务器启动时根据cluster-enable配置是否为yes决定是否开启集群模式.
+
+集群节点除了继续使用单机模式下的服务器组件外, 新增了cluster.h/clusterNode、cluster.h/clusterLink和cluster.h/clusterState结构
+
+**clusterNode** 保存一个节点的当前状态, 每个节点都使用一个clusterNode记录自己状态, 并为集群中所有其他节点(包括主从)都创建一个clusterNode:
+
+```
+struct clusterNode{
+	mstime_t ctime;//创建节点的时间
+	char name[REDIS_CLUSTER_NAMELEN];//节点名称
+	int flags;//节点标识,标识角色(主从)与状态(在线下线)
+	uint64_t configEpoch;//当前配置纪元,用于故障转移
+	char ip[REDIS_IP_STR_LEN];//ip地址
+	int port;//端口
+	clusterLink *link;//连接节点所需的信息
+	unsiged char slots[16384/8];//记录负责的槽
+	int numslots;//记录负责的槽数量
+	//...
+}
+```
+
+**clusterNode** 保存连接节点所需的有关信息, 如套接字描述符, 输入缓冲区和输出缓冲区:
+
+```
+typedef struct clusterLink{
+	mstime_t ctime;//连接的创建时间
+	int fd;//TCP 套接字描述符
+	sds sdnbuf;//输出缓冲区,保存发送给其他节点的消息
+	sds rcvbuf;//输入缓冲区,保存接收自其他节点的消息
+	struct clusterNode *node;//与这个连接相关联的节点
+}clusterLink;
+```
+
+**clustetState** 记录在当前节点的视角下集群目前的状态:
+
+```
+typedef struct clusterState{
+	clusterNode *myself;//指向当前节点的指针
+	uint64_t currentEpoch;//集群当前的配置纪元
+	int state;//集群当前状态:在线下线
+	int size;//集群中至少处理着一个槽的节点数量
+	dict *nodes;//集群节点名单,包括myself节点,键为节点名称,值为键对应的节点的clusterNode结构
+	clusterNode *slots[16384];//记录槽的指派信息
+	zskiplist *slots_to_keys;//记录槽与键之间的关系
+}
+```
+
+- CLUSTER MEET 实现, 假如客户端向A发送CLUSTER MEET让其将B添加到A所在集群:
+
+①A为B创建一个clusterNode结构并添加到自己的clusterState.nodes字典;
+
+②A根据CLUSTR MEET指定的IP和端口向B发送一条MEET消息;
+
+③B接收到A发送的MEET消息,B为A创建一个clusterNode结构并添加到自己的clusterState.nodes字典;
+
+④B向A返回一条PONG消息;
+
+⑤A接收到B发送的PONG消息, 知道B已接收到自己的MEET消息;
+
+⑥A向B发送一条PING消息;
+
+⑦B接收到A发送的PING消息, 知道A已接收到自己的PONG消息. 完成握手(TCP三次握手?)
+
+### 槽指派
+
+集群将整个数据库分为16384个槽, 每个节点可以处理0-16384个槽, 数据库中每个键都属于一个槽. 当所有槽都有节点在处理时, 集群处于上线状态(ok), 否则下线状态(fail). 在完成握手连接后, 节点都没有在处理数据, 因此仍处于下线状态. 可通过`CLUSTER INFO`查看.
+
+`CLUSTER ADDSLOTS`可将一个或多个槽指派给节点负责, 分配完可通过`CLUSTER NODES`确认, 将所有槽都分配完之后再查看`CLUSTER INFO`.
+
+clusterNode结构中的slots和numslot属性(见[节点](#节点))记录了节点名负责处理哪些槽, slots为一个二进制数组, 长度为16384/8 = 2048字节, 包含16384个二进制位, **根据索引对应的二进制位是否为1判断该索引对应的槽是否由当前节点处理**. numslots记录节点负责的槽的数量, 即slots数组中二进制1的数量.
+
+一个节点除了记录自己负责处理的槽信息, 还要**将自己的slots数组通过消息发送给集群中其他节点**. 其他节点收到后会在自己的clusterState.nodes字典中查找对应该发送节点的clusterNode结构, 并对结构中的slots数组进行保存或者更新. 此时, 集群中每个节点都知道数据库中16384个槽分别被指派给了哪些节点, 但是如果要查询槽i被指派给了那个节点, 需要遍历clusterState.nodes字典的所有clusterNode结构的slots数组, 直到找到负责处理槽i的节点为止. (复杂度为O(N), N为clusterState.nodes的大小), 所以还需要一个类似hash的加快查询速度的属性:
+
+clusterState结构中的slots是一个clusterNode数组,记录了集群中所有16384个槽的指派信息, slots[i]表示槽i已经指派给了clusterNode结构代表的节点, 如果为NULL, 则槽i未指派节点. 此时查询槽[i]负责的节点只需要O(1).
+
+> 使用clusterNode.slot记录槽指派信信息是为了信息传播的方便, 并不多余, 否则每次节点传播指派信息给其他节点时都要遍历clusterState,slots数组, 查找自己负责的槽并发送.
+
+**CLUSTER ADDSLOTS**实现伪代码:
+
+```
+def CLUSTER_ADDSLOTS(*all_input_slots)：
+	# 遍历所有输入槽，检查它们是否都是未指派槽
+	for i in all_input_slots：
+		# 如果有哪怕一个槽已经被指派给了某个节点
+		# 那么向客户端返回错误，并终止命令执行
+	    if clusterstate.slots[i]！= NULL：
+			reply_error()
+			return
+	# 如果所有输入槽都是未指派槽
+	# 那么再次遍历所有输入槽，将这些槽指派给当前节点
+	for i in all_input_slots:
+		# 设置clusterState结构的slots数组
+		# 将 slots[i]的指针指向代表当前节点的 clusterNode 结构
+		clusterstate.slots[i] = clusterstate.myself
+		# 访问代表当前节点的 clusterNode 结构的 slots 数组
+		# 将数组在索引ⅰ上的二进制位设置为 1
+		setslotBit(clusterState.myself.slots, i)
+```
+
+### 在集群中执行命令
+
+在对数据库所有槽进行指派完后, 集群就进入了上线状态. 当客户端向节点发送命令时, 节点计算出要处理的数据库键属于哪个槽, 这个槽指派给了哪个节点.
+
+> 节点通过`CRC16(key) & 16383`计算给定key属于哪个槽.
+
+节点通过clusterState.slots[i]判断槽由哪个节点处理, 如果clusterState.slost[i] = clusterState.myself, 则当前节点直接执行命令; 否则根据clusterState.slots[i]指向的clusterNode所记录的节点ip和port向客户端返回MOVED错误, 指引客户端重定向到正确节点, 再次发送之前命令.
+
+MOVED错误的格式为`MOVED <slot> <ip>:<port>`
+
+集群模式的redis-cli通过会与集群中多个节点创建套接字连接, 而节点的重定向实际上是换一个套接字来发送命令. 如果未创建与重定向节点的连接, 则会先创建连接. 因此, 我们是看不到MOVED错误的, 客户端会自动转向而无需人工转向. 但单机模式的redis-cli因为无法识别MOVED错误, 只会直接打印.
+
+> 集群模式与单机模式的区别为集群模式的节点只能使用0号数据库,
+
+另外, clusterState结果中的slots_to_keys跳跃表用于保存槽与键之间的关系, scope为槽号, value为数据库键. 在往数据库新增键值对时在slots_to_keys中进行关联, 在删除数据库中键值对时在slots_to_keys中进行解除关联. 这是为了方便节点对属于某个或某些槽的所有数据库键进行批量操作. 如`CLUSTER GETKEYSINSLOT <slot> <count> `命令返回最多count个属于槽slot的数据库键.
+
+### 重新分片
+
+Redis 集群的重新分片操作可以将任意数量已经指派给某个节点（源节点）的槽改为指派给另一个节点（目标节点），并且相关槽所属的键值对也会从源节点被移动到目标节点。
+重新分片操作可以在线进行，在重新分片的过程中，集群不需要下线，并且源节点和目标节点都可以继续处理命令请求。
+
+Redis集群的重新分片由Redis集群管理软件redis-trib负责执行的. Redis提供了进行重新分片所需的所有命令, redis-trib通过向源节点和目标节点发送命令来执行重新分片操作:
+
+①对目标节点发送`CLUSTER SETSLOT <slot> IMPORTING <source_id>`命令, 让目标节点准备好从源节点导入属于槽slot的键值对;
+
+②对源节点发送`CLUSTER SETSLOT <slot> MIGRATING <target_id>`命令, 让源节点准备好将属于槽slot的键值对迁移至目标节点;
+
+③对源节点发送`CLUSTER GETKEYSINSLOT <slot> <count>`命令, 获取最多count个属于槽slot的键值对的key;
+
+④根据上一步获取的所有key, 向源节点发送`MIGRATE <target_ip> <target_port> <key_name> 0 <timeout>`命令, 将被选中的键**原子**地从源节点迁移至目标节点;
+
+⑤重复执行步骤③和④, 直到源节点保存的所有属于槽slot的键值对都被迁移至目标节点为止;
+
+⑥向集群中任一一个节点发送`CLUSTER SETSLOT <slot> NODE <target_id>`命令, 将槽slot指派给目标节点, 指派信息会通过消息发送至整个集群, 最终集群中所有节点都将知道槽slot已经指派给了目标节点.
+
+> 上面步骤为对单个槽的重写分片, 通常一次重写分片涉及多个槽, 这时redis-trib只需要将所有槽分别执行上面步骤即可. (循序渐进)
+
+## Scan
+
+keys命令用来查找key, 并支持正则, 但是其存在缺点:
+
+1. 无法进行如limit、offset的限制, 不利于浏览;
+2. 遍历算法, 复杂度O(n).
+3. 阻塞redis server.
+
+为了解决此问题, redis 2.8引入了scan指令, 采用游标的方式分步进行而不会阻塞线程, 并可限制最大返回数量.
+
+如要在10000个key中查找key99开头的key:
+
+```
+# 第一次遍历cursor从0开始 最大返回1000条 将返回结果的第一个整数作为下一次遍历的cursor, 直到返回0
+127.0.0.1:6379> scan 0 match key99* count 1000
+1) "13976"
+2) 	1) "key9911"
+ 	2) "key9974"
+ 	3) "key9994"
+ 	4) "key9910"
+ 	...
+127.0.0.1:6379> scan 13976 match key99* count 1000
+1) "1996"
+2) 	1) "key9982"
+ 	2) "key9997"
+ 	3) "key9963"
+ 	4) "key996"
+ 	...
+127.0.0.1:6379> scan 1996 match key99* count 1000
+1) "12594"
+2) 	1) "key9939"
+ 	2) "key9941"
+ 	3) "key9967"
+ 	...
+127.0.0.1:6379> scan 11687 match key99* count 1000
+1) "0"
+```
+
+> limit1000并不意味着会返回1000个key, 只是限定redis单词遍历的字典槽位数量, 在上面每1000个槽位返回10个左右的key
+
+> 返回的结果可能重复, 所以客户端需要手动去重, 并且如果遍历的过程中有数据修改，改动后的数据能不能遍历到是不确定的.
+
+**字典与游标**
+
+在 Redis 中所有的 key 都存储在一个很大的字典中，这个字典的结构和 Java 中的 HashMap 一样，是一维数组 + 二维链表结构，第一维数组的大小总是 2^n(n>=0)，扩容一 次数组大小空间加倍，也就是 n++。
+
+scan 指令返回的游标就是第一维数组的位置索引，我们将这个位置索引称为槽 (slot)。 如果不考虑字典的扩容缩容，直接按数组下标挨个遍历就行了。limit 参数就表示需要遍历的 槽位数，之所以返回的结果可能多可能少，是因为不是所有的槽位上都会挂接链表，有些槽 位可能是空的，还有些槽位上挂接的链表上的元素可能会有多个。每一次遍历都会将 limit 数量的槽位上挂接的所有链表元素进行模式匹配过滤后，一次性返回给客户端。
+
+scan 的遍历顺序非常特别。它不是从第一维数组的第 0 位一直遍历到末尾，而是采用 了高位进位加法来遍历。之所以使用这样特殊的方式进行遍历，是考虑到字典的扩容和缩容 时避免槽位的遍历重复和遗漏。
+
+详细见《Redis深度历险》
+
+>  另外,scan命令可以用来扫描大key, 步骤为将scan扫描出来的每一个 key，使用 type 指令获得 key 的类型，然后使用相应数据结构的 size 或者 len 方法来得到 它的大小, 最后统计出大key.
+>
+>  上面这个过程需要编写脚本, 繁琐, redis-cli提供了对应的指令:
+>
+>  redis-cli -h 127.0.0.1 -p 7001 –-bigkeys
 
 ## 大Key与热Key
 
