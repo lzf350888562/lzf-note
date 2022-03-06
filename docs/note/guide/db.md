@@ -1,4 +1,4 @@
-OLAP联机分析处理:
+g
 
 对海量的历史数据进行分析操作,要求产生决策性的影响,不要求在极短的时间内返回结果
 
@@ -2210,7 +2210,7 @@ Sentinel配置文件中的down-after-milliseconds选项指定了Sentinel判断�
 
 8.选举领头Sentinel
 
-当一个主服务器被判断为客观下线时, 监视这个主服务器的各个Sentinel会选出一个Sentinel领头, 由其对下线主服务器执行故障转移. 选举规则如下(Raft):
+当一个主服务器被判断为客观下线时, 监视这个主服务器的各个Sentinel会选出一个Sentinel领头, 由其对下线主服务器执行故障转移. 选举规则如下(基于Raft):
 
 ①所有监视同一个主服务器的多个在线Sentinel都有被选为领头的资格;
 
@@ -2327,6 +2327,10 @@ struct clusterNode{
 	clusterLink *link;//连接节点所需的信息
 	unsiged char slots[16384/8];//记录负责的槽
 	int numslots;//记录负责的槽数量
+	struct clusterNode *slaveof;//如果是从节点,则指向主节点
+	int numslaves;//如果是主节点,则表示从节点数量
+	struct clusterNode **slaves;//数组,如果是主节点,每个元素指向一个从节点
+	list *fail_reports;//链表, 记录所有其他节点对该节点的下线报告
 	//...
 }
 ```
@@ -2379,7 +2383,7 @@ typedef struct clusterState{
 
 `CLUSTER ADDSLOTS`可将一个或多个槽指派给节点负责, 分配完可通过`CLUSTER NODES`确认, 将所有槽都分配完之后再查看`CLUSTER INFO`.
 
-clusterNode结构中的slots和numslot属性(见[节点](#节点))记录了节点名负责处理哪些槽, slots为一个二进制数组, 长度为16384/8 = 2048字节, 包含16384个二进制位, **根据索引对应的二进制位是否为1判断该索引对应的槽是否由当前节点处理**. numslots记录节点负责的槽的数量, 即slots数组中二进制1的数量.
+clusterNode结构中的slots和numslot属性(见[节点](#节点))记录了节点负责处理哪些槽, slots为一个二进制数组, 长度为16384/8 = 2048字节, 包含16384个二进制位, **根据索引对应的二进制位是否为1判断该索引对应的槽是否由当前节点处理**. numslots记录节点负责的槽的数量, 即slots数组中二进制1的数量.
 
 一个节点除了记录自己负责处理的槽信息, 还要**将自己的slots数组通过消息发送给集群中其他节点**. 其他节点收到后会在自己的clusterState.nodes字典中查找对应该发送节点的clusterNode结构, 并对结构中的slots数组进行保存或者更新. 此时, 集群中每个节点都知道数据库中16384个槽分别被指派给了哪些节点, 但是如果要查询槽i被指派给了那个节点, 需要遍历clusterState.nodes字典的所有clusterNode结构的slots数组, 直到找到负责处理槽i的节点为止. (复杂度为O(N), N为clusterState.nodes的大小), 所以还需要一个类似hash的加快查询速度的属性:
 
@@ -2445,6 +2449,233 @@ Redis集群的重新分片由Redis集群管理软件redis-trib负责执行的. R
 ⑥向集群中任一一个节点发送`CLUSTER SETSLOT <slot> NODE <target_id>`命令, 将槽slot指派给目标节点, 指派信息会通过消息发送至整个集群, 最终集群中所有节点都将知道槽slot已经指派给了目标节点.
 
 > 上面步骤为对单个槽的重写分片, 通常一次重写分片涉及多个槽, 这时redis-trib只需要将所有槽分别执行上面步骤即可. (循序渐进)
+
+**CLUSTER SETSLOT IMPORTING**命令实现:
+
+clusterState结构的importing_slots_from数组记录了当前节点正在从其他节点导入的槽, 如果importing_slots_from[i]不为NULL, 则表示当前节点正在从其指向的clusterNode结构代表的节点导入槽i:
+
+```
+typedef struct clusterState{
+	clusterNode *importing_slots_from[16384];
+	//...
+}
+```
+
+重新分片时向目标节点发送`CLUSTER SETSLOT <slot> IMPORTING <source_id>`命令, 表示将目标节点的clusterNode.importing_slots_from[i]设置为source_id所代表的节点的clusterNode结构.
+
+**CLUSTER SETSLOT MIGRATING**命令实现:
+
+clusterState结构的migrating_slots_to数组记录了当前节点正在迁移至其他节点的槽, 如果migrating_slots_to[i]不为NULL, 则表示当前节点正在将槽i迁移至其指向的clusterNode**结构代表的节点**:
+
+```
+typedef struct clusterState{
+	clusterNode *migrating_slots_to[16384];
+	//...
+}
+```
+
+重新分片时向源节点发送`CLUSTER SETSLOT <slot> MIGRATING <target_id>`命令, 表示将源节点的clusterNode.migrating_slots_to[i]设置为target_id所代表的节点的clusterNode结构.
+
+**ASK错误**
+
+在重新分片迁移的**过程**中, 存在被迁移的槽一部分键值对保存在源节点还没被迁移, 另一部分保存在目标节点的情况. 当客户端向源节点访问该槽的键时, 源节点会先在自己的数据库里查找, 如果找到则执行命令; 否则查询自己对应的clusterState.migrating_slots_to[i], 找到正在迁移的目标节点,向客户端返回ASK错误`ASK <slot> <ip>:<port>`, 指引客户端重定向目标节点发送命令.
+
+接收到ASK错误的客户端根据IP和端口转向目标节点, 先发送`ASKING`命令, 之后再重新发送以前的命令.
+
+> 与MOVED错误类似, 集群模式的redis-cli在接收到ASK错误时也会自动根据错误提供的IP和端口进行转向, 单机模式的redis-cli才会打印命令.
+
+**为什么要ASKING命令? 不多余吗?**
+
+因为如果客户端不发送ASKING命令, 而直接发送想要执行的命令, 会被节点拒绝执行并返回MOVED错误:
+
+如果客户端向节点发送关于槽[i]的命令但槽[i]没有指派给这个节点, 节点将返回MOVED错误, 这样源节点ASK错误且目标节点MOVED错误将导致无限被踢皮球; 但如果先发送命令ASKING, 该命令会打开客户端的REDIS_ASKING表示, 而节点发现发送命令的客户端带有REDIS_ASKING标识且clusterState.importing_slots_from[i]不为NULL, 则节点将破例执行槽[i]相关的命令.
+
+**ASK与MOVED错误的区别**
+
+①MOVED错误代表槽的负责权威其他节点, 客户端收到MOVED错误之后的每次关于该槽的请求都将直接发送到MOVED错误指向的目标节点.
+
+②ASK错误只是两个节点在迁移槽时的一种临时措施, ASK错误代表的槽负责权还是属于源节点, 但键值对已经到了目标节点, 但目标节点目前还没有槽的负责权. ASK错误带来的重定向不会对客观的关于槽[i]的请求产生任何影响, 还是会发往负责该槽的源节点.
+
+**什么时候被迁移的槽负责权由源节点变为目标节点**?
+
+在第6步执行完CLUSTER SETSLOT命令之后, 重新分片真正完成时. 在这之后, 客户端发往源节点的被迁移的槽的命令才会返回MOVED, 并影响之后客户端的行为.
+
+### 复制与故障转移
+
+**复制**
+
+Redis集群模式分为master和slave节点, slave节点复制master节点, 在master下线时替代.
+
+客户端向节点发送`CLUSTER REPLICATE <node_id>`可让该节点称为node_id指定的节点的从节点, 并开始复制:
+
+①接收到命令的节点在自己的clusterState.nodes字典中找到node_id对应的clusterNode结构, 并将自己的clusterState.myself.slaveof指针指向这个结构, 记录复制的主节点.
+
+②接收到命令的节点修改自己的clusterState.myself.flags属性, 关闭原来的REDIS_NODE_MASTER标识, 打开REDIS_NODE_SLAVE标识, 表示该节点从主节点变为了从节点.
+
+③接收到命令的节点调用复制代码, 并根据clusterState.myself.slaveof指向的clusterNode结构所保存的ip和端口对主节点进行复制. 相当于执行命令SLAVEOF.
+
+此时, 该从节点复制某个主节点这一信息会通过消息发送给集群中其他节点, 而集群中所有节点都会在代表主节点的clusterNode结构的slaves和numslaves属性中更新从节点列表和个数.
+
+**故障检测**
+
+集群中每个节点定期向其他节点发送PING消息(传统复制模式为Sentinel发送), 如果没有在规定时间内接收到PONG消息, 则发送PING命令的节点在自己的clusterState.nodes字典中找到目标节点对于的clusterNode结构, 在其flags属性中打开REDIS_NODE_PFAIL标识, 表示此节点已进入疑似下线状态.
+
+集群中各个节点会通过相互发送消息的方式交换集群中各个节点的状态信息: 当一个主节点A通过消息得知主节点B认为主节点C状态为疑似下线时, 主节点A为在自己的clusterState.ndoes字典中找到主节点C对于的clusterNode结构并将主节点B的下线报告添加到其fail_reports链表里.
+
+每个下线报告由一个clusterNodeFailReport结构表示:
+
+```
+struct clusterNodeFailReport{
+	struct clusterNode *node;//发送报告目标节点下线的节点
+	mstime_t time;//最后一次上面节点收到下线报告的时间, 如果与当前时间相差太久将过期
+} 
+```
+
+如果几个集群中半数以上负责处理槽的主节点都将某个主节点报告为疑似下线, 则该主节点将被标记为已下线(FAIL). 将该主节点标记为下线的节点会向集群广播一条该主节点下线的FAIL消息, 收到消息的节点立即将该主节点标记为已下线.
+
+**故障转移** 
+
+当一个从节点发现自己正在复制的主节点进入已下线的状态时, 从节点将开始对下线主节点进行故障转移:
+
+①从已下线的主节点的所有从节点中选取一个从节点(基于Raft:一个配置纪元中, 每个负责处理槽的主节点具有一次投票机会);
+
+②被选中的从节点执行SLAVEOF no one;
+
+③新的主节点撤销所有对已下线主节点的槽指派, 并将这些槽指派给自己;
+
+④新的主节点向集群广播一条PONG消息, 让其他节点知道自己从主变味了主节点, 并接管了槽;
+
+⑤新的主节点开始接收和处理自己负责的槽相关的命令请求, 故障转移完成.
+
+### 消息
+
+集群中各个节点可通过发送和接收消息进行通信, 主要有以下五种:
+
+①MEET消息：当发送者接到客户端发送的CLUSTER MEET命令时，发送者会向接收者发送MEET消息，请求接收者加人到发送者当前所处的集群里。
+②PING 消息：集群里的每个节点默认每隔一秒钟就会从已知节点列表中随机选出五个节点，然后对这五个节点中最长时间没有发送过 PING 消息的节点发送 PING消息，以此来检测被选中的节点是否在线。为了防止节点A因为长时间没有随机选中节点B作为 PING 消息的发送对象而导致对节点B的信息更新滞后, 如果节点 A 最后一次收到节点B 发送的 PONG消息的时间，距离当前时间已经超过了节点A的cluster-node-timeout 选项设置时长的一半，那么节点A也会向节点B发送PING消息。
+③PONG 消息：当接收者收到发送者发来的MEET消息或者PING消息时，为了向发送者确认这条MEET 消息或者PING消息已到达，接收者会向发送者返回一条PONG消息。另外，一个节点也可以通过向集群广播自己的 PONG 消息来让集群中的其他节点立即刷新关于这个节点的认知。
+④FAIL消息：当一个主节点A判断另一个主节点B已经进人FAIL状态时，节点A会向集群广播一条关于节点 B 的 FAIL 消息，所有收到这条消息的节点都会立即将节点 B 标记为已下线。
+⑤PUBLISH消息：当节点接收到一个PUBLISH命令时，节点会执行这个命令，并向集群广播一条 PUBLISH 消息，所有接收到这条 PUBLISH :
+消息的节点都会执行相同的 PUBLISH 命令。
+
+一个消息有一个cluster.h/clusterMsg结构表示, 接受者可根据currentEpoch、sender、myslots等记录发送者**节点信息的属性对自己的clusterState.nodes字典里对应的clusterNode结构进行更新**.其中clusterMsgData结构的data属性记录消息正文:
+
+```
+typedef struct {
+	// 消息的长度（包括这个消息头的长度和消息正文的长度）
+	uint32_t totlen;
+	// 消息的类型
+	uint16_t type;
+	// 消息正文包含的节点信息数量
+	// 只在发送MEET、PING、PONG这三种Gossip协议消息时使用
+	uintl6_t count;
+	// 发送者所处的配置纪元
+	uint64_t currentEpoch;
+	// 如果发送者是一个主节点，那么这里记录的是发送者的配置纪元
+	// 如果发送者是一个从节点。那么这里记录的是发送者正在复制的主节点的配置纪元
+	uint64_t configEpoch;
+	// 发送者的名字（ID）
+	char sender[REDIS_CLUSTER_NAMELEN];
+	// 发送者目前的槽指派信息
+	unsigned char myslots[REDIS_CLUSTER_SLOTS/8];
+	// 如果发送者是一个从节点，那么这里记录的是发送者正在复制的主节点的名字
+	// 如果发送者是一个主节点，那么这里记录的是REDIS_NODE_NULL_NAME
+	//（一个40字节长，值全为0的字节数组）
+	char slaveof[REDIS_CLUSTER_NAMELEN];
+	// 发送者的端口号
+	uint16_t port;
+	// 发送者的标识值
+	uint16_t flags;
+	// 发送者所处集群的状态
+	unsigned char state;
+	// 消息的正文（或者说，内容）
+	union clusterMsgData data;
+} clusterMsg;
+```
+
+clusterMsg.data属性指向联合体cluster.h/clusterMsgData:
+
+```
+union clusterMsgData [
+	// MEET、PING、PONG消息的正文
+	struct {
+		// 每条MEET、PING、PONG消息都包含两个
+		// clusterMsgDataGossip结构
+		clusterMsgDataGossip gossip[1;
+	} ping;
+	// FAIL消息的正文
+	struct {
+		clusterMsgDataFail about;
+	} fail;
+	// PUBLISH消息的正文
+	struct {
+		clusterMsgDataPublish msg;
+	} publish;
+	// 其他消息的正文消息的正文：
+};
+```
+
+**MEET、PING、PONG消息的实现**
+
+Redis集群的各个节点通过Gossip协议来交换各自关于不同节点的状态信息, Gossip协议又MEET、PING、PONG三种消息实现, 这三种消息的正文都由两个cluster.h/clusterMsgDataGossip结构组成, 因为三种消息都使用相同的结构, 所以需要在clusterMsg.type中指定消息类型.
+
+每次发送消息时, 发送者从自己的已知节点列表中随机选出两个节点(主或从都可), 并将这两个被选中节点的信息分别保存到两个clusterMsgDataGossip结构中:
+
+```
+typedef struct {
+	// 节点的名字
+	char nodename [REDIS_CLUSTER_NAMELEN];
+	// 最后一次向该节点发送PING消息的时间戮
+	uint32_t ping_sent;
+	// 最后一次从该节点接收到 PONG 消息的时间戳
+	uint32_t pong_received;
+	// 节点的IP地址
+	char ip[16];
+	// 节点的端口号
+	uint16_t port;
+	// 节点的标识值
+	uintl6_t flags;
+} clusterMsgDataGossip：
+```
+
+当接收者收到MEET、PING、PONG消息时，接收者会访问消息正文中的两个clusterMsgDataGossip结构，并根据自己是否认识clusterMsgDataGossip结构中记录的被选中节点来选择进行哪种操作：
+如果被选中节点不存在于接收者的已知节点列表，那么说明接收者是第一次接触到被选中节点，接收者将根据结构中记录的 IP 地址和端口号等信息，与被选中节点进行握手。
+如果被选中节点已经存在于接收者的已知节点列表，那么说明接收者之前已经与被选中节点进行过接触，接收者将根据 clusterMsgDataGossip 结构记录的信息，对被选中节点所对应的 clusterNode 结构进行更新。
+
+> 因为Gossip协议中每次抽取两个已知节点的信息进行发送, 所以传播到整个集群具有一定延迟!
+
+**FAIL消息的实现**
+
+当集群中的主节点A将主节点B标记为已下线(FAIL)时. 主节点A会向集群广播一条关于主节点B的FAIL消息, 收到消息的节点立即将该主节点标记为已下线.
+
+> 因为在集群的节点数量比较大时Gossip的延迟性, 而FAIL消息需要及时性, 所以没有采用Gossip协议.
+
+FAIL消息正文由cluster.h/clusterMsgDataFail结构表示:
+
+```
+//只包含一个nodename属性记录已下线节点名称
+typedef struct {
+	char nodename[REDIS_CLUSTER_NAMELEN];
+}clusterMsgDataFail;
+```
+
+**PUBLISH消息的实现**
+
+当客户端向集群中某个节点发送命令`PUBLISH <channel> <message>`时, 节点不仅会向channel发送message, 还会向集群广播一条PUBLISH消息,  所有接收到这条PUBLISH消息的节点都会向channel发送message. 即向集群中某个节点发送`PUBLISH <channel> <message>`将导致集群中所有节点都向channel发送message.
+
+PUBLISH消息正文由cluster.h/clusterMsgDataPublish结构表示:
+
+```
+typedef struct {
+	uint32_t channel_len;	// channel参数长度
+	uint32_t message_len;	// message参数长度
+	// 8字节是为了对齐其他长度, 实际长度由内容决定
+	// 保存了channel参数和message参数
+	unsigned char bulk_data[8];
+}
+```
+
+
 
 ## Scan
 
