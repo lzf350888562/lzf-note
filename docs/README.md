@@ -1,28 +1,36 @@
-# 概念相关
-
-[多线程](note/guide/thread.md "thread")
+# Java
 
 [基础](note/guide/base.md "基础理论")
 
-[数据库](note/guide/db.md "数据库理论")
+[多线程](note/guide/thread.md "thread")
 
 [Spring](note/guide/spring.md "spring理论")
 
-[分布式](note/guide/distributed.md "分布式")
+[Spring Cloud](note/guide/springcloud.md "cloud")
 
 [框架](note/guide/framework.md "框架")
 
-[服务器](note/guide/server.md "服务器")
+[分布式](note/guide/distributed.md "分布式")
+
+# 数据库与中间件
+
+[MySQL](note/guide/db-mysql.md "mysql")
+
+[Redis](note/guide/db-redis.md "redis")
+
+[其他数据库](note/guide/db-other.md "other")
 
 [中间件](note/guide/middleware.md "中间件")
 
-[Spring Cloud](note/guide/springcloud.md "cloud")
+## 其他
+
+[业务场景](note/guide/other.md "other")
 
 [大数据](note/guide/bigdata.md "大数据")
 
-[其他](note/guide/other.md "other")
+[服务器](note/guide/server.md "服务器")
 
-# 使用笔记
+# 使用笔记(旧)
 
 [Spring](note/springboot-common.md "spring")
 

@@ -231,6 +231,20 @@ redis分片下, 商品缓存均匀分布在redis分片 但是用户访问可能�
 
 在应用系统中增加有效期**极短** (减小不一致时间窗口 ,将损失拉到最小, 比如5s) 的进程内缓存,如果不存在再访问全量缓存分片.
 
+## Redis大Key带来的问题
+
+某小说网站在小说详情页面存在`谁读过这本书`的显示功能, 为了提高速度,进行了缓存优化, 以bookId为key, 保存读过这本小说的所有用户uid的set为value, 并将uid对应用户信息对象也缓存了起来, 其中用户信息中记录了该用户已读的小说列表. 
+
+初期优化效果显著, 但随着用户量不断的增加, 比如到了300W, 该功能的API QPS 从1100降低至200,  多方排查后发现是大Key(超过512Kb)导致执行效率大幅度降低.
+
+大Key会导致Redis内存浪费, 频繁LRU清除, 间接导致缓存穿透; 如果是集群模式还会存在节点倾斜问题, 负载不均衡; 单数据提取慢, 客户端指令队列积压严重.
+
+解决方案:
+
+1.裁剪. 在业务方面, 因为该功能实际使用的set元素很少, 没必要全量缓存(最多100个即可), 并且用户缓存也不要缓存过多数据, 只缓存用户对象中基本的信息即可(如昵称, 头像等), 没必要缓存包括已读列表的整个后端对象;
+
+2.开启Redis6客户端缓存或其他本地缓存(如ehcache), 存在一致性问题, 但该业务功能允许存在延迟
+
 ## 索引选择性
 
 使用索引并不一定能降低SQL执行时间.
@@ -353,143 +367,6 @@ and age between 20 and 25
 时间戳不存在时区问题
 
 # 业务需求
-
-## 前后端分离开发中动态菜单实现
-
-1.**后端动态返回(常用)**
-
-用户登录后后端数据基于RBAC获取菜单列表json返回给前端, 前端根据json动态渲染 .
-
-```
-[
-    {
-        "id":2,
-        "path":"/home",
-        "component":"Home",
-        "name":"员工资料",
-        "iconCls":"fa fa-user-circle-o",
-        "children":[
-            {
-                "id":null,
-                "path":"/emp/basic",
-                "component":"EmpBasic",
-                "name":"基本资料",
-                "iconCls":null,
-                "children":[
-
-                ],
-                "meta":{
-                    "keepAlive":false,
-                    "requireAuth":true
-                }
-            }
-        ],
-        "meta":{
-            "keepAlive":false,
-            "requireAuth":true
-        }
-    }
-]
-```
-
-在前端的二次处理主要是把 component 属性的字符串值转为对象。 
-
-处理后端返回的路由json
-
-```
-export const formatRoutes = (routes) => {
-    let fmRoutes = [];
-    routes.forEach(router => {
-        let {
-            path,
-            component,
-            name,
-            meta,
-            iconCls,
-            children
-        } = router;
-        if (children && children instanceof Array) {
-            children = formatRoutes(children);
-        }
-        let fmRouter = {
-            path: path,
-            name: name,
-            iconCls: iconCls,
-            meta: meta,
-            children: children,
-            component(resolve) {
-                if (component.startsWith("Home")) {
-                    require(['../views/' + component + '.vue'], resolve);
-                } else if (component.startsWith("Emp")) {
-                    require(['../views/emp/' + component + '.vue'], resolve);
-                } else if (component.startsWith("Per")) {
-                    require(['../views/per/' + component + '.vue'], resolve);
-                } else if (component.startsWith("Sal")) {
-                    require(['../views/sal/' + component + '.vue'], resolve);
-                } else if (component.startsWith("Sta")) {
-                    require(['../views/sta/' + component + '.vue'], resolve);
-                } else if (component.startsWith("Sys")) {
-                    require(['../views/sys/' + component + '.vue'], resolve);
-                }
-            }
-        }
-        fmRoutes.push(fmRouter);
-    })
-    return fmRoutes;
-}
-```
-
-添加路由到router
-
-```
- let fmtRoutes = formatRoutes(data);
-router.addRoutes(fmtRoutes);
-```
-
-
-
-> 若依, ELADMIN, 微人事等项目均采用此方式
-
-2.**前端动态渲染**
-
-直接在前端把所有页面都在路由表里边定义好，然后在 meta 属性中定义每一个页面需要哪些角色才能访问，例如下面这样：
-
-```
-[
-    {
-        "id":2,
-        "path":"/home",
-        "component":Home,
-        "name":"员工资料",
-        "iconCls":"fa fa-user-circle-o",
-        "children":[
-            {
-                "id":null,
-                "path":"/emp/basic",
-                "component":EmpBasic,
-                "name":"基本资料",
-                "iconCls":null,
-                "children":[
-
-                ],
-                "meta":{
-                    "keepAlive":false,
-                    "requireAuth":true,
-                    "roles":['admin','user']
-                }
-            }
-        ],
-        "meta":{
-            "keepAlive":false,
-            "requireAuth":true
-        }
-    }
-]
-```
-
-这样定义表示当前登录用户需要具备 admin 或者 user 角色，才可以访问 EmpBasic 组件，当然这里不是说我这样定义了就行，这个定义只是一个标记，在项目首页中，我会遍历这个数组做菜单动态渲染，然后根据当前登录用户的角色，再结合当前组件需要的角色，来决定是否把当前组件所对应的菜单项渲染出来。
-
-> 弊端就是菜单和角色的关系在前端代码中写死了
 
 ## GIS文件检索系统
 
