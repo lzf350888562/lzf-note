@@ -189,7 +189,16 @@ let newUrl = this.$router.resolve({
 component: (resolve) => require(['@/views/redirect'], resolve)
 ```
 
+## 页面标题变化
 
+```
+router.beforeEach((to,from,next)=>{
+    if(to.meta.title){
+        document.title = to.meta.title;
+    }
+    next()
+})
+```
 
 
 

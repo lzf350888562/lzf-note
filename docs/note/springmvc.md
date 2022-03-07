@@ -242,7 +242,7 @@ public class ServletUtils
 }
 ```
 
-
+也可以使用@Autowired自动注入HttpServletRequest, 因为request随请求变化, 所以当前Bean的初始化不能直接注入Request, 而是注入了一个代理request, 当调用其方法时实际调用的是RequestObjectFactory工厂生成的对象的方法, 底层一样同RequestContextHolder实现, 生成的RequestAttributes为线程ThreadLocal变量.
 
 # @ServletComponentScan
 

@@ -1775,6 +1775,194 @@ Redis事务持久性只在AOF持久化模式下且appdenfsync为always时才具�
 
 ## Lua脚本
 
+Redis从2.6开始支持Lua脚本, 通过在服务器嵌入Lua环境, Redis客户端可以使用Lua脚本, 原子地在服务器执行多个命令.
+
+### 环境
+
+Redis服务器创建并修改Lua环境的步骤:
+
+1）创建一个基础的 Lua环境，之后的所有修改都是针对这个环境进行的。
+
+服务器通过调用Lua的API函数lua_open创建一个新的Lua环境.
+
+2）载入多个函数库到Lua环境里面，Lua脚本可以使用这些函数库来对执行Redis命令获得的数据进行数据操作, 载入的函数库包括:
+
+```
+1.基础库(base library):包含Lua的核心函数,如assert、error、pairs、tostring、pcall等.并删除库中loadfile函数防止用户从外部文件中引入不安全的代码.
+2.表格库(table library):包含用于处理表格的通用函数,如table、concat、table.insert、table.remove、table.sort等.
+3.字符串库(string library):包含处理字符串的通用函数,如string.find、string.format、string.len、string.reverse等.
+4.数学库(math library):标准C语言数学库的接口,如math.abs、math.max、math.min、math.sqrt、math.log等.
+5.调试库(debug libirary):包含对程序进行调试所需的函数,如debug.sethook(对程序设置钩子)、debug.gethook(获取钩子)、debug.getinfo(返回函数信息)、debug.setmetatable(设置对象元数据)、debug.getmetatable(获取对象元数据)等.
+6.Lua CJSON库:用于处理UTF-8编码的JSON格式,其中cjson.decode函数将JSON字符串转换为Lua值,cjson.encode函数将Lua值序列化为JSON字符串.
+7.Struct库:用于在Lua值和C结构体之间进行转换,其中struct.pack将多个Lua值打包成一个类结构字符串,struct.unpack从一个类结构字符串中解包出多个Lua值.
+8.Lua cmsgpack库:用于处理MessagePack格式的数据,其中cmsgpack.pack将Lua值转换为MessagePack数据,cmsgpack.unpack将MessagePack数据转换为Lua值.
+```
+
+3）创建一个redis表格, 并将其设置为全局变量，这个表格包含了对Redis进行操作的函数, 如:
+
+```
+1.redis.call和redis.pcall用于执行redis命令(常用).
+2.redis.log函数用于记录Redis日志,以及日志级别常量redis.LOG_DEBUG,redis.LOG_VERBOSE,redis.LOG_NOTICE,redis.LOG_WARNING.
+3.redis.shalhex用于计算SHA1校验和.
+4.redis.error_reply和redis.status_reply用于返回错误信息.
+```
+
+4）使用Redis自制的随机函数来替换Lua原有的带有副作用的随机函数，从而避免在脚本中引人副作用。
+
+> 为保证相同的脚本在不同机器上产生相同结果, Redis要求所有传入服务器的Lua脚本和Lua环境中的函数都是无副作用的纯函数
+
+在替换后, math.random**在相同的seed下**总是产生相同的随机数序列, 此时该函数是纯函数, 因此除非在脚本中使用math.randomseed显式修改seed, 否则每次运行脚本时Lua环境都使用固定的math.randomseed(0)语句来初始化seed, 保证无副作用.
+
+5）创建排序辅助函数，Lua环境使用这个辅佐函数来对一部分 Redis 命令的结果进行排序，从而消除这些命令的不确定性:
+
+比如集合set因为其元素无序排列, 所以即使两个集合set的元素完全相同, 同一个命令对他们的输出结果也可能不同, 带有不确定性的集合命令包括:SINTER、SUNION、SDIFF、SMEMBERS、SKEYS、SVALS、KEYS.
+
+为消除他们的不确定性, 服务器为Lua环境创建一个排序辅助函数`__redis__compare__helper`, 当Lua脚本执行完一个带有不确定性命令后, 使用该函数作为对比函数, 自动调用table.sort函数对命令的返回值在做一次排序来保证相同的数据集总是产生相同的输出.
+
+6）创建 redis .pcall 函数的错误报告辅助函数，这个函数可以提供更详细的出错信息:
+
+服务器为Lua环境创建一个`__redis_err_handler`错误处理函数, 当脚本调用redis.pcall执行redis命令且被执行的命令出现错误时, 该函数会打印出错代码的来源和行数.
+
+7）对Lua环境中的全局环境进行保护，防止用户在执行Lua脚本的过程中，因忘记使用local关键字而将额外的全局变量添加到 Lua 环境中:
+
+在该保护下, 当一个脚本试图创建一个全局变量时, 服务器将报告一个错误. 另外, 试图获取一个不存在的全局变量也将报错.
+
+> 但Redis貌似并未禁止用户修改已存在的全局变量
+
+8）**将完成修改的Lua环境保存到服务器状态redisServer的 lua 属性中**，等待执行服务器传来的Lua脚本。
+
+> 因为Redis使用串行化方式执行Redis命令, 所以在任何时间点, 最多只有一个脚本能够被放进Lua环境理运行.
+>
+> 这也是为什么只需要一个Lua环境即可.
+
+**Lua环境协作组件**
+
+1）伪客户端: 因为处理Redis命令必须有相应的客户端状态, 为了执行Lua脚本中包含的Redis命令, Redis服务器专门为Lua环境创建了一个伪客户端来处理脚本中的Redis命令.
+
+当Lua脚本使用redis.call或redis.pcall函数执行一个Redis命令时:
+
+```
+1.Lua环境将被执行的命令传给伪客户端.
+2.为客户端将命令传给命令执行器.
+3.命令执行器执行伪客户端传给它的命令, 并将执行结果返回给伪客户端.
+4.伪客户端接收到执行结果后将其返回给Lua环境.
+5.Lua环境接收到执行结果后将其返回给函数.
+6.函数接收到执行结果后将其作为返回值返回给脚本中的调用者.
+```
+
+2）lua_scripts字典: 键为某个Lua脚本的SHA1校验和, 值为SHA1校验和对应的Lua脚本, **用于实现SCRIPT EXISTS命令和脚本复制功能**.
+
+```
+struct redisServer{
+	dict *lua_scripts;
+	//...
+};
+```
+
+Redis将所有被EVAL命令执行过的Lua脚本和索引被SCRIPT LOAD命令载入过的Lua脚本都保存到lua_scripts字典里.
+
+### 命令
+
+1.**脚本执行命令EVAL**
+
+```
+EVAL <script> <numkeys> [key ...] [arg ...]
+```
+
+该命令执行过程可分为三个步骤:
+
+①当客户端向服务器发送EVAL命令时, 服务器根据客户端给定的Lua脚本, 在Lua环境中**定义一个与该脚本相应的Lua函数**. 其中, Lua函数的名字由`f_`加上脚本的SHA1校验和组成, 函数体为脚本本身.
+
+> 使用函数来保存客户端传来的脚本的好处有:
+>
+> 一.执行脚本的步骤非常简单, 只需要调用与脚本向对于的函数即可.
+>
+> 二.利用函数的局部性来让Lua环境保存整洁, 减少垃圾回收的工作量, 避免了使用全局变量
+>
+> 三.EVALSHA通过脚本的SHA1校验和调用Lua函数来执行脚本.
+
+②将脚本保存到lua_scripts字典(见[环境](#环境)), 键位SHA1校验和, 值为脚本本身.
+
+③执行脚本函数:
+
+```
+1）将EVAL命令中传人的键名（key name）参数和脚本参数分别保存到KEYS数组和ARGV数组，然后将这两个数组作为全局变量传人到 Lua 环境里面。
+2）为Lua环境装载超时处理钩子（hook），这个钩子可以在脚本出现超时运行情况时，让客户端通过SCRIPTKILL命令停止脚本，或者通过SHUTDOWN命令直接关闭服务器。
+3）执行脚本函数。
+4）移除之前装载的超时钩子。
+5）将执行脚本函数所得的结果保存到客户端状态的输出缓冲区里面，等待服务器将结果返回给客户端。
+6）对Lua环境执行垃圾回收操作。
+```
+
+> 注意这里执行的是脚本函数而不是lua_scripts值里的脚本本身, 该值唯一的作用仅用于脚本复制
+
+最后服务器只需将保存在输出缓冲区中的执行结果返回给执行EVAL命令的客户端即可.
+
+2.**脚本执行命令EVALSHA**
+
+```
+EVALSHA <sha1> <numkeys> [key ...] [arg ...]
+```
+
+原理: 只要脚本对应的函数在Lua环境中定义过, 即使不知道脚本的内容本身, 客户端也可根据脚本的SHA1校验和(加`f_`前缀)来调用脚本对应的函数, 从而达到执行脚本的目的.
+
+3.**脚本管理命令SCRIPT FLUSH**
+
+用于清除服务器中所有和Lua脚本有关的信息, 会释放lua_scripts字典并关闭现有Lua环境并重新创建一个新的Lua环境.
+
+4.**脚本管理命令SCRIPT EXISITES**
+
+根据输入的SHA1校验和, 检查校验和对应的脚本是否存在于服务器, 在lua_scripts的key中查找即可.
+
+>  该命令一次可传入多个SHA1校验和
+
+5.**脚本管理命令SCRIPT LOAD**
+
+载入脚本, 相当于EVAL命令执行过程的前两步: 即为Lua脚本创建Lua函数, 并将SHA1校验和与脚本本身保存到lua_scripts字典中, 但不执行该脚本函数.最后向客户端返回SHA1校验和.
+
+之后客户端就可以通过EVALSHA命令根据SHA1校验和执行被SCRIPT LOAD载入过的脚本了.
+
+6.**脚本管理命令SCRIPT KILL**
+
+如果服务器设置了`lua-time-limit`配置选项, 则在每次执行Lua脚本前(更具体为执行脚本函数前), 服务器都会在Lua环境里设置一个超时处理钩子, 在脚本运行期间定期检查其运行时间是否超过了`lua-time-limit`, 如果是, 钩子将定期在脚本运行的间隙中, 查看是否有`SCRIPT KILL`命令或`SHUTDOWN`命令到达服务器.
+
+如果超时运行的脚本未执行过任何写操作, 则客户端可以通过SCRIPT KILL命令指示服务器停止执行该脚本, 并向执行该脚本的客户端返回一个错误回复. 处理完SCRIPT KILL命令之后, 服务器可继续运行.
+
+如果超时运行的脚本执行过写入操作, 则客户端只能通过SHUTDOWN nosave来停止服务器, 以防止不合法的数据被写入数据库.
+
+### 复制
+
+在主从模式(而不是集群模式)下, 具有写行为的脚本命令也会被复制到从服务器,.
+
+1.复制EVAL、SCRIPT FLUSH和SCRIPT LOAD命令
+
+与常规复制一样, 当master执行三个命令中一个时,  会将被执行的命令传播给所有slave, 让所有服务器达到同一状态(包括Lua环境, lua_scripts字典).
+
+2.复制EVALSHA命令
+
+因为主从服务器载入Lua脚本的情况可能不同(出现脚本未找到的情况), 为了解决该问题, Redis要求master在传播EVALSHA命令的时候, **必须确保EVALSHA命令要执行的脚本已经被所有slave载入过**. 否则master会**将EVALSHA命令转换成一个等价的EVAL命令再传播**
+
+master通过服务器状态的repl_scriptcache_dict字典记录自己已经将哪些脚本转播给了slave, 键为Lua脚本SHA1校验和, 值全部都为NULL:
+
+```
+struct redisServer{
+	dict *repl_scriptcache_dict;
+	//...
+};
+```
+
+当一个校验和出现在repl_scriptcache_dict字典时, 说明该校验和对应的Lua脚本已经传播给了所有slave, 此时master可直接向从服务器传播带有该校验和的EVALSHA命令.
+
+当一个校验和存在于lua_scripts字典, 但不存在与repl_scriptcache_dict字典时, 说明该校验和对应的Lua脚本已经被master载入, 但未传播给所有slave, 需要转换为等价的EVAL命令传播.
+
+而通过EVALSHA命令指定的SHA1校验和sha1, 在lua_scripts字典中查找校验和对应的Lua脚本script, 最后将原来EVALSHA命令改写为EVAIL命令, 并且将sha1替换为script即可, 其他参数numkeys、key、arg不变.
+
+每当master传播完EVAL命令(给所有slave)后, 会将被传播脚本的SHA1校验和(原EVALSHA命令指定的校验和)添加到repl_scriptcache_dict字典里.之后如果EVALSHA命令再次指定该校验和, 则master可直接传播EVALSHA而无需转换.
+
+每当master添加一个新的slave时, master都会清空自己的repl_scriptcache_dict.
+
+
+
 ## 大Key与热Key
 
 通常我们会将含有较大数据或含有大量成员、列表数的Key称之为**大Key**.

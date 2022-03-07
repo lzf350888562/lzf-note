@@ -1,6 +1,57 @@
-# Maven
+# Maven构建工具
 
-## 标签
+maven可帮助自动化构建过程, 从清理、编译、测试到生成报告, 再到打包部署.
+
+maven以插件形式实现了大部分构建任务.
+
+maven还是一个依赖管理工具和项目信息管理工具, 通过坐标定位每个构建(artifact), 即jar包. 
+
+## POM
+
+POM(Project Object Model, 项目对象模型)定义了项目的基本信息, 用户描述项目如何构建, 声明项目依赖等
+
+# 测试
+
+在JUnit4标准下, 所有需要执行的测试方法都以test开头, 并以@Test标注
+
+# 问题
+
+## 默认jar无法运行
+
+因为带有main方法的类信息不会添加到manifest中, 可打开jar文件中的META-INF/MANIFEST.MF文件查看.
+
+解决方案: 通过配置maven-shade-plugin插件, mainClass标签设置为包含main方法的类, 接下来打包完就可以直接执行了
+
+```
+<plugin>
+	<groupId>org.apache.maven.plugins</groupId>
+	<artifactId>maven-shade-plugin</artifactId>
+	<version>1.2.1</version>
+	<executions>
+		<execution>
+			<phase>package</phase>
+			<goals>
+				<goal>shade</goal>
+			</goals>
+			<configuration>
+				<transformers>
+					<transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+						<mainClass>com.juvenxu.mvnbook.helloworld.Helloworld</mainClass>
+					</transformer>
+				</transformers >
+			</configuration>
+		</execution>
+	</executions>
+</plugin>
+```
+
+## archetype插件生成项目骨架
+
+
+
+
+
+
 
 ### Classfilier
 
