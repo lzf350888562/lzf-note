@@ -149,7 +149,7 @@ Memcached 过期数据的删除策略只用了惰性删除，而 Redis 同时使
 
 ## 数据类型
 
-RedisObject通过encoding属性设置对象所使用的编码，type属性设置对象类型,  而不是为特定类型的对象关联一种固定的编码， 极大地提升了 Redis 的灵活性和效率.
+redisObject通过encoding属性设置对象所使用的编码，type属性设置对象类型,  而不是为特定类型的对象关联一种固定的编码， 极大地提升了 Redis 的灵活性和效率.
 
 执行命令前, Redis会先检查该key的值对象是否为执行命令锁需的类型, 如果是, 还会根据该key的值对象的编码来选择正确的命令实现(命令多态) 
 
@@ -169,7 +169,15 @@ typedef struct RedisObject {
 
 虽然 Redis 是用 C 语言写的，但并没有使用 C 的字符串表示，而是自己构建了一种 **简单动态字符串SDS**。
 
-其数据结构为带容量和长度的**字节**数组(可以存储二进制数据)的结构体.
+其数据结构为带容量和长度的**字节**数组(可以存储二进制数据->位数组)的结构体.
+
+```
+struct sdshdr{
+	int len;//已使用的字节数
+	int free;//未使用的字节数
+	char buf[];//字节数组,保存字符串
+};
+```
 
 SDS 遵循 C 字符串以空字符结尾的惯例是为了兼容部分C字符串函数, 但实际上SDS是使用len属性而不是空字符来判断字符串是否结束. 
 
@@ -177,7 +185,7 @@ SDS 遵循 C 字符串以空字符结尾的惯例是为了兼容部分C字符串
 
 SDS是可以修改的字符串，内部结构实现上类似于 Java 的 ArrayList，采用预分配冗余空间的方式来减少内存的频繁分配, 避免C字符串API存在的溢出问题(SDS追加时先判断free空间是否足够)
 
-如果是整数, 则使用int编码; 当Redis字符串的长度小于等于44时, 使用embstr编码; 当字符串长度超过44时, 使用raw编码存储. 因为内存分配器最多分配64字节空间, RedisObject固定占用16字节, SDS固定属性占用3字节, 字符串结尾符占用1字节, 还剩下最多64-20=44字节, 超过44则为大字符串, 需要采用raw形式.
+如果是整数, 则使用int编码; 当Redis字符串的长度小于等于44时, 使用embstr编码; 当字符串长度超过44时, 使用raw编码存储. 因为内存分配器最多分配64字节空间, redisObject固定占用16字节, SDS固定属性占用3字节, 字符串结尾符占用1字节, 还剩下最多64-20=44字节, 超过44则为大字符串, 需要采用raw形式.
 
 embstr与raw的区别为: embstr将 RedisObject 和 SDS 对 象连续存在一起，使用 malloc 方法一次分配。而 raw 存储形式不一样，它需要两次 malloc，两个对象结构在内存地址上一般是不连续的。
 
@@ -1961,7 +1969,270 @@ struct redisServer{
 
 每当master添加一个新的slave时, master都会清空自己的repl_scriptcache_dict.
 
+## 排序
 
+SORT命令可对list、set和zset键进行排序.
+
+SORT命令**为每个被排序的键都创建一个与键长度(元素个数)相同的数组**, 每个项都是一个redisSortObject, 根据SORT命令所携带的选项的不同, redisSortObject结构的方式也不同:
+
+```
+typedef struct _redisSortObject{
+	robj *obj;//指向被排序键的值的元素
+	union{ //权重
+		double score;//排序数字值时使用
+		robj *cmpobj;//排序带有BY选项的字符串值时使用
+	}u;
+}redisS
+```
+
+1.最简单的形式为`SORT <key>`, 可对一个包含数字值的key进行排序:
+
+创建一个与该key元素长度相同的redisSortObject数组; 遍历数组, 将各个数组项的obj分别指向key值的各个元素; 再遍历数组, 将各个数组项的obj指向的元素转换为一个double类型的浮点数保存在数组项的u.score属性里; 然后根据数组项u.score属性的值对数组从小到大排序; 最后遍历数组, 将各个数组项的obj指向的元素有序返回给客户端.
+
+> 因为数字值也是string类型, 尽管底层存储可能为int结构, 也有可能存在小数
+
+2.`SORT <key> ALPHA`可对包含字符串值的键进行排序:
+
+创建一个与该key元素长度相同的redisSortObject数组; 遍历数组, 将各个数组项的obj分别指向key值的各个元素; 然后根据obj指向的元素对数组进行字符串排序; 最后遍历数组, 将各个数组项的obj指向的元素有序返回给客户端.
+
+3.在默认情况下SORT命令执行升序排序, `SORT <key> DESC`执行降序排序:
+
+升序与降序都使用相同的快速排序算法执行, 区别在升序排序算法使用的对比函数产生升序对比结果; 降序排序算法使用的对比函数产生降序对比结果.
+
+4.BY选项:
+
+默认情况下SORT命令使用被排序key值包含的元素作为排序的依据, 即元素本身决定了元素在排序后所处的位置. 
+
+但如果使用了BY选项, SORT命令可以指定某些string类型的键或hash类型的键所包含的某些域(field)来作为元素的权重, 对一个键进行排序. 如让水果集合根据多个水果价钱字符串键(权重键)进行排序:
+
+```
+redis> SADD fruits "apple" "banana" "cherry"
+(integer)3
+redis> MSET apple-price 8 banana-price 5.5 cherry-price 7
+OK
+redis> SORT fruits BY *-price
+1)"banana"
+2)"cherry"
+3)"apple"
+```
+
+实现步骤为:
+
+创建一个与长度fruits集合大小相同的redisSortObject数组; 遍历数组, 将各个数组项的obj分别指向fruits的各个元素; 再遍历数组, 根据各个数组项的obj指向的集合元素, 以及BY选项给定的模式(pattern), 查找相应的权重键; 将各个权重键对应的值转换为一个double类型的浮点数, 保存到相应数组项的u.score属性里; 然后以数组项u.score的值为权重对数组进行排序; 最后遍历数组, 将各个数组项的obj指向的元素有序返回给客户端.
+
+5.带有ALPHA选项的BY选项:
+
+BY选项默认权重值为数字值, 如果权重键保存的是字符串值的话, 需要在使用BY选项时配合使用ALPHA选项, 如使用水果的编号为权重,对水果进行排序:
+
+```
+redis> SADD fruits "apple" "banana" "cherry"
+(integer)3
+redis> MSET apple-id "FRUIT-25" banana-price "FRUIT-79" cherry-price "FRUIT-13"
+OK
+redis> SORT fruits BY *-id
+1)"cherry"
+2)"apple"
+3)"banana"
+```
+
+实现步骤为:
+
+创建一个与长度fruits集合大小相同的redisSortObject数组; 遍历数组, 将各个数组项的obj分别指向fruits的各个元素; 再遍历数组, 根据各个数组项的obj指向的集合元素, 以及BY选项给定的模式(pattern), 查找相应的权重键; 将各个数组项的u.cmpobj分别指向相应的权重键的值(StringObject对象); 以各个数组项的u.cmpobj的值为权重, 对数组指向字符串排序; 最后遍历数组, 将各个数组项的obj指向的元素有序返回给客户端.
+
+6.LIMIT选项
+
+默认情况下SORT将所有排序后的元素返回给客户端, 通过LIMIT选项可让SORT返回一部分已排序的元素:`LIMIT <offset> <count>`
+
+如果SORT命令添加了LIMIT选项, 服务器将在对redisSortObject数组排序以后, 将指针移动到数组的索引offset上, 依次访问count个数组项, 并将各个数组项的obj指向的元素返回给客户端.
+
+7.GET选项
+
+默认情况下SORT在对键排序之后, 总是返回被排序键本身所包含的元素. 通过GET选项可让SORT命令在对键排序之后, 根据被排序的元素以及GET选项所指定的模式(pattern), 查找并返回某些键的值.
+
+比如根据学生姓名排序, 再根据排序后的顺序查找并返回学生的全名:
+
+```
+redis> SADD students "peter" "jack" "tom"
+(integer)3
+redis> MSET peter-name "Peter White" jack-name "Jack Snow" tom-name "Tom Smith"
+OK
+redis> SORT students ALPHA GET *-name
+1)"Jack Snow"
+2)"Peter White"
+3)"Tom Smith"
+```
+
+如果SORT命令添加了GET选项, 服务器将在对redisSortObject数组排序以后, 遍历数组, 根据数组项obj指向的元素, 以及GET选项指定的模式, 查找相应的键并返回给客户端.
+
+> 一个SORT可添加多个GET选项, 返回结果时先处理完一个数组项再处理下一个.
+
+8.STORE选项
+
+默认情况下SORT命令只向客户端返回排序结果而不保存排序结果. 通过STORE选项可将排序结果保存在指定的列表键(list)里, 便于重用.
+
+如果SORT命令添加了STORE选项,  服务器将在对redisSortObject数组排序以后, 检查STORE选项指定的键是否存在, 如果存在则删除; 然后设置该键为空白的列表键; 然后遍历数组, 将排序后的三个元素依次推入(RPUSH)该列表键末尾.
+
+> 根据选项划分, SORT命令的执行顺序为: 排序 ->  LIMIT -> GET -> STORE -> 返回结果.
+
+## 位数组
+
+位数组就是二进制位数组, 偏移量从0开始, 每个二进制位的值可以是0或1.
+
+Redis使用字符串对象来表示位数组, 因为其使用的SDS数据结构是二进制安全的, 所以Redis可直接使用SDS结构保存位数组并使用SDS结构的操作函数来处理位数组. 如对于一个SDS表示的1字节(8位)长的位数组:
+
+```
+redisObject.type=REDIS_STRING表示这是一个字符串对象;
+redisObject.ptr指向一个sdshdr结构;
+redisObject.ptr.len=1表示这个SDS保存了一个1字节长的位数组(字符串);
+redisObject.ptr.buf[0]为位数组的内容;
+redisObject.ptr.buf[1]为SDS末尾结束符.
+```
+
+> buf数组保存的位数组的顺序与二进制书写顺序是相反的, 这是为了setbit的实现更方便.
+
+1.`GETBIT <bitarray> <offset>`用于获取位数组指定偏移量上的二进制位的值, 步骤为:
+
+```
+1)byte=offset/8 记录了offset指定的二进制位保存在哪个字节;
+2)bit=(offset mod 8)+1 记录了offset指定的二进制位在byte字节的第几个二进制位;
+3)根据byte和bit的值在bitarray中定位二进制位并返回.
+```
+
+2.`SETBIT <bitarray> <offset> <value>` 用于为位数组指定偏移量上的二进制位设置值, 并向客户端返回旧值, 步骤为:
+
+```
+1)len=(offset/8)+1 记录了保存offset指定二进制位至少需要的字节数;
+2)检查bitarray键保存的位数组(SDS)的长度是否小len,如果是,则扩展至len字节,扩展空间的二进制位设置为0;
+3)byte=offset/8 记录了offset指定的二进制位保存在哪个字节;
+4)bit=(offset mod 8)+1 记录了offset指定的二进制位在byte字节的第几个二进制位;
+5)根据byte和bit的值在bitarray中定位二进制位,先将旧值位保存到oldvalue变量.然后将value设置到该二进制位;
+6)向客户端返回oldvalue值.
+```
+
+3.BITCOUNT 用于统计位数组里值为1的二进制位的数量, 二进制统计算法使用到了查表+variable-precision SWAR算法, 具体见《Redis设计与实现》.
+
+4.BITOP 可对多个位数组进行按位于(and) 、按位或(or) 、按位异或(xor)运算以及取反(not)
+
+```
+BITOP AND and-result [bitarray1, bitarray2, bitarray3...]
+BITOP OR or-result [bitarray1, bitarray2, bitarray3...]
+BITOP XOR xor-result [bitarray1, bitarray2, bitarray3...]
+BITOP NOT not-result bitarray
+```
+
+## 慢查询日志
+
+慢查询日志用于记录执行时间超过给定时长的命令请求, 用户可通过该功能产生的日志监视和优化查询速度. 服务器关于慢查询日志相关的选项有两个:
+
+①slowlog-log-slower-than 指定执行时间超过多少微秒的命令会被记录到日志上(1秒等于1000000微秒), 可通过设置为0记录最近执行的所有命令.
+
+②slowlog-max-len 指定服务器最多保存多少条慢查询日志, 服务器采用FIFO方式保存慢查询日志, 当保存的日志数量超过选项值时, 在服务器添加一条新的慢查询日志之前会将最旧的一条日志删除.
+
+服务器状态中与慢查询日志功能相关的属性有:
+
+```
+struct redisServer{
+	// 下一条慢查询日志的id
+	long long slowlog_entry_id;
+	// 保存了所有慢查询日志的链表
+	list *slowlog;
+	// slowlog-log-slower-than选项的值
+	long long slowlog_log_slower_than;
+	// slowlog-max-len选项的值
+	unsigned long slowlog_max_len;
+	//...
+};
+```
+
+slowlog_entry_id初始值为0, 没创建一条新的慢查询日志时, 该属性的值就赋给新日志的id, 然后对这个属性加一.
+
+slowlog链表中每个节点保存一个slowlogEntry结构, 记录慢查询日志:
+
+```
+typedef struct slowlogEntry{
+	long long id;// 唯一标识
+	time_t time;// 命令执行时的时间,unix时间戳
+	long long duration;// 执行命令消耗的时间,微秒
+	robj **argv;// 命令与参数
+	int argc;// 命令与参数的数量
+}slowlogEntry;
+```
+
+添加新日志的伪代码如下:
+
+```
+# 记录执行命令前的时间
+before = unixtime_now_in_us()
+# 执行命令
+execute_command(argv,argc,client)
+# 记录执行命令后的时间
+after = unixtime_now_in_us();
+# 检查是否需要创建新的慢查询日志
+slowlogPushEntryIfNeeded(argv, argc, before-after)
+```
+
+其中slowlogPushEntryIfNeeded函数需要根据执行时长是否超过slowlog-log-slower-than选项设置的值来判断是否添加日志, 并且需要根据慢查询日志的长度是否超过slowlog-max-len选项设置的值来判断是否删除旧日志:
+
+```
+void slowlogPushEntryIfNeeded(robj **argv, int argc, long long duration) (
+	// 慢查询功能未开启，直接返回
+	if (server.slowlog_log_slower_than < 0) return;
+	// 如果执行时间超过服务器设置的上限，那么将命令添加到慢查询日志
+	if (duration >= server.slowlog_log_slower_than)
+		// 新日志添加到链表表头并将redisServer.slowlog_entry_id加一
+		listAddNodeHead(server.slowlog,slowlogCreateEntry(argv,argc,duration));
+		// 如果日志数量过多，那么进行删除
+		while (listLength(server.slowlog) > server.slowlog_max_len)
+			listDelNode(server.slowlog,listLast(server.slowlog));
+```
+
+**日志查阅命令SLOWLOG GET**
+
+```
+def SLOWLOG GET(number=None):
+	# 用户没有给定number参数
+	# 那么打印服务器包含的全部慢查询日志
+	if number is None：
+		number = SLOWLOG_LEN()
+	# 遍历服务器中的慢查询日志
+	for login redisServer.slowlog:
+		if number <= 0:
+			# 打印的日志数量已经足够，跳出循环
+			break
+		else:
+			# 继续打印，将计数器的值减一
+			number -= 1
+		# 打印日志
+		printLog(log)
+```
+
+**查看日志数量命令SLOWLOG LEN**
+
+```
+def SLOWLOG LEN():
+	# slowlog 链表的长度就是慢查询日志的条目数量
+	return len(redisServer.slowlog)
+```
+
+**清除慢查询日志命令SLOWLOG RESET**
+
+```
+def SLOWLOG_RESET():
+	# 遍历服务器中的所有慢查询日志
+	for log in redisServer.slowlog：
+		# 删除日志
+		deleteLog(log)
+```
+
+## 监视器
+
+MONITOR命令可让客户端作为一个监视器实时接收并打印服务器当前处理的命令请求的相关信息. 
+
+当一个客户端向服务器发送一条命令请求时, 服务器除了会处理这条命令请求之外, 还会将该命令请求的信息发给索引监视器.
+
+客户端发送MONITOR命令后, 服务器将该客户端状态的flags属性的REDIS_MONITOR属性打开, 并将该客户端添加到redisServer.monitors链表尾部.
+
+服务器每次处理命令请求之前, 都会调用replicationFeedMonitors函数将被处理的命令请求信息发送给各个监视器
 
 ## 大Key与热Key
 
