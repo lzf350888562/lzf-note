@@ -667,8 +667,6 @@ public List<SysUser> selectUserList(SysUser user)
 
 # redis
 
-
-
 ```
 <dependency>
     <groupId>org.springframework.boot</groupId>

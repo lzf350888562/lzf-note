@@ -8,7 +8,111 @@ maven还是一个依赖管理工具和项目信息管理工具, 通过坐标定�
 
 ## POM
 
-POM(Project Object Model, 项目对象模型)定义了项目的基本信息, 用户描述项目如何构建, 声明项目依赖等
+POM(Project Object Model, 项目对象模型)定义了项目的基本信息, 用户描述项目如何构建, 声明项目依赖等.
+
+每个构建步骤都可以绑定一个或多个插件行为, 且Maven为大多数构建步骤编写并绑定了默认插件(如编译插件maven-compiler0-plugin, 测试插件maven-surefire-plugin). 当有特殊需要的时候, 可以配置插件定制构建行为, 甚至自己编写插件.
+
+## 生命周期
+
+Maven拥有三套相互独立的声明周期, 每个声明周期包含一些阶段, 这些阶段是有序的, 并且**后面的阶段依赖于前面的阶段**:
+
+1.clean生命周期
+
+```
+pre-clean 执行一些清理前需要完成的工作;
+clean 清理上一次构建生成的文件;
+post-clean 执行一些清理后需要完成的工作.
+```
+
+2.default声明周期
+
+定义了真正构建时所需要执行的所有步骤, 它是所有声明周期中最核心的部分.
+
+```
+validate
+initialize
+generate-sources
+process-sources 处理项目主资源文件:对src/main/resources中的内容进行变量替换等工作之后复制到项目输出的主classpath目录中. 
+generate-resources
+process-resources
+compile 编译项目的主源码:编译src/main/java下的java文件至项目输出的主classpath目录中.
+process-classes
+generate-test-sources
+process-test-sources 处理项目测试资源文件:对src/test/resources目录的内容进行变量替换等工作后, 复制到项目输出的测试classpath目录中.
+generate-test-resources
+process-test-resources
+test-compile 编译项目的测试代码:编译src/test/java目录下的java文件至项目输出的测试classpath目录中.
+process-test-classes
+test 使用单元测试框架运行测试, 测试代码不会被打包或部署.
+prepare-package
+package 接受编译好的代码, 打包成可发布的格式,如jar
+pre-integration-test
+integration-test
+post-integration-test
+verify
+install 将包安装到maven本地仓库.
+deploy	将最终的包复制到远程仓库.
+```
+
+3.site生命周期
+
+建立和发布项目站点, maven能基于pom所包含的信息, 自动生成一个友好的站点.
+
+```
+pre-site 执行一些在生成项目站点之前需要完成的工作.
+site 生成项目站点文档.
+post-site 执行一些在生成项目站点之后需要完成的工作.
+site-deploy 将生成的项目站点发布到服务器上.
+```
+
+### 命令行
+
+命令行执行Maven任务: 通过调用Maven的生命周期阶段. 常见的有:
+
+```
+$mvn clean:调用clean生命周期的clean阶段.即实际执行clean生命周期的pre-clean和clean阶段.
+$mvm test:调用default生命周期的test阶段.
+$mvn clean install:调用clean生命周期的clean阶段和default生命周期的install阶段.该命令结合了两个生命周期:在执行构建时清理项目是一个很好的实践.
+$mvn clean deploy site-deploy:...
+```
+
+## 插件
+
+maven的核心仅定义了抽象的生命周期, **具体任务是交由插件完成的, 插件以独立的构建形式存在**, 因此maven核心的分发包很小, 只会在需要的时候下载并使用插件.
+
+而一个插件为了复用代码, 往往能完成多个任务, **对应多个目标**, 如maven-depdendency-plugin能基于项目依赖做很多事情:
+
+dependency:analyze插件目标能分析项目依赖;
+
+dependency:tree能列出项目的依赖树;
+
+dependency:list能列出项目所有已解析的依赖;
+
+...
+
+**插件的目标与生命周期的阶段相互绑定**, 以完成某个具体的构建任务, 如maven-compile-plugin插件的compile目标能完成default生命周期的compile阶段, 完成项目编译任务.
+
+为了在不进行任何maven配置下构建maven项目, maven核心为一些**主要生命周期阶段绑定了很多插件的目标**, 当用户通过命令行调用生命周期阶段时, 对应的插件目标就会执行相应的任务(反向绑定?). 如clean生命周期的clean阶段与maven-clean-plugin:clean绑定
+
+如何自定义将某个插件目标绑定到生命周期的某个阶段?
+
+可通过plugin->executions->execution添加任务, 其下的id指定任务名称(随意), phrase指定要绑定的生命周期阶段, goals->goal指定要执行的插件目标.
+
+随后运行mvn+phrase标签指定的阶段即可执行该插件的goal标签指定的目标.
+
+> 通过maven-help-plugin查看插件详细信息, 了解插件目标的默认绑定阶段, 如:
+>
+> mvn help:describe-Dplugin = org.apache.maven.pluguins:maven-source-plugin:2.1.1-Ddetail
+>
+> 每个目标下的Bound to phase指定了该目标默认绑定的生命周期阶段
+
+### 插件配置
+
+完成了插件与生命周期绑定后, 可配置插件目标参数
+
+命令行可使用-D+参数键=参数值的形式(-D为java自带)
+
+POM全局配置方式可一次性配置之后所有基于该插件目标的任务都会使用该配置, 如可参考通过maven-compile-plugin插件指定编译的java版本
 
 # 测试
 
@@ -45,28 +149,9 @@ POM(Project Object Model, 项目对象模型)定义了项目的基本信息, 用
 </plugin>
 ```
 
-## archetype插件生成项目骨架
 
 
-
-
-
-
-
-### Classfilier
-
-```
-<dependency>  
-    <groupId>net.sf.json-lib</groupId>   
-    <artifactId>json-lib</artifactId>   
-    <version>2.2.2</version>  
-    <classifier>jdk13</classifier>    
-</dependency>
-```
-
-
-
-## maven私服
+# maven私服
 
 ### 私服说明 
 

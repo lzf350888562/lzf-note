@@ -244,7 +244,7 @@ https://gitee.com/beijing_hongye_huicheng/lilishop
 
 [数据库表结构生成](https://hub.fastgit.org/pingfangushi/screw)
 
-[支付系统](https://hub.fastgit.org/roncoo/roncoo-pay)
+[支付系统](https://gitee.com/roncoocom/roncoo-pay?_from=gitee_search)
 
 [spring-boot-pay](https://gitee.com/52itstyle/spring-boot-pay)
 

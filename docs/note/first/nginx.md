@@ -1,4 +1,6 @@
-# 安装与使用 
+# 安装
+
+**方式一**
 
 centos7安装nginx
 
@@ -28,7 +30,25 @@ cat "hello world" > index.html  #修改页面内容
 
 可修改默认端口然后restart再访问
 
+**方式二**
+
+bin形式
+
+```
+./configure
+make
+make install
+```
+
+configure 做准备工作，包括检测操作系统内核和已 经安装的软件，参数的解析，中间目录的生成以及根据各种参数生成一 些C源码文件、Makefile文件等。
+
+make命令根据configure命令生成的Makefile文件编译Nginx工程，并生成目标文件、最终的二进制文件。 
+
+make install命令根据configure执行时的参数将Nginx部署到指定的安 装目录，包括相关目录的建立和二进制文件、配置文件的复制。
+
 # 反向代理
+
+转发前端请求
 
 nginx80代理tomcat8080
 
