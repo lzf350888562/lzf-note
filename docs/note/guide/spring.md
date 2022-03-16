@@ -1,93 +1,20 @@
 # 设计模式
 
-**工厂设计模式** : Spring 使用工厂模式通过 `BeanFactory`、`ApplicationContext` 创建 bean 对象。
+**工厂设计模式** : Spring 使用工厂模式通过 `BeanFactory`(懒注入)、`ApplicationContext`(一次性注入且功能更丰富) 创建 bean 对象。
 
-两者对比：
+**代理设计模式** : Spring AOP -> JDK/CGLIB
 
-- `BeanFactory` ：延迟注入(使用到某个 bean 的时候才会注入),相比于`ApplicationContext` 来说会占用更少的内存，程序启动速度更快。
-- `ApplicationContext` ：容器启动的时候，不管你用没用到，一次性创建所有 bean 。`BeanFactory` 仅提供了最基本的依赖注入支持，`ApplicationContext` 扩展了 `BeanFactory` ,除了有`BeanFactory`的功能还有额外更多功能，所以一般开发人员使用`ApplicationContext`会更多。
+**单例设计模式** : 默认Bean
 
-
-
-**代理设计模式** : Spring AOP 功能的实现。如果要代理的对象，实现了某个接口，那么Spring AOP会使用**JDK Proxy**，去创建代理对象，而对于没有实现接口的对象，就无法使用 JDK Proxy 去进行代理了，这时候Spring AOP会使用**Cglib** ，这时候Spring AOP会使用 **Cglib** 生成一个被代理对象的子类来作为代理.
-
-
-
-**单例设计模式** : Spring 中的 Bean 默认都是单例的。Spring 通过 `ConcurrentHashMap` 实现单例注册表的特殊方式实现单例模式。
-
-```
-// 通过 ConcurrentHashMap（线程安全） 实现单例注册表
-private final Map<String, Object> singletonObjects = new ConcurrentHashMap<String, Object>(64);
-
-public Object getSingleton(String beanName, ObjectFactory<?> singletonFactory) {
-        Assert.notNull(beanName, "'beanName' must not be null");
-        synchronized (this.singletonObjects) {
-            // 检查缓存中是否存在实例  
-            Object singletonObject = this.singletonObjects.get(beanName);
-            if (singletonObject == null) {
-                //...省略了很多代码
-                try {
-                    singletonObject = singletonFactory.getObject();
-                }
-                //...省略了很多代码
-                // 如果实例对象在不存在，我们注册到单例注册表中。
-                addSingleton(beanName, singletonObject);
-            }
-            return (singletonObject != NULL_OBJECT ? singletonObject : null);
-        }
-    }
-    //将对象添加到单例注册表
-    protected void addSingleton(String beanName, Object singletonObject) {
-            synchronized (this.singletonObjects) {
-                this.singletonObjects.put(beanName, (singletonObject != null ? singletonObject : NULL_OBJECT));
-
-            }
-        }
-}
-```
-
-**模板方法模式** : Spring 中 `jdbcTemplate`、`hibernateTemplate` 等以 Template 结尾的对数据库操作的类，它们就使用到了模板模式。一个抽象类公开定义了执行它的方法的方式/模板。它的子类可以按需要重写方法实现，但调用将以抽象类中定义的方式进行。这种类型的设计模式属于行为型模式。
-
-```
-public abstract class Game {
-   abstract void initialize();
-   abstract void startPlay();
-   abstract void endPlay();
-   //模板
-   public final void play(){
-      //初始化游戏
-      initialize();
-      //开始游戏
-      startPlay();
-      //结束游戏
-      endPlay();
-   }
-}
-```
+**模板方法模式** : 如jdbcTemplate
 
 **装饰者模式** : 允许向一个现有的对象添加新的功能，同时又不改变其结构。比如 `InputStream`家族.
 
-Spring 中用到的包装器模式在类名上含有 `Wrapper`或者 `Decorator`。这些类基本上都是动态地给一个对象添加一些额外的职责
+Spring 中用到的包装器模式在类名上含有 `Wrapper`或者 `Decorator`。如HttpServletRequestWrapper
 
-**观察者模式:** Spring 事件驱动模型就是观察者模式很经典的一个应用。
+**观察者模式:** Spring 事件驱动模型
 
-Spring事件模型中三个角色:
-
-事件ApplicationEvent,它继承了`java.util.EventObject`并实现了 `java.io.Serializable`接口
-
-监听者ApplicationListener,里面只定义了一个 `onApplicationEvent（）`方法来处理`ApplicationEvent`
-
-发布者ApplicationEventPublisher,接口的`publishEvent（）`这个方法在`AbstractApplicationContext`类中被实现,通过`ApplicationEventMulticaster`来广播出去
-
-**适配器模式** : Spring AOP 的增强(Advice)或通知使用到了适配器模式、spring MVC 中也是用到了适配器模式适配`Controller`。
-
-在AOP中:
-
-与`Advice`之相关的接口是`AdvisorAdapter` 。Advice 常用的类型有：`BeforeAdvice`（目标方法调用前,前置通知）、`AfterAdvice`（目标方法调用后,后置通知）、`AfterReturningAdvice`(目标方法执行结束后，return之前)等等。每个类型Advice（通知）都有对应的拦截器:`MethodBeforeAdviceInterceptor`、`AfterReturningAdviceAdapter`、`AfterReturningAdviceInterceptor`。Spring预定义的通知要通过对应的适配器，适配成 `MethodInterceptor`接口(方法拦截器)类型的对象（如：`MethodBeforeAdviceInterceptor` 负责适配 `MethodBeforeAdvice`）。
-
-在MVC中:
-
-`DispatcherServlet` 根据请求信息调用 `HandlerMapping`，解析请求对应的 `Handler`。解析到对应的 `Handler`（也就是我们平常说的 `Controller` 控制器）后，开始由`HandlerAdapter` 适配器处理。`HandlerAdapter` 作为期望接口，具体的适配器实现类用于对目标类进行适配，`Controller` 作为需要适配的类。
+**适配器模式** : Spring AOP 的增强(AdvisorAdapter适配通知)和spring MVC 中的HanderMapping(HandlerAdapter适配控制器)。
 
 # URL中的Ant匹配
 
@@ -124,7 +51,7 @@ Ant 中的通配符有三种：
 
 ## Bean
 
-声明周期![Spring Bean 生命周期](picture/24bc2bad3ce28144d60d9e0a2edf6c7f.jpg)
+生命周期![Spring Bean 生命周期](picture/24bc2bad3ce28144d60d9e0a2edf6c7f.jpg)
 
 bean定义信息   -->
 
@@ -172,9 +99,9 @@ BeanDefinition  bean定义信息   -->  ioc容器
 
 ### BeanFactory
 
-1. ApplicationContext 继承了 ListableBeanFactory，这个 Listable 的意思就是，通过这个接口，我们可以获取多个 Bean，大家看源码会发现，最顶层 BeanFactory 接口的方法都是获取单个 Bean 的。
-2. ApplicationContext 继承了 HierarchicalBeanFactory，Hierarchical 单词本身已经能说明问题了，也就是说我们可以在应用中起多个 BeanFactory，然后可以将各个 BeanFactory 设置为父子关系。
-3. AutowireCapableBeanFactory 用来自动装配 Bean 用的，但是ApplicationContext 并没有继承它，不过不使用继承，不代表不可以使用组合，如果你看到 ApplicationContext 接口定义中的最后一个方法 getAutowireCapableBeanFactory() 就知道了。
+1. ApplicationContext 继承了 ListableBeanFactory，通过这个接口，可以获取多个 Bean.  而最顶层 BeanFactory 接口的方法都是获取单个 Bean 的。
+2. ApplicationContext 继承了 HierarchicalBeanFactory，可以在应用中起多个 BeanFactory，然后可以将各个 BeanFactory 设置为父子关系。
+3. AutowireCapableBeanFactory 用来自动装配 Bean 用的，ApplicationContext 并没有继承它，但 getAutowireCapableBeanFactory() 方法使用到了。
 4. ConfigurableListableBeanFactory 也是一个特殊的接口，继承了ListableBeanFactory、AutowireCapableBeanFactory和ConfigurableBeanFactory
 
 ### refresh

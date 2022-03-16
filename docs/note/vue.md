@@ -167,7 +167,7 @@ module.exports = {
 
 # router
 
-## 新标签页跳转
+**路由解析**
 
 ```
 let newUrl = this.$router.resolve({
@@ -177,19 +177,12 @@ let newUrl = this.$router.resolve({
 		xxx:xxx
 	},
 	params:{
-		xxx:Xxx,
-		
+		xxx:Xxx,		
 	}
 })
 ```
 
-## 懒加载路由
-
-```
-component: (resolve) => require(['@/views/redirect'], resolve)
-```
-
-## 页面标题变化
+**页面标题变化**
 
 ```
 router.beforeEach((to,from,next)=>{

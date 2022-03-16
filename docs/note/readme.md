@@ -24,7 +24,7 @@ GCViewer
 
 Arthas
 
-GCEasy[](https://docs.oracle.com/javase/8/docs/technotes/tools/unix/java.html)
+GCEasy
 
 **其他**
 

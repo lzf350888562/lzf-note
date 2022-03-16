@@ -1135,6 +1135,11 @@ MySQL binlog主要记录了 MySQL 数据库中数据的所有变化(数据库执
 
 ![img](picture/webp.webp)
 
+1.Master 数据库只要发生变化，立马记录到Binary log 日志文件中
+ 2.Slave数据库启动一个I/O thread连接Master数据库，请求Master变化的二进制日志
+ 3.Slave I/O获取到的二进制日志，保存到自己的Relay log 日志文件中。
+ 4.Slave 有一个 SQL thread定时检查Realy log是否变化，变化那么就更新数据
+
 MySQL主从同步方案有异步复制, 半同步复制(保证一台从节点同步), MHA, 全同步复制(mgr, 有许多限制)
 
 除了主从复制之外，binlog 还能帮助我们实现数据恢复。
