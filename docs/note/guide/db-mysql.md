@@ -1125,7 +1125,7 @@ MySQL折中方案:从 MySQL 5.7.6 开始，MySQL内置了[ngram全文解析器](
 
 
 
-# 高并发下的mysql
+# mysql高可用高性能
 
 ![mysql集群图](picture/mysql集群图.png)
 
@@ -1234,7 +1234,7 @@ hintManager.setMasterRouteOnly();
 
 2.大表:低频访问的字段,大字段
 
-### 分片规则
+### 分片规则(一致性HASH)
 
 范围法,对分片键进行范围划分,mysql默认提供的特性(分区表) ,易扩展,适用于范围检索,但数据不均匀, 局部负载大,只适用于流水账应用(按时间分片)
 

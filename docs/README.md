@@ -1,18 +1,10 @@
-# Java
-
 [基础](note/guide/base.md "基础理论")
 
 [多线程](note/guide/thread.md "thread")
 
-[Spring](note/guide/spring.md "spring理论")
-
-[Spring Cloud](note/guide/springcloud.md "cloud")
-
-[框架](note/guide/framework.md "框架")
-
 [分布式](note/guide/distributed.md "分布式")
 
-# 数据库与中间件
+# 数据库
 
 [MySQL](note/guide/db-mysql.md "mysql")
 
@@ -20,9 +12,9 @@
 
 [其他数据库](note/guide/db-other.md "other")
 
-[中间件](note/guide/middleware.md "中间件")
+## 中间件
 
-## 其他
+[中间件](note/guide/middleware.md "中间件")
 
 [业务场景](note/guide/other.md "other")
 
@@ -30,7 +22,7 @@
 
 [服务器](note/guide/server.md "服务器")
 
-# 使用笔记(旧)
+# 使用笔记
 
 [Spring](note/springboot-common.md "spring")
 
@@ -57,6 +49,14 @@
 [消息队列](note/mq.md "mq")
 
 [Nginx](note/first/nginx.md "nginx")
+
+## 阅读
+
+[Spring](note/guide/spring.md "spring理论")
+
+[Spring Cloud](note/guide/springcloud.md "cloud")
+
+[框架](note/guide/framework.md "框架")
 
 # 网课笔记
 

@@ -1168,54 +1168,7 @@ protected boolean tryAcquire(int arg) {
 
 ## JUC
 
-**同步容器和并发容器**
 
-[同步容器与并发容器类简介](https://blog.csdn.net/u012777670/article/details/82313750)
-
-java.util包下提供了一些容器类，而Vector和Hashtable是线程安全的容器类，但是这些容器实现同步的方式是通过对方法加锁(sychronized)方式实现的，这样读写均需要锁操作，导致性能低下。
-
-而即使是Vector这样线程安全的类，在面对多线程下的复合操作的时候也是需要通过客户端加锁的方式保证原子性。如下面例子说明:
-
-```java
-public class TestVector {
-    private Vector<String> vector;
-
-    //方法一
-    public  Object getLast(Vector vector) {
-        int lastIndex = vector.size() - 1;
-        return vector.get(lastIndex);
-    }
-
-    //方法二
-    public  void deleteLast(Vector vector) {
-        int lastIndex = vector.size() - 1;
-        vector.remove(lastIndex);
-    }
-
-    //方法三
-    public  Object getLastSysnchronized(Vector vector) {
-        synchronized(vector){
-            int lastIndex = vector.size() - 1;
-            return vector.get(lastIndex);
-        }
-    }
-
-    //方法四
-    public  void deleteLastSysnchronized(Vector vector) {
-        synchronized (vector){
-            int lastIndex = vector.size() - 1;
-            vector.remove(lastIndex);
-        }
-    }
-
-}
-```
-
-如果方法一和方法二为一个组合的话。那么当方法一获取到了`vector`的size之后，方法二已经执行完毕，这样就导致程序的错误。
-
-如果方法三与方法四组合的话。通过锁机制保证了在`vector`上的操作的原子性。
-
-并发容器是Java 5 提供的在多线程编程下用于代替同步容器，针对不同的应用场景进行设计，提高容器的并发访问性，同时定义了线程安全的复合操作。
 
 ![img](picture/并发容器.png)
 
