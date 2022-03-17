@@ -1,4 +1,4 @@
-[基础](note/guide/base.md "基础理论")
+[Java](note/guide/base.md "基础理论")
 
 [多线程](note/guide/thread.md "thread")
 
@@ -12,7 +12,7 @@
 
 [其他数据库](note/guide/db-other.md "other")
 
-## 中间件
+# 中间件
 
 [中间件](note/guide/middleware.md "中间件")
 
@@ -34,13 +34,13 @@
 
 [数据库](note/db.md "数据库")
 
-[持久层](note/dao.md "持久层")
+[持久层框架](note/dao.md "持久层")
 
-[日志](note/log.md "日志")
+[日志框架](note/log.md "日志")
 
 [Json](note/json2j.md "json")
 
-[安全](note/safe.md "安全相关")
+[安全框架](note/safe.md "安全相关")
 
 [工具](note/util.md "工具")
 
@@ -50,7 +50,7 @@
 
 [Nginx](note/first/nginx.md "nginx")
 
-## 阅读
+# 阅读笔记
 
 [Spring](note/guide/spring.md "spring理论")
 
