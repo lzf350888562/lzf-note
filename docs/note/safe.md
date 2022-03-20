@@ -294,19 +294,17 @@ public class BrowserSecurityConfig extends WebSecurityConfigurerAdapter {
 以下方式能实现简单方式认证并限制角色访问(固定账号密码并给与ADMIN角色):
 
 ```
- @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
-    }
- @Override
-    public void configure(AuthenticationManagerBuilder auth) throws Exception {
-
-        User.UserBuilder builder = User.builder().passwordEncoder(passwordEncoder()::encode);
-        auth.inMemoryAuthentication().withUser(builder.username(username).password(password).roles("ADMIN").build());
-    }
-    @Override
-    protected void configure(HttpSecurity http) throws Exception {
-        http.csrf().disable()//禁用了 csrf 功能
+@Bean
+public PasswordEncoder passwordEncoder() {
+    return new BCryptPasswordEncoder();
+}
+@Override
+public void configure(AuthenticationManagerBuilder auth) throws Exception {
+    User.UserBuilder builder = User.builder().passwordEncoder(passwordEncoder()::encode);     auth.inMemoryAuthentication().withUser(builder.username(username).password(password).roles("ADMIN").build());
+}
+@Override
+protected void configure(HttpSecurity http) throws Exception {
+     http.csrf().disable()//禁用了 csrf 功能
                 .authorizeRequests()//限定签名成功的请求
                 .antMatchers("/**").hasRole("ADMIN")
                 .anyRequest().permitAll()//其他没有限定的请求，允许访问
@@ -2262,11 +2260,9 @@ public interface AuthorizationManager<T> {
 
 # OAuth2
 
-[OAuth](https://oauth.net/2/)是一种用来规范令牌（Token）发放的授权机制，主要包含了四种授权模式：授权码模式、简化模式、密码模式和客户端模式。Spring Security OAuth2对这四种授权模式进行了实现。
+[OAuth](https://oauth.net/2/)是一种用来规范令牌（Token）发放的授权机制
 
 http://www.ruanyifeng.com/blog/2014/05/oauth_2_0.html 阮一峰讲auth2
-
-https://datatracker.ietf.org/doc/html/rfc6749#section-4.1 RFC6749 The OAuth 2.0 Authorization Framework书籍
 
 **四种授权模式**
 

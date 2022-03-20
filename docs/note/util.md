@@ -300,6 +300,10 @@ response.addHeader("Content-Length","" + file.length());
 
 # poi
 
+微软office在线预览URL: https://view.officeapps.live.com/op/view.aspx
+
+后接src参数为预览文件地址
+
 ## poi原生
 
 ```

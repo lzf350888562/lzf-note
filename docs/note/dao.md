@@ -553,8 +553,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
 # mybatis
 
-[**代码生成**](http://mybatis.org/generator/)
-
 ```
 <dependency>
 		<groupId>org.mybatis.spring.boot</groupId>
