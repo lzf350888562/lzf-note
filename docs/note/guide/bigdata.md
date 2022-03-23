@@ -67,6 +67,8 @@ Region服务器负责存储和维护分配给自己的Region，处理来自客�
 
 # ElasticSearch
 
+Lucene穿了一件json的外套就是ElasticSearch, 相较于Solr, 内置了对分布式集群和分布式索引的管理
+
 ## 分词与倒排索引
 
 英文分词容易.

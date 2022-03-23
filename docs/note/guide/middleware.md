@@ -45,53 +45,21 @@
 
 ## 消息服务规范
 
-**1.JMS**
+1.JMS（JAVA Message Service,java 消息服务）
 
-JMS（JAVA Message Service,java 消息服务）是 java 的消息服务，JMS 的客户端之间可以通过 JMS 服务进行异步的消息传输。**JMS（JAVA Message Service，Java 消息服务）API 是一个消息服务的标准或者说是规范**，允许应用程序组件基于 JavaEE 平台创建、发送、接收和读取消息。它使分布式通信耦合度更低，消息服务更加可靠以及异步性。
+①点到点（P2P）模型
 
-比如ActiveMQ
+使用队列（Queue）作为消息通信载体；满足生产者与消费者模式，一条消息只能被一个消费者使用，未被消费的消息在队列中保留直到被消费或超时。
 
-**JMS两种消息模型**:
+②发布/订阅（Pub/Sub）模型
 
-①**点到点（P2P）模型**
+发布订阅模型（Pub/Sub） 使用主题（Topic）作为消息通信载体，类似于广播模式；发布者发布一条消息，该消息通过主题传递给所有的订阅者，在一条消息广播之后才订阅的用户则是收不到该条消息的。
 
-使用**队列（Queue）作为消息通信载体；满足生产者与消费者模式**，一条消息只能被一个消费者使用，未被消费的消息在队列中保留直到被消费或超时。
+2.AMQP
 
-②**发布/订阅（Pub/Sub）模型**
+AMQP 天然具有跨平台、跨语言特性。并AMQP 可以提供多样化的路由方式来传递消息到消息队列.
 
-发布订阅模型（Pub/Sub） 使用**主题（Topic）作为消息通信载体，类似于广播模式**；发布者发布一条消息，该消息通过主题传递给所有的订阅者，**在一条消息广播之后才订阅的用户则是收不到该条消息的**。
-
-
-
-**JMS 五种不同的消息正文格式**:
-
-StreamMessage -- Java 原始值的数据流
-
-MapMessage --一套名称-值对
-
-TextMessage --一个字符串对象
-
-ObjectMessage --一个序列化的 Java 对象
-
-BytesMessage --一个字节的数据流
-
-
-
-**2.AMQP**
-
-| 对比方向     | JMS                                     | AMQP                                                         |
-| :----------- | :-------------------------------------- | :----------------------------------------------------------- |
-| 定义         | Java API                                | 协议                                                         |
-| 跨语言       | 否                                      | 是                                                           |
-| 跨平台       | 否                                      | 是                                                           |
-| 支持消息类型 | 提供两种消息模型：①Peer-2-Peer;②Pub/sub | 提供了五种消息模型：①direct exchange；②fanout exchange；③topic change；④headers exchange；⑤system exchange。本质来讲，后四种和 JMS 的 pub/sub 模型没有太大差别，仅是在路由机制上做了更详细的划分； |
-| 支持消息类型 | 支持5种消息类型                         | byte[]（二进制）                                             |
-
-AMQP 为消息定义了线路层（wire-level protocol）的协议，而 JMS 所定义的是 API 规范。在 Java 体系中，多个 client 均可以通过 JMS 进行交互，不需要应用修改代码，但是其对跨平台的支持较差。而 AMQP 天然具有跨平台、跨语言特性。
-
-JMS 支持 TextMessage、MapMessage 等复杂的消息类型；而 AMQP 仅支持 byte[] 消息类型（复杂的类型可序列化后发送）。
-
-由于 Exchange 提供的路由算法，AMQP 可以提供多样化的路由方式来传递消息到消息队列，而 JMS 仅支持 队列 和 主题/订阅 方式两种。
+3.MQTT
 
 ## 消息传递
 
@@ -588,13 +556,13 @@ Rocket提供了**回查机制**解决此问题, 此时我们定义的监听器�
 
 ![图1-RabbitMQ 的整体模型架构](picture/96388546.jpg)
 
-**Exchange(交换机 RabbitMQ独有):**
+高级消息队列AMQ模型 定义的三个抽象组件:
 
-在 RabbitMQ 中，消息并不是直接被投递到 **Queue(消息队列)** 中的，中间还必须经过 **Exchange(交换器)** 这一层，**Exchange(交换器)** 会把我们的消息分发到对应的 **Queue(消息队列)** 中。
+1.Exchange: 用于把消息路由到队列;
 
-**Exchange(交换器)** 用来接收生产者发送的消息并将这些消息路由给服务器中的队列中，如果路由不到，或许会返回给 **Producer(生产者)** ，或许会被直接丢弃掉 。这里可以将RabbitMQ中的交换器看作一个简单的实体。
+2.Queue:负责存储接收到的消息, 然后顺序 投递
 
-**RabbitMQ 的 Exchange(交换器) 有4种类型，不同的类型对应着不同的路由策略**：**direct(默认)**，**fanout**, **topic**, 和 **headers**，不同类型的Exchange转发消息的策略有所区别。这个会在介绍 **Exchange Types(交换器类型)** 的时候介绍到。
+3.Binding: 用于告诉交换机消息应该被存储到哪个队列;
 
 生产者将消息发给交换器的时候，一般会指定一个 **RoutingKey(路由键)**，用来指定这个消息的路由规则，而这个 **RoutingKey 需要与交换器类型和绑定键(BindingKey)联合使用才能最终生效**。
 
@@ -604,57 +572,30 @@ RabbitMQ 中通过 **Binding(绑定)** 将 **Exchange(交换器)** 与 **Queue(�
 
 
 
-**Queue(消息队列)**
-
-**Queue(消息队列)** 用来保存消息直到发送给消费者。它是消息的容器，也是消息的终点。一个消息可投入一个或多个队列。消息一直在队列里面，等待消费者连接到这个队列将其取走。
-
-**RabbitMQ** 中消息只能存储在 **队列** 中，这一点和 **Kafka** 这种消息中间件相反。Kafka 将消息存储在 **topic（主题）** 这个逻辑层面，而相对应的队列逻辑只是topic实际存储文件中的位移标识。 RabbitMQ 的生产者生产消息并最终投递到队列中，消费者可以从队列中获取消息并消费。
-
-**多个消费者可以订阅同一个队列**，这时队列中的消息会被平均分摊（Round-Robin，即轮询）给多个消费者进行处理，而不是每个消费者都收到所有的消息并处理，这样避免消息被重复消费。
-
-**RabbitMQ** 不支持队列层面的广播消费,如果有广播消费的需求，需要在其上进行二次开发,这样会很麻烦，不建议这样做。
-
-
-
-**Broker（消息中间件的服务节点）**
-
-对于 RabbitMQ 来说，一个 RabbitMQ Broker 可以简单地看作一个 RabbitMQ 服务节点，或者RabbitMQ服务实例。大多数情况下也可以将一个 RabbitMQ Broker 看作一台 RabbitMQ 服务器。
-
-下图展示了生产者将消息存入 RabbitMQ Broker,以及消费者从Broker中消费数据的整个流程。![消息队列的运转过程](picture/67952922.jpg)
+**Broker（消息中间件的服务节点）**![消息队列的运转过程](picture/67952922.jpg)
 
 
 
  **Exchange Types(交换器类型)**
 
-RabbitMQ 常用的 Exchange Type 有 **fanout**、**direct**、**topic**、**headers** 这四种（AMQP规范里还提到两种 Exchange Type，分别为 system 与 自定义，这里不予以描述）。
-
 ① fanout
 
-fanout 类型的Exchange路由规则非常简单，它会把所有发送到该Exchange的消息路由到所有与它绑定的Queue中，不需要做任何判断操作，所以 fanout 类型是所有的交换机类型里面速度最快的。fanout 类型常用来广播消息。
+把所有发送到该Exchange的消息路由到所有与它绑定的Queue中，不需要做任何判断操作，所以 fanout 类型是所有的交换机类型里面速度最快的。fanout 类型常用来广播消息。
 
 ② direct
 
-direct 类型的Exchange路由规则也很简单，它会把消息路由到那些 Bindingkey 与 RoutingKey 完全匹配的 Queue 中。![direct 类型交换器](picture/37008021.jpg)
-
-以上图为例，如果发送消息的时候设置路由键为“warning”,那么消息会路由到 Queue1 和 Queue2。如果在发送消息的时候设置路由键为"Info”或者"debug”，消息只会路由到Queue2。如果以其他的路由键发送消息，则消息不会路由到这两个队列中。
+把消息路由到那些 Bindingkey 与 RoutingKey 完全匹配的 Queue 中。![direct 类型交换器](picture/37008021.jpg)
 
 direct 类型常用在处理有优先级的任务，根据任务的优先级把消息发送到对应的队列，这样可以指派更多的资源去处理高优先级的队列。
 
 ③ topic
 
-前面讲到direct类型的交换器路由规则是完全匹配 BindingKey 和 RoutingKey ，但是这种严格的匹配方式在很多情况下不能满足实际业务的需求。topic类型的交换器在匹配规则上进行了扩展，它与 direct 类型的交换器相似，也是将消息路由到 BindingKey 和 RoutingKey 相匹配的队列中，但这里的匹配规则有些不同，它约定：
+也是将消息路由到 BindingKey 和 RoutingKey 相匹配的队列中，但这里的匹配规则有些不同，它约定：
 
 - RoutingKey 为一个点号“．”分隔的字符串（被点号“．”分隔开的每一段独立的字符串称为一个单词），如 “com.rabbitmq.client”、“java.util.concurrent”、“com.hidden.client”;
 - BindingKey 和 RoutingKey 一样也是点号“．”分隔的字符串；
-- BindingKey 中可以存在两种特殊字符串“*”和“#”，用于做模糊匹配，其中“*”用于匹配一个单词，“#”用于匹配多个单词(可以是零个)。
-
-以上图为例：
-
-- 路由键为 “com.rabbitmq.client” 的消息会同时路由到 Queue1 和 Queue2;
-- 路由键为 “com.hidden.client” 的消息只会路由到 Queue2 中；
-- 路由键为 “com.hidden.demo” 的消息只会路由到 Queue2 中；
-- 路由键为 “java.rabbitmq.demo” 的消息只会路由到 Queue1 中；
-- 路由键为 “java.util.concurrent” 的消息将会被丢弃或者返回给生产者（需要设置 mandatory 参数），因为它没有匹配任何路由键。
+- BindingKey 中可以存在两种特殊字符串`*`和`#`，用于做模糊匹配，其中`*`用于匹配一个单词，`#`用于匹配多个单词(可以是零个)。
+- 
 
  ④ headers(不推荐)
 

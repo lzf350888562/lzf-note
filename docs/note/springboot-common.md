@@ -304,6 +304,21 @@ public class SpringBootPlusConfig {
 
 > 使用方式1和2会在classpath:/META-INF下生成spring-configuration-metadata.json记录所有配置元数据
 
+4.@Configuration+@Bean+@ConfigurationProperties
+
+```
+@Configuration
+public class SpringBootPlusConfig {
+	@Bean   			
+	@ConfigurationProperties("my.prop")
+    public XXX xxx(MyProperties myProperties){
+        
+    }
+}
+```
+
+
+
 ## @PropertySource
 
 springboot引入其他配置文件方式(与的区别)
@@ -407,7 +422,7 @@ org.springframework.context.ApplicationListener=  com.didispace.ApplicationPrepa
 
 在使用Spring构建的应用程序中，适当使用事件发布与监听的机制可以使我们的代码灵活度更高，降低耦合度。Spring提供了完整的事件发布与监听模型，在该模型中，事件发布方只需将事件发布出去，无需关心有多少个对应的事件监听器；监听器无需关心是谁发布了事件，并且可以同时监听来自多个事件发布方发布的事件，通过这种机制，事件发布与监听是解耦的。
 
-## 
+
 
 ```
 @Component

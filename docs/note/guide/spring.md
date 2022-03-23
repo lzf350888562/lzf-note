@@ -6,9 +6,9 @@
 
 **单例设计模式** : 默认Bean
 
-**模板方法模式** : 如jdbcTemplate
+**模板方法模式** : Spring中应用广泛, 如AbstractEnviroment提供的customizePropertySources方法让子类自定义添加PropertySource, 类似有许多以customize开头的方法, 还有xxxTemplate类也使用了该设计模式
 
-**装饰者模式** : 允许向一个现有的对象添加新的功能，同时又不改变其结构。比如 `InputStream`家族.
+**装饰者模式** : 允许向一个现有的对象添加新的功能，同时又不改变其结构。比如 `InputStream`.
 
 Spring 中用到的包装器模式在类名上含有 `Wrapper`或者 `Decorator`。如HttpServletRequestWrapper
 
@@ -150,7 +150,7 @@ beanFactory的准备工作, 对其各种属性进行填充.
 
 5.invokeBeanFactoryPostProcessors(beanFactory)
 
-调用各种BeanFactoryPostProcessor的postProcessBeanFactory(factory)方法
+调用各种BeanFactoryPostProcessor的postProcessBeanFactory(factory)方法, 此时因为bean未初始化, 所以在BeanFactoryPostProcessor对象中获取bean会导致提前初始化。
 
 6.registerBeanPostProcessors(beanFactory)
 
@@ -250,31 +250,9 @@ private final Map<String, Object> earlySingletonObjects = new ConcurrentHashMap<
 
 第三级缓存原因在于使用aop代理问题, 为保证注入的对象不是原始对象, 需要提前创建代理对象.
 
-## Enviroment
 
-为用户提供方便的服务接口，用于配置属性源并从中解析属性。
 
-### PropertySource
 
-用于存放key-value对象的抽象，子类需要实现getProperty(String name)返回对应的Value方法，其中value可以是任何类型不局限在字符串.
-
-StandardEnvironment配置了两个PropertySource对象 - 一个表示JVM系统属性集`System.getProperties（）`，另一个表示系统环境变量集`System.getenv（）`。
-
-如果想要集成到此搜索中的自定义属性源。为此，请实现并实例化你自己的 PropertySource，并将其添加到当前环境的 PropertySource 集合中:
-
-```java
-ConfigurableApplicationContext ctx = new GenericApplicationContext();
-MutablePropertySources sources = ctx.getEnvironment().getPropertySources();
-sources.addFirst(new MyPropertySource());
-```
-
-通过@PropertySource添加配置源
-
-```
-@PropertySource("classpath:/com/${my.placeholder:default/path}/app.properties")
-```
-
-并且, @PropertySource资源位置中存在的任何 ${...} 占位符都将根据已针对环境注册的属性源集进行解析. 如果my.placeholder 存在于已注册的某个属性源（例如，系统属性或环境变量）中，则该占位符将解析为相应的值。如果不是，则默认/路径用作默认值。如果未指定默认值，并且无法解析属性，则会引发非法参数异常。
 
 ## PropertySourceLocator
 
@@ -647,294 +625,31 @@ public class PropertySourcesPropertyResolver extends AbstractPropertyResolver {
 
 ### Environment
 
-这个接口代表了当前应用正在运行的环境，为应用的两个重要方面建立抽象模型 【profiles】和【properties】。关于属性访问的方法通过父接口PropertyResolver暴露给客户端使用，本接口主要是扩展出访问【profiles】相关的接口。
+为用户提供方便的服务接口，用于配置属性源并从中解析属性。
 
-对于他俩，我愿意这么来翻译：
+其中AbstractEnvironment抽象类提供了模板方法供子类实现
 
-profiles：配置。它代表应用在一启动时注册到context中bean definitions的命名的逻辑分组。
-properties：属性。几乎在所有应用中都扮演着重要角色，他可能源自多种源头。例如属性文件，JVM系统属性，系统环境变量，JNDI，servlet上下文参数，Map等等，Environment对象和其相关的对象一起提供给用户一个方便用来配置和解析属性的服务。
+### PropertySource
 
-```
-// @since 3.1   可见Spring3.x版本是Spirng一次极其重要的跨越、升级
-// 它继承自PropertyResolver，所以是对属性的一个扩展~
-public interface Environment extends PropertyResolver {
-	// 就算被激活  也是支持同时激活多个profiles的~
-	// 设置的key是：spring.profiles.active
-	String[] getActiveProfiles();
-	// 默认的也可以有多个  key为：spring.profiles.default
-	String[] getDefaultProfiles();
+用于存放key-value对象的抽象，子类需要实现getProperty(String name)返回对应的Value方法，其中value可以是任何类型不局限在字符串.
 
-	// 看看传入的profiles是否是激活的~~~~  支持!表示不激活
-	@Deprecated
-	boolean acceptsProfiles(String... profiles);
-	// Spring5.1后提供的  用于替代上面方法   Profiles是Spring5.1才有的一个函数式接口~
-	boolean acceptsProfiles(Profiles profiles);
-}
+StandardEnvironment配置了两个PropertySource对象 - 一个表示JVM系统属性集`System.getProperties（）`，另一个表示系统环境变量集`System.getenv（）`。
+
+如果想要集成到此搜索中的自定义属性源。为此，请实现并实例化你自己的 PropertySource，并将其添加到当前环境的 PropertySource 集合中:
+
+```java
+ConfigurableApplicationContext ctx = new GenericApplicationContext();
+MutablePropertySources sources = ctx.getEnvironment().getPropertySources();
+sources.addFirst(new MyPropertySource());
 ```
 
-我们可以通过实现接口`EnvironmentAware`或者直接`@Autowired`可以很方便的得到当前应用的环境：`Environment`。
-
-**ConfigurableEnvironment**
-
-扩展出了`修改`和配置profiles的一系列方法，包括用户自定义的和系统相关的属性。**所有的**环境实现类也都是它的实现~
+通过@PropertySource添加配置源
 
 ```
-// @since 3.1
-public interface ConfigurableEnvironment extends Environment, ConfigurablePropertyResolver {
-	void setActiveProfiles(String... profiles);
-	void addActiveProfile(String profile);
-	void setDefaultProfiles(String... profiles);
-
-	// 获取到所有的属性源~  	MutablePropertySources表示可变的属性源们~~~ 它是一个聚合的  持有List<PropertySource<?>>
-	// 这样获取出来后，我们可以add或者remove我们自己自定义的属性源了~
-	MutablePropertySources getPropertySources();
-
-	// 这里两个哥们应该非常熟悉了吧~~~
-	Map<String, Object> getSystemProperties();
-	Map<String, Object> getSystemEnvironment();
-
-	// 合并两个环境配置信息~  此方法唯一实现在AbstractEnvironment上
-	void merge(ConfigurableEnvironment parent);
-}
+@PropertySource("classpath:/com/${my.placeholder:default/path}/app.properties")
 ```
 
-查看其实现会发现它有两个分支：
-
-ConfigurableWebEnvironment：显然它和web环境有关，提供方法void initPropertySources(@Nullable ServletContext servletContext, @Nullable ServletConfig servletConfig)让web自己做资源初始化.
-AbstractEnvironment：这个是重点:
-
-**AbstractEnvironment**
-
-它是对环境的一个抽象实现，很重要。
-
-```
-public abstract class AbstractEnvironment implements ConfigurableEnvironment {
-
-	public static final String IGNORE_GETENV_PROPERTY_NAME = "spring.getenv.ignore";
-	public static final String ACTIVE_PROFILES_PROPERTY_NAME = "spring.profiles.active";
-	public static final String DEFAULT_PROFILES_PROPERTY_NAME = "spring.profiles.default";
-
-	// 保留的默认的profile值   protected final属性，证明子类可以访问
-	protected static final String RESERVED_DEFAULT_PROFILE_NAME = "default";
-
-
-	private final Set<String> activeProfiles = new LinkedHashSet<>();
-	// 显然这个里面的值 就是default这个profile了~~~~
-	private final Set<String> defaultProfiles = new LinkedHashSet<>(getReservedDefaultProfiles());
-
-	// 这个很关键，直接new了一个 MutablePropertySources来管理属性源们
-	// 并且是用的PropertySourcesPropertyResolver来处理里面可能的占位符~~~~~
-	private final MutablePropertySources propertySources = new MutablePropertySources();
-	private final ConfigurablePropertyResolver propertyResolver = new PropertySourcesPropertyResolver(this.propertySources);
-
-	// 唯一构造方法  customizePropertySources是空方法，交由子类去实现，对属性源进行定制~ 
-	// Spring对属性配置分出这么多曾经，在SpringBoot中有着极其重要的意义~~~~
-	public AbstractEnvironment() {
-		customizePropertySources(this.propertySources);
-	}
-	// 该方法，StandardEnvironment实现类是有复写的~
-	protected void customizePropertySources(MutablePropertySources propertySources) {
-	}
-
-	// 若你想改变默认default这个值，可以复写此方法~~~~
-	protected Set<String> getReservedDefaultProfiles() {
-		return Collections.singleton(RESERVED_DEFAULT_PROFILE_NAME);
-	}
-	
-	//  下面开始实现接口的方法们~~~~~~~
-	@Override
-	public String[] getActiveProfiles() {
-		return StringUtils.toStringArray(doGetActiveProfiles());
-	}
-	protected Set<String> doGetActiveProfiles() {
-		synchronized (this.activeProfiles) {
-			if (this.activeProfiles.isEmpty()) { 
-		
-				// 若目前是empty的，那就去获取：spring.profiles.active
-				String profiles = getProperty(ACTIVE_PROFILES_PROPERTY_NAME);
-				if (StringUtils.hasText(profiles)) {
-					//支持,分隔表示多个~~~且空格啥的都无所谓
-					setActiveProfiles(StringUtils.commaDelimitedListToStringArray(
-							StringUtils.trimAllWhitespace(profiles)));
-				}
-			}
-			return this.activeProfiles;
-		}
-	}
-
-
-	@Override
-	public void setActiveProfiles(String... profiles) {
-		synchronized (this.activeProfiles) {
-			this.activeProfiles.clear(); // 因为是set方法  所以情况已存在的吧
-			for (String profile : profiles) {
-				 // 简单的valid，不为空且不以!打头~~~~~~~~
-				validateProfile(profile);
-				this.activeProfiles.add(profile);
-			}
-		}
-	}
-
-	// default profiles逻辑类似，也是不能以!打头~
-	@Override
-	@Deprecated
-	public boolean acceptsProfiles(String... profiles) {
-		for (String profile : profiles) {
-
-			// 此处：如果该profile以!开头，那就截断出来  把后半段拿出来看看   它是否在active行列里~~~ 
-			// 此处稍微注意：若!表示一个相反的逻辑~~~~~请注意比如!dev表示若dev是active的，我反倒是不生效的
-			if (StringUtils.hasLength(profile) && profile.charAt(0) == '!') {
-				if (!isProfileActive(profile.substring(1))) {
-					return true;
-				}
-			} else if (isProfileActive(profile)) {
-				return true;
-			}
-		}
-		return false;
-	}
-
-	// 采用函数式接口处理  就非常的优雅了~
-	@Override
-	public boolean acceptsProfiles(Profiles profiles) {
-		Assert.notNull(profiles, "Profiles must not be null");
-		return profiles.matches(this::isProfileActive);
-	}
-
-	// 简答的说要么active包含，要门是default  这个profile就被认为是激活的
-	protected boolean isProfileActive(String profile) {
-		validateProfile(profile);
-		Set<String> currentActiveProfiles = doGetActiveProfiles();
-		return (currentActiveProfiles.contains(profile) ||
-				(currentActiveProfiles.isEmpty() && doGetDefaultProfiles().contains(profile)));
-	}
-
-	@Override
-	public MutablePropertySources getPropertySources() {
-		return this.propertySources;
-	}
-
-	public Map<String, Object> getSystemProperties() {
-		return (Map) System.getProperties();
-	}
-	public Map<String, Object> getSystemEnvironment() {
-		// 这个判断为：return SpringProperties.getFlag(IGNORE_GETENV_PROPERTY_NAME);
-		// 所以我们是可以通过在`spring.properties`这个配置文件里spring.getenv.ignore=false关掉不暴露环境变量的~~~
-		if (suppressGetenvAccess()) {
-			return Collections.emptyMap();
-		}
-		return (Map) System.getenv();
-	}
-
-	// Append the given parent environment's active profiles, default profiles and property sources to this (child) environment's respective collections of each.
-	// 把父环境的属性合并进来~~~~  
-	// 在调用ApplicationContext.setParent方法时，会把父容器的环境合并进来  以保证父容器的属性对子容器都是可见的
-	@Override
-	public void merge(ConfigurableEnvironment parent) {
-		for (PropertySource<?> ps : parent.getPropertySources()) {
-			if (!this.propertySources.contains(ps.getName())) {
-				this.propertySources.addLast(ps); // 父容器的属性都放在最末尾~~~~
-			}
-		}
-		// 合并active
-		String[] parentActiveProfiles = parent.getActiveProfiles();
-		if (!ObjectUtils.isEmpty(parentActiveProfiles)) {
-			synchronized (this.activeProfiles) {
-				for (String profile : parentActiveProfiles) {
-					this.activeProfiles.add(profile);
-				}
-			}
-		}
-		// 合并default
-		String[] parentDefaultProfiles = parent.getDefaultProfiles();
-		if (!ObjectUtils.isEmpty(parentDefaultProfiles)) {
-			synchronized (this.defaultProfiles) {
-				this.defaultProfiles.remove(RESERVED_DEFAULT_PROFILE_NAME);
-				for (String profile : parentDefaultProfiles) {
-					this.defaultProfiles.add(profile);
-				}
-			}
-		}
-	}
-
-	// 其余方法全部委托给内置的propertyResolver属性，因为它就是个`PropertyResolver`
-	...
-}
-```
-
-该抽象类完成了对active、default等相关方法的复写处理。它内部持有一个`MutablePropertySources`引用来管理属性源。
-**So，留给子类的活就不多了：只需要把你的属性源注册给我就OK了**
-
-**StandardEnvironment**
-
-这个是Spring应用在非web容器运行的环境。从名称上解释为：标准实现
-
-```
-public class StandardEnvironment extends AbstractEnvironment {
-	// 这两个值定义着  就是在@Value注解要使用它们时的key~~~~~
-	/** System environment property source name: {@value}. */
-	public static final String SYSTEM_ENVIRONMENT_PROPERTY_SOURCE_NAME = "systemEnvironment";
-	/** JVM system properties property source name: {@value}. */
-	public static final String SYSTEM_PROPERTIES_PROPERTY_SOURCE_NAME = "systemProperties";
-
-
-	// 注册MapPropertySource和SystemEnvironmentPropertySource
-	// SystemEnvironmentPropertySource是MapPropertySource的子类~~~~
-	@Override
-	protected void customizePropertySources(MutablePropertySources propertySources) {
-		propertySources.addLast(new MapPropertySource(SYSTEM_PROPERTIES_PROPERTY_SOURCE_NAME, getSystemProperties()));
-		propertySources.addLast(new SystemEnvironmentPropertySource(SYSTEM_ENVIRONMENT_PROPERTY_SOURCE_NAME, getSystemEnvironment()));
-	}
-}
-```
-
-**StandardServletEnvironment**
-
-这是在web容器（servlet容器）时候的应用的标准环境。
-
-```
-public class StandardServletEnvironment extends StandardEnvironment implements ConfigurableWebEnvironment {
-	public static final String SERVLET_CONTEXT_PROPERTY_SOURCE_NAME = "servletContextInitParams";
-	public static final String SERVLET_CONFIG_PROPERTY_SOURCE_NAME = "servletConfigInitParams";
-	public static final String JNDI_PROPERTY_SOURCE_NAME = "jndiProperties";
-
-	// 放置三个web相关的配置源~  StubPropertySource是PropertySource的一个public静态内部类~~~
-	@Override
-	protected void customizePropertySources(MutablePropertySources propertySources) {
-		propertySources.addLast(new StubPropertySource(SERVLET_CONFIG_PROPERTY_SOURCE_NAME));
-		propertySources.addLast(new StubPropertySource(SERVLET_CONTEXT_PROPERTY_SOURCE_NAME));
-		
-		// 可以通过spring.properties配置文件里面的spring.jndi.ignore=true关闭对jndi的暴露   默认是开启的
-		if (JndiLocatorDelegate.isDefaultJndiEnvironmentAvailable()) {
-			propertySources.addLast(new JndiPropertySource(JNDI_PROPERTY_SOURCE_NAME));
-		}
-		super.customizePropertySources(propertySources);
-	}
-
-	// 注册servletContextInitParams和servletConfigInitParams到属性配置源头里
-	@Override
-	public void initPropertySources(@Nullable ServletContext servletContext, @Nullable ServletConfig servletConfig) {
-		WebApplicationContextUtils.initServletPropertySources(getPropertySources(), servletContext, servletConfig);
-	}
-}
-```
-
-注意：`这里addFirst和addLast等关系这顺序，进而都关乎着配置最终的生效的。`
-
-对比非web环境和web环境下属性源的配置:
-
-![](picture/propertysources01.png)
-
-![propertysources02](picture/propertysources02.png)
-
-**可见web相关配置的属性源的优先级是高于system相关的。**
-
-> 需要注意的是：若使用`@PropertySource`导入自定义配置，它会位于最底端（**优先级最低**）
-
-附上SpringBoot的属性源们：
-访问：`http://localhost:8080/env`得到如下
-
-![](picture/propertysource-springboot.png)
+并且, @PropertySource资源位置中存在的任何 ${...} 占位符都将根据已针对环境注册的属性源集进行解析. 如果my.placeholder 存在于已注册的某个属性源（例如，系统属性或环境变量）中，则该占位符将解析为相应的值。如果不是，则默认/路径用作默认值。如果未指定默认值，并且无法解析属性，则会引发非法参数异常。
 
 **EnvironmentCapable**、**EnvironmentAware**
 实现了此接口的类都应该有一个Environment类型的环境，并且可以通过getEnvironment方法取得。
