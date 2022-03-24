@@ -195,7 +195,7 @@ embstr与raw的区别为: embstr将 RedisObject 和 SDS 对 象连续存在一�
 
 每次追加字符串前通过free属性判断是否需要扩容, 杜绝c字符串的缓冲区溢出问题.
 
-扩容策略为: 在字符串长度小于1M之前, 扩容空间采用加倍策略, 即保留100%的冗余空间; 当超过1M之后, 为避免加倍后的冗余空间过大导致浪费, 每次扩容只会多分配1M的空间. (扩容必定N次变为了最多N次)
+扩容策略为: 在字符串长度小于1M之前, 扩容空间采用双倍(len)策略, 即保留100%的冗余空间; 当超过1M之后, 为避免加倍后的冗余空间过大导致浪费, 每次扩容只会多分配1M的空间. (扩容必定N次变为了最多N次)
 
 应用场景： 一般常用在需要计数的场景，比如用户的访问次数、热点文章的点赞转发数量等等。
 
@@ -207,13 +207,15 @@ embstr与raw的区别为: embstr将 RedisObject 和 SDS 对 象连续存在一�
 
 **2.List**
 
-类采用ziplist或linkedlist(双端队列)实现, 为优化存储和减少内存碎片,  后续版本被quicklist替换(ziplist和linkedlist的结合体)). 
+类采用ziplist或linkedlist(双端队列)实现, 为优化存储和减少内存碎片,  3.2版本被quicklist替换(ziplist和linkedlist的结合体)), 因为ziplist在数据量大时扩容费时, linkedlist会产生大量内存碎片, 并且pre和next指针增加附加空间.
 
 linkedlist为一个双端队列, 默认情况下, 当list对象中所有字符串元素的长度都小于64字节且元素个数小于512时, 会采用ziplist编码, 可通过配置文件改变上限值.
 
 ziplist有一个zltail属性记录尾结点偏移量, 每个节点通过previous_entry_length记录前一个节点的长度结合zltail来支持反向遍历, 每个节点通过encoding记录节点的content属性所保存的数据类型(字节数组或整数类型)以及长度.
 
 > 因为前一节点长度小于254时previous_entry_length需要1字节记录, 大于等于254时previous_entry_length需要5字节记录, 所以ziplist在添加和删除元素时若存在多个连续长度介于250-253字节的节点将会导致连锁更新
+
+quicklist压缩深度: 为了进一步节约空间，可使用LZF算法压缩对ziplist进行压缩存储. 默认压缩深度为0(list-compress-depth配置), 即不压缩, 为了支持快速push/pop操作，可设置压缩深度为1, quicklist 的首尾两个 ziplist 不压缩。如果深度为 2，就表示 quicklist 的首尾第一个 ziplist 以及首尾第二个 ziplist 都不压缩。 
 
 应用场景:  发布与订阅或者说**异步消息队列**, 比如微博、朋友圈和公众号消息流(lpush)、慢查询。
 
@@ -229,11 +231,64 @@ ziplist有一个zltail属性记录尾结点偏移量, 每个节点通过previous
 
 hash 类似于 JDK1.8 前的 HashMap(数组 + 链表)。包括hashtable(字典)和ziplist两种实现.
 
-字典dict采用渐进式rehash, 包含两个hash表指针,  在 rehash 的同时，保留新旧两个 hash 结构，查询时会同时查询两个 hash 结构，然后在后续的定时任务中以及 hash 的子指令中，循序渐进地将旧 hash 的内容 一点点迁移到新的 hash 结构中。
-
 当hash对象中键值对的键和值字符串长度都小于64字节且键值对数量小于512个时, redis会采用ziplist实现hash.可通过配置文件改变上限值. 
 
-ziplist插入键值对时先推入key到ziplist末尾, 再推入value到ziplist末尾. 因此同一键值对紧挨存储, 后添加的键值对放在尾部/
+```
+typedef struct dict {
+    dictType *type;
+    void *privdata;
+    dictht ht[2];
+    long rehashidx; /* rehashing not in progress if rehashidx == -1 */
+    int iterators; /* number of iterators currently running */
+} dict;
+
+typedef struct dictht {
+    //指针数组，这个hash的桶
+    dictEntry **table;
+    //元素个数
+    unsigned long size;
+    unsigned long sizemask;
+    unsigned long used;
+} dictht;
+
+dictEntry大家应该熟悉，在上面有讲，使用来真正存储key->value的地方
+typedef struct dictEntry {
+    // 键
+    void *key;
+    // 值
+    union {
+        // 指向具体redisObject
+        void *val;
+        // 
+        uint64_t u64;
+        int64_t s64;
+    } v;
+    // 指向下个哈希表节点，形成链表
+    struct dictEntry *next;
+} dictEntry;
+```
+
+字典dict采用渐进式rehash, 包含两个hash表指针,  在 rehash 的同时，保留新旧两个 hash 结构，查询时会同时查询两个 hash 结构, 插入只在新表中插入，然后在后续的定时任务中以及 hash 的子指令中，循序渐进地将旧 hash 的内容 一点点迁移到新的 hash 结构中(因为原生rehash耗时O(n), 单线程redis无法接受).
+
+rehash过程:
+
+1、为ht[1] 分配空间，让字典同时持有ht[0]和ht[1]两个哈希表；
+
+2、定时维持一个索引计数器变量rehashidx，并将它的值设置为0，表示rehash 开始；
+
+3、在rehash进行期间，每次对字典执行CRUD操作时，程序除了执行指定的操作以外，还会将ht[0]中的数据rehash 到ht[1]表中，并且将rehashidx加一；
+
+4、当ht[0]中所有数据转移到ht[1]中时，将rehashidx 设置成-1，表示rehash 结束；
+
+5、将ht[0]释放，然后将ht[1]设置成ht[0]，最后为ht[1]分配一个空白哈希表。
+
+> 当Hash表中的元素个数等于table指针第一维数组的长度(桶数)的时候，就会开始两倍扩容.
+>
+> 再bgsave时为了减少内存页的过多分离，redis不会去扩容。但如果hash表的元素个数已经到达了第一维数组长度的5倍的时候，就会强制扩容，不管你是否在持久化。
+>
+> 当元素个数低于数组长度的10%，开始缩容并且缩容不考虑是否在做redis持久化。
+
+ziplist插入键值对时先推入key到ziplist末尾, 再推入value到ziplist末尾. 因此同一键值对紧挨存储, 后添加的键值对放在尾部.
 
 应用场景: 系统中对象数据的存储, 如电商购物车(用户id为key, 商品id为field, 商品数量为value)。
 
@@ -245,9 +300,11 @@ ziplist插入键值对时先推入key到ziplist末尾, 再推入value到ziplist�
 
 **4.set**
 
-类似 Java 中的 `HashSet` 。通过intse(如果只有整数且元素不超过512个)t或hashtable(值为null)实现.
+类似 Java 中的 `HashSet` 。通过inset(如果只有整数且元素不超过512个)t或hashtable(值为null)实现.
 
-intset可以通过判断新加入的元素长度动态扩展每个元素的空间: content数组为int8_t类型, encoding支持int16_t,int32_t和int64_t编码改变每个元素在content数组中的字节数, 只可升级不可降级.
+inset可以通过判断新加入的元素长度动态扩展每个元素的空间: content数组为int8_t类型, encoding支持int16_t,int32_t和int64_t编码改变每个元素在content数组中的字节数, 只可升级不可降级.
+
+inset为一个有序集合, 查找元素O(logN)二分, 但插入不一定为O(logN), 因为当新插入的整数一个encoding编码空间无法容下时需要全局扩容重新分配内存O(N)
 
 应用场景:需要存放的数据不能重复以及需要获取多个数据源交集(将用户关注存到set,利用sinterstore实现共同关注)和并集等场景. 比如抽奖(srandmember key [count]/spop key [count] 随机抽取count个)、 点赞(可通过交集显示共同好友).
 
@@ -261,7 +318,7 @@ intset可以通过判断新加入的元素长度动态扩展每个元素的空�
 
 ziplist对每个zset元素紧挨存储, 元素存储在前面, 权重存储在后面, 集合元素按权重从小到大排序.
 
-skiplist中每个节点通过链表连接, 并包含一个后退指针指向前面一个节点以支持反向遍历, 但不能跳跃.  每一层的跳表节点包含一个跨度值记录两个节点之间的记录, 将查询某个节点时的对沿途跨度进行累加用于score rank实现. 
+skiplist中每个节点通过链表连接, 并包含一个后退指针指向前面一个节点以支持反向遍历, 但不能跳跃.  每一层的跳表节点包含一个前进指针和一个跨度值记录两个节点之间的记录, 将查询某个节点时的对沿途跨度进行累加用于score rank实现. 
 
 另外, 为了提高查询效率, skiplist增加了从元素到分值的映射字典.
 
@@ -366,11 +423,17 @@ struct saveparam{
 
 Redis服务器中的周期性操作函数serverCron默认每隔100ms执行一次检查save条件是否满足, 遍历saveparams数组所有条件, 任一满足则执行.
 
+> Redis生成RDB文件有两个命令:
+>
+> 1.SAVE: 由服务器进程执行保存工作(会阻塞服务器)
+>
+> 2.BGSAVE:由子进程执行保存工作
+
 **触发机制**
 
 1、save的条件满足的情况下
 
-2、执行save, flushall 命令
+2、主动执行save ,bgsave,flushall 命令
 
 3、退出redis
 
@@ -383,12 +446,6 @@ Redis服务器中的周期性操作函数serverCron默认每隔100ms执行一次
 1、适合大规模的数据恢复 
 
 2、对数据的完整性要不高. 如果redis意外宕机了，只能保留到最后一个的save的地方, 可能会丢失大量数据。
-
-> Redis生成RDB文件有两个命令:
->
-> 1.SAVE: 由服务器进程执行保存工作(会阻塞服务器)
->
-> 2.BGSAVE:由子进程执行保存工作
 
 通过创建快照来获得存储在内存里面的数据在某个时间点上的副本(全量), 是内存数据的**二进制**序列化形式，在存储上非常**紧凑**。
 
@@ -686,7 +743,7 @@ class LRUCache {
 
 指请求缓存和数据库中都没有的数据
 
-解决方案:
+**在确保接口层做好校验后**, 解决方案:
 
 **1）缓存null值**
 
@@ -1087,7 +1144,7 @@ Sentinel为主服务器创建的实例结构中的sentinels列表(字典)保存�
 
 Sentinel默认每秒向所有与它创建了命令连接的实例(主从服务器与其他Sentinel)发送PING命令, 并通过实例返回的PING命令回复来判断是否在线.
 
-Sentinel配置文件中的down-after-milliseconds选项指定了Sentinel判断实例进入主观下线所需的时间长度, 如果再指定毫秒内实例向Sentinel返回无效回复, 则Sentinel会修改这个实例对应的结构, 标识其主观下线.
+Sentinel配置文件中的down-after-milliseconds选项指定了Sentinel判断实例进入主观下线所需的时间长度, 如果在指定毫秒内实例向Sentinel返回无效回复, 则Sentinel会修改这个实例对应的结构, 标识其主观下线.
 
 7.检测客观下线状态
 
@@ -1103,12 +1160,12 @@ Sentinel配置文件中的down-after-milliseconds选项指定了Sentinel判断�
 
 ②每次进行领头Sentinel选举之后，不论选举是否成功，所有Sentinel的配置纪元（configuration epoch）的值都会自增一次;
 ③在一个配置纪元里面，所有Sentinel都有一次将某个Sentinel设置为局部领头Sentinel的机会(投票);
-④每个发现主服务器进人客观下线的Sentinel都会要求其他Sentinel将自己设置为局部领头 Sentinel(拉票)。当一个Sentinel（源Sentinel）向另一个Sentinel（目标Sentinel）发送SENTINELis-master-down-by-addr命令，并且命令中的runid参数不是*符号而是源Sentinel的运行ID时，这表示源Sentinel要求目标Sentinel将前者设置为后者的局部领头 Sentinel。
+④每个发现主服务器进人客观下线的Sentinel都会要求其他Sentinel将自己设置为局部领头 Sentinel(拉票)。当一个Sentinel（源Sentinel）向另一个Sentinel（目标Sentinel）发送sentinel is-master-down-by-addr命令，并且命令中的runid参数不是*符号而是源Sentinel的运行ID时，这表示源Sentinel要求目标Sentinel将前者设置为后者的局部领头 Sentinel。
 ⑤Sentinel 设置局部领头 Sentinel 的规则是先到先得：最先向目标Sentinel 发送设置要求的源Sentinel将成为目标Sentinel的局部领头Sentinel，而之后接收到的所有设置要求都会被目标Sentinel拒绝。
 ⑥目标Sentinel在接收到SENTINEL is-master-down-by-addr命令之后，将向源Sentinel返回一条命令回复，回复中的 leader_runid 参数和 leader_epoch参数分别记录了目标Sentinel的局部领头Sentinel的运行ID和配置纪元。
 ⑦源Sentinel在接收到目标Sentinel返回的命令回复之后，会检查回复中leaderepoch参数的值和自己的配置纪元是否相同，如果相同的话，那么源Sentinel继续取出回复中的 leader_runid参数，如果 leader
 runid 参数的值和源Sentinel的运行ID一致，那么表示目标Sentinel将源Sentinel设置成了局部领头Sentinel。
-⑧如果有某个Sentinel被半数以上的Sentinel设置成了局部领头Sentinel，那么这个Sentinel 成为领头 Sentinel。(一个配置纪元里只会出现一个领头Sentinel)
+⑧如果有某个Sentinel被半数以上的Sentinel设置成了局部领头Sentinel，那么这个Sentinel 成为领头 Sentinel。(一个配置纪元里只会出现一个领头Sentinel); 如果没有选出leader, 进入下一次选举.
 
 9.故障转移
 

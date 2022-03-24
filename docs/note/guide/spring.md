@@ -6,7 +6,7 @@
 
 **单例设计模式** : 默认Bean
 
-**模板方法模式** : Spring中应用广泛, 如AbstractEnviroment提供的customizePropertySources方法让子类自定义添加PropertySource, 类似有许多以customize开头的方法, 还有xxxTemplate类也使用了该设计模式
+**模板方法模式** : Spring中应用广泛, 如AbstractEnviroment提供的customizePropertySources方法让子类自定义添加PropertySource, 类似有许多以customize开头的方法, 以及refresh中的onRefresh方法, 还有xxxTemplate类也使用了该设计模式
 
 **装饰者模式** : 允许向一个现有的对象添加新的功能，同时又不改变其结构。比如 `InputStream`.
 
@@ -15,6 +15,8 @@ Spring 中用到的包装器模式在类名上含有 `Wrapper`或者 `Decorator`
 **观察者模式:** Spring 事件驱动模型
 
 **适配器模式** : Spring AOP 的增强(AdvisorAdapter适配通知)和spring MVC 中的HanderMapping(HandlerAdapter适配控制器)。
+
+
 
 # URL中的Ant匹配
 
@@ -75,7 +77,7 @@ BeanDefinition  bean定义信息   -->  ioc容器
 可以通过实现该接口 获取beanDefinition 来设置属性值达到扩展效果
 ```
 
-  -- >BeanFactory  反射生成对象 该接口的类上注释了  所有aware和声明周期接口执行顺序
+  -- >BeanFactory  反射生成对象 该接口的类上注释了  所有aware和声明生命接口执行顺序
 
 ```
 1.实例化 : 开辟堆空间
@@ -90,19 +92,6 @@ BeanDefinition  bean定义信息   -->  ioc容器
 ```
 
 -->  完整对象
-
-
-
-> 在容器运行前置时 Environment -> StandardEnvironment  调用System#getenv$getProperty将属性存入Environment,方便后续调用
->
-> 如mvc init-param属性
-
-### BeanFactory
-
-1. ApplicationContext 继承了 ListableBeanFactory，通过这个接口，可以获取多个 Bean.  而最顶层 BeanFactory 接口的方法都是获取单个 Bean 的。
-2. ApplicationContext 继承了 HierarchicalBeanFactory，可以在应用中起多个 BeanFactory，然后可以将各个 BeanFactory 设置为父子关系。
-3. AutowireCapableBeanFactory 用来自动装配 Bean 用的，ApplicationContext 并没有继承它，但 getAutowireCapableBeanFactory() 方法使用到了。
-4. ConfigurableListableBeanFactory 也是一个特殊的接口，继承了ListableBeanFactory、AutowireCapableBeanFactory和ConfigurableBeanFactory
 
 ### refresh
 
@@ -180,7 +169,11 @@ beanFactory的准备工作, 对其各种属性进行填充.
 
 **初始化剩下的非懒加载的单实例**
 
-在方法一开始, 初始化了名为 conversionService 的 Bean
+在方法一开始, 初始化了ConversionService ,此接口用于类型之间的转换，在Spring里其实就是把配置文件中的String转为其它类型，从3.0开始出现，目的和jdk的PropertyEditor接口是一样的，具体参考ConfigurableBeanFactory.setConversionService注释;
+
+然后设置一个StringValueResolver用于解析注解的值, 为函数式接口, 这里通过AbstractApplicationContext调用AbstractPropertyResolver的resolvePlaceholder实现(与refresh前解析配置文件名类似)
+
+以下流程不同版本的Spring可能代码变化较大, 但核心逻辑几乎没变:
 
 ```
 beanFactory.preInstantiateSingletons() --> beanFactory.getBean(name)
@@ -252,7 +245,35 @@ private final Map<String, Object> earlySingletonObjects = new ConcurrentHashMap<
 
 
 
+## 事件驱动
 
+事件对象一般都是java.util.EventObject的子类; ApplicationEventPublisher(即ApplicationContext)将请求委托给ApplicationEventMulticaster来实现的; 监听器是EventListener(jdk)的子类, 在refresh在初始化多播器后注册监听器.
+
+initApplicationEventMulticaster方法执行时, 如果ioc容器中存在多播器, 则赋值给成员变量; 否则向ioc容器中注册一个新的SimpleApplicationEventMulticaster, 该类发布事件的代码为:
+
+```
+@Override
+public void multicastEvent(final ApplicationEvent event, ResolvableType eventType) {
+    ResolvableType type = (eventType != null ? eventType : resolveDefaultEventType(event));
+    for (final ApplicationListener<?> listener : getApplicationListeners(event, type)) {
+        Executor executor = getTaskExecutor();
+        if (executor != null) {
+            executor.execute(new Runnable() {
+                @Override
+                public void run() {
+                    invokeListener(listener, event);
+                }
+            });
+        } else {
+            invokeListener(listener, event);
+        }
+    }
+}
+```
+
+在该方法中, 通过父类AbstractApplicationEventMulticaster的方法获取, 其通过ConcurrentHashMap缓存实现, 事件源为key, 事件所有监听器为value. 如果缓存存在, 则直接返回, 否则通过ioc容器获取.
+
+在该方法中, 如果executor不为空，那么监听器的执行是异步的. 具体配置方式见#spring使用笔记
 
 ## PropertySourceLocator
 
@@ -879,16 +900,14 @@ ${port:8080}表示没有port这个key，就用8080。 有这个key就用对应�
 
 使用DirectFieldAccessor对属性赋值。
 
-1. 若是级联属性、集合数组等复杂属性，**初始值不能为null**
-2. 使用它给属性赋值无序提供get、set方法（**侧面意思是：它不会走你的get/set方法逻辑**）
+1. 若是级联属性、集合数组等复杂属性，**初始值不能为null**.
+2. 使用它给属性赋值无需提供get、set方法.
 
 ```
 new DirectFieldAccessor(bean).getPropertyValue("prop")
 ```
 
 BeanWrapper也是继承自该接口
-
-### BeanWrapper
 
 ```
 BeanWrapper beanWrapper = PropertyAccessorFactory.forBeanPropertyAccess(bean);
@@ -911,7 +930,7 @@ public static <T> T toBean(Map<String, Object> map, Class<T> beanType) {
     }
 ```
 
-1. 
+
 
 
 

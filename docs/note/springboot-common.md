@@ -451,10 +451,6 @@ public ListUpdateEvent handleBlockedListEvent(BlockedListEvent event) {
 
 ## 深入
 
-源码解析
-
-https://mrbird.cc/%E6%B7%B1%E5%85%A5%E7%90%86%E8%A7%A3Spring%E4%BA%8B%E4%BB%B6%E5%8F%91%E5%B8%83%E4%B8%8E%E7%9B%91%E5%90%AC.html
-
 ### 异步监听
 
 单个异步:
