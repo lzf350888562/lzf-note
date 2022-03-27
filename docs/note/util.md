@@ -1412,8 +1412,6 @@ public class ScheduledTasks {
 
 ## quartz
 
-https://www.w3cschool.cn/quartz_doc/
-
 ```
 <dependency>
     <groupId>org.quartz-scheduler</groupId>

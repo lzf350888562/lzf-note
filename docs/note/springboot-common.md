@@ -370,7 +370,108 @@ springboot 2.x引入Binder用于对象与多个属性的绑定:
 
 ## EnvironmentPostProcessor
 
-springboot包下接口, 可以在创建应用程序上下文之前, 添加或修改环境配置.
+EnvironmentPostProcessor为环境后置处理器,可以在**创建应用程序上下文之前**，添加或者修改环境配置(通过PropertySources)。
+
+简单使用:
+
+1.编写自定义配置文件custom.propertis，并放到resource目录下:
+
+```
+file.size=1111
+```
+
+2.编写自定义的加载类CustomEnvironmentPostProcessor,实现EnvironmentPostProcessor接口,重写postProcessEnvironment方法
+
+```
+public class CustomEnvironmentPostProcessor implements EnvironmentPostProcessor {
+    private final Properties properties = new Properties();
+    /**
+     * 用户自定义配置文件列表
+     */
+    private String[] profiles = {
+            "custom.properties",
+    };
+
+    @Override
+    public void postProcessEnvironment(ConfigurableEnvironment environment, SpringApplication application) {
+
+        for (String profile : profiles) {
+            Resource resource = new ClassPathResource(profile);
+            //将自定义配置文件属性加入到环境
+            environment.getPropertySources().addLast(loadProfiles(resource));
+        }
+    }
+    private PropertySource<?> loadProfiles(Resource resource) {
+        if (!resource.exists()) {
+            throw new IllegalArgumentException("file" + resource + "not exist");
+        }
+        try {
+            properties.load(resource.getInputStream());
+            return new PropertiesPropertySource(resource.getFilename(), properties);
+        } catch (IOException ex) {
+            throw new IllegalStateException("load resource exception" + resource, ex);
+        }
+    }
+}
+```
+
+3.在META-INF下创建spring.factories，并且引入CustomEnvironmentPostProcessor 类
+
+```
+org.springframework.boot.env.EnvironmentPostProcessor=\
+org.yujuan.springbootlearning.processor.CustomEnvironmentPostProcessor
+```
+
+4.验证
+
+通过@value 直接引入或者上下文调用
+
+通常在实际使用时,会根据需求给该自定义类加上@Order或实现Ordered接口(实现getOrder方法)来指定其在所有实现其接口的类中的执行顺序.
+
+## PropertySourceLocator
+
+PropertySourceLocator接口支持扩展自定义配置加载到Environment中。
+
+假设需要读取classpath下的my.json文件配置加载到spring环境变量中
+
+```
+public class JsonPropertySourceLocator implements PropertySourceLocator {
+    private final static String DEFAULT_LOCATION = "classpath:my.json";
+
+    @Override
+    public PropertySource<?> locate(Environment environment) {
+        // TODO 微服务配置中心实现形式即可在这里远程RPC加载配置到spring环境变量中
+        // 读取classpath下的my.json解析
+        ResourceLoader resourceLoader = new DefaultResourceLoader(getClass().getClassLoader());
+        Resource resource = resourceLoader.getResource(DEFAULT_LOCATION);
+        if (resource == null) {
+            return null;
+        }
+
+        return new MapPropertySource("myJson", mapPropertySource(resource));
+    }
+
+	//读取resource转换为map
+	private Map<String, Object> mapPropertySource(Resource resource) {
+
+        Map<String, Object> result = new HashMap<>();
+        // 获取json格式的Map
+        Map<String, Object> fileMap = JSONObject.parseObject(readFile(resource), Map.class);
+        // 组装嵌套json
+        processorMap("", result, fileMap);
+	}
+}
+```
+
+在classpath下META-INF/spring.factories文件定义 org.springframework.cloud.bootstrap.BootstrapConfiguration=JsonPropertySourceLocator
+
+使用这种方式非常灵活，只要在locate方法最后返回一个MapPropertySource对象即可，至于我们如何获取属性，这些我们都可以自己控制，例如我们实现从数据库读取配置来组装MapPropertySource，或者可以实现远程配置中心功能
+
+**工作项目:数据库获取多个属性源**
+
+如果要加载数据库中单个配置文件, 可在locate方法中创建一个实现自EnumerablePropertySource< JdbcTemplate>的类作为范围值, 通过传入jdbcTemplate给EnumerablePropertySource并通过其加载数据库中的配置文件.
+
+如果要加载数据库中多个配置文件, 可在locate方法中创建一个CompositePropertySource对象作为返回值, 该对象表示多个PropertySource的组合, 提供了addPropertySource方法, 可创建多个实现自EnumerablePropertySource< JdbcTemplate>的类加入CompositePropertySource.
 
 # 事件模型
 
@@ -704,7 +805,7 @@ postProcessBeforeInstantiationfan方法 --> 调用无参构造函数 -->  postPr
 
 **源码**
 
-postProcessAfterInitialization和InstantiationAwareBeanPostProcessor的方法都和Bean生命周期有关，要分析它们的实现原理自然要从Bean的创建过程入手。Bean创建的入口为`AbstractAutowireCapableBeanFactory`的createBean方法，查看其源码解析：https://mrbird.cc/%E6%B7%B1%E5%85%A5%E7%90%86%E8%A7%A3Spring-BeanPostProcessor-InstantiationAwareBeanPostProcessor.html
+postProcessAfterInitialization和InstantiationAwareBeanPostProcessor的方法都和Bean生命周期有关，要分析它们的实现原理自然要从Bean的创建过程入手。Bean创建的入口为`AbstractAutowireCapableBeanFactory`的createBean方法
 
 注意:
 
@@ -2937,6 +3038,8 @@ public void test1() throws Exception {
 **注意**：只有在缓冲队列满之后才会申请超过核心线程数的线程来进行处理。所以，这里只有缓冲队列中10个任务满了，再来第11个任务的时候，才会在线程池中创建第三个线程来处理。。
 
 ## 自定义线程池
+
+由于@Async默认每个任务创建一个线程, 造成资源浪费并可能OOM, 所以可通过自定义线程池的方式:
 
 ```
 @SpringBootApplication
