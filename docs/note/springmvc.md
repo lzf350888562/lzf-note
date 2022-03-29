@@ -917,9 +917,7 @@ public class StarterListener implements ServletContextListener {
 
 在spring中,@PostConstruct注释的方法为bean的初始化方法(在bean的依赖注入后执行);
 
-在servlet中 ,被@PostConstruct修饰的方法会在服务器加载Servlet的时候运行，并且只会被服务器执行一次。PostConstruct在构造函数之后执行，init（）方法之前执行。PreDestroy（）方法在destroy（）方法知性之后执行
-
-![](D:\Study notes\LZFNotes\utils\note\picture\PostConstruct-PreDestroy.webp)
+在servlet中 ,被@PostConstruct修饰的方法会在服务器加载Servlet的时候运行，并且只会被服务器执行一次。PostConstruct在构造函数之后执行，init（）方法之前执行。PreDestroy（）方法在destroy（）方法执行之后执行
 
 # RequestMappingHandlerMapping
 

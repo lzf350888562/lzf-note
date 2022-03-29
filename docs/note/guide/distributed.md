@@ -1435,7 +1435,7 @@ Sleuth额外生成链路跟踪日志, 如
 
 > Sleuth只需要导入springboot依赖即可产生该日志
 
-Zipkin为推特开发的分布式链路追踪系统, Zipkin客户端收集Sleuth产生的日志发送到Zipkin服务端, Zipkin服务端采用可视化方式展示.
+侵入代码, Zipkin为推特开发的分布式链路追踪系统, Zipkin客户端收集Sleuth产生的日志发送到Zipkin服务端, Zipkin服务端采用可视化方式展示.
 
 - 基于Agent(运行时二进制)收集调用链路:SkyWalking
 
@@ -1447,7 +1447,7 @@ java -javaagent:skywalking-agent.jar
 -jar a-service.jar 
 ```
 
-侵入程序运行过程, 监听代码执行过程进行, 对调用关系进行梳理. 其收集的指标比日志方式要多很多.
+不侵入, 但侵入程序运行过程, 监听代码执行过程进行, 对调用关系进行梳理. 其收集的指标比日志方式要多很多.
 
 > 链路跟踪产品还有pinpoint,istio,cat,jeager等等
 

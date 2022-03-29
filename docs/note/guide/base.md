@@ -1251,3 +1251,31 @@ string name =2;
 ```
 
 最后通过protoc.exe --java_out=.Student.proto编译后便可直接使用.
+
+# javaagent
+
+## Aspectj-LoadTimeWeaver
+
+Java中存在三种织入切面方式：编译期织入、类加载期织入和运行期织入。编译期织入是指在Java编译期，采用特殊的编译器，将切面织入到Java类中；而类加载期织入则指通过特殊的类加载器，在类字节码加载到JVM时，织入切面；运行期织入则是采用CGLib工具或JDK动态代理进行切面的织入。 
+
+AspectJ提供了两种切面织入方式，第一种通过特殊编译器，在编译期，将AspectJ语言编写的切面类织入到Java类中，可以通过一个Ant或Maven任务来完成这个操作；第二种方式是类加载期织入，也简称为LTW（Load Time Weaving）。
+
+LTW原理就是jvm会在类加载之前将class暴露给我们制定的类，允许我们在此时对类进行修改。aspectj便利用此机会根据我们的配置生成对应的满足需求的子类。 使用方式:
+
+```
+1.配置jvm参数javaagent, 指定代理类的jar包
+-javaagent D:...\org\springframework\spring-agent\2.5.6.SEC03\spring-agent-2.5.6.SEC03.jar;里面包含类:
+public class InstrumentationSavingAgent {
+    private static volatile Instrumentation instrumentation;
+    public static void premain(String agentArgs, Instrumentation inst) {
+        instrumentation = inst;
+    }
+    public static Instrumentation getInstrumentation() {
+        return instrumentation;
+    }
+} 
+2.包下META-INF/MANIFEST.MF文件需要配置一行:
+Premain-Class: org.springframework.instrument.InstrumentationSavingAge
+```
+
+这里把Instrumentation给暴露了出来，供其它的类使用, 通过其可修改已加载类的类库。

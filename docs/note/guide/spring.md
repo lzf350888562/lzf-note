@@ -16,8 +16,6 @@ Spring 中用到的包装器模式在类名上含有 `Wrapper`或者 `Decorator`
 
 **适配器模式** : Spring AOP 的增强(AdvisorAdapter适配通知)和spring MVC 中的HanderMapping(HandlerAdapter适配控制器)。
 
-
-
 # ioc
 
 ## refresh
@@ -307,7 +305,11 @@ afterPrototypeCreation与beforePrototypeCreation对应
 
 在refresh的obtainFreshBeanFactory方法中, 会对BeanDefine进行加载与定义, 经过层层调用最终到达BeanDefinitionParserDelegate.parseCustomElement方法, 其中参数Element为经过SAX解析得到的DOM标签元素;
 
-在BeanDefinitionParserDelegate.parseCustomElement方法中, 根据Element的namespaceURI获取对应的NamespaceHandler, 然后调用该handler的parse方法(为各种NamespaceHandler的父类NamespaceHandlerSupport实现);
+在BeanDefinitionParserDelegate.parseCustomElement方法中, 根据Element的namespaceURI获取对应的NamespaceHandler, 然后调用该handler的parse方法(其实是父类NamespaceHandlerSupport的方法);
+
+> 不同的NamespaceHandler只是将其相关的BeanDefinitionParser进行注册, 可查看其init方法
+
+> 为提供扩展, Spring通过jar包/META-INFO中的.handlers文件定义针对不同的命名空间所使用的解析器, 如mvc的MvcNamespaceHandler
 
 NamespaceHandlerSupport.parse方法中, 会继续调用findParserForElement通过获取该元素的localName(如context:annotation-config标签就是annotation-config)寻找适用于此元素的BeanDefinitionParser对象; 然后调用对应BeanDefinitionParser.parse方法:
 
@@ -320,7 +322,7 @@ NamespaceHandlerSupport.parse方法中, 会继续调用findParserForElement通�
  1-1)设置AnnotationAwareOrderComparator比较优先级(根据@Order与@Priority);
  1-2)设置ContextAnnotationAutowireCandidateResolver决定bean是否可作为依赖候选者;
  1-3)注册ConfigurationClassPostProcessor处理@Configuration类:
-  在refresh的invokeBeanFactoryPostProcessors方法中执行
+  在refresh的invokeBeanFactoryPostProcessors方法中,因为该processor继承了BeanDefinitionRegistryPostProcessor,所以会先执行postProcessBeanDefinitionRegistry方法，再调用其postProcessBeanFactory.
  1-4)注册AutowiredAnnotationBeanPostProcessor注入@Autowired的属性和方法:
  	先在AbstractAutowireCapableBeanFactory.doCreateBean中调用applyMergedBeanDefinitionPostProcessors方法(实例化bean之后,填充bean之前),调用AutowiredAnnotationBeanPostProcessor.postProcessMergedBeanDefinition扫描Autowired属性和方法保存为InjectionMetadata对象进行缓存;
  	然后在AbstractAutowireCapableBeanFactory.populateBean中调用AutowiredAnnotationBeanPostProcessor.postProcessPropertyValues方法(在bean的xml属性已经根据计算完毕之后,但还没有执行applyPropertyValues设置到bean之前),获取InjectionMetadata缓存然后注入.
@@ -383,7 +385,9 @@ beanDefinition方式与上类似
 
 在PropertySourcesPlaceholderConfigurer.postProcessBeanFactory中完成处理, 对所有BeanDefinition的占位符进行替换.
 
+5.LoadTimeWeaverBeanDefinitionParser.doParse:
 
+解析LTW???
 
 # aop
 
@@ -490,7 +494,13 @@ aop:scoped-proxy(与@ScopedProxy注解相同):
 
 ## AspectJAutoProxyBeanDefinitionParser
 
-aop:aspectj-autoproxy用以开启对于@AspectJ注解风格AOP的支持. ???
+aop:aspectj-autoproxy用以开启对于@AspectJ注解风格AOP的支持, 即使用@Aspect 、@Pointcut("execution(void base.aop.AopDemo.send(..))") 、@Before("beforeSend()")等形式注解.
+
+AspectJAutoProxyBeanDefinitionParser.parse:
+
+流程与ConfigBeanDefinitionParser类似, 注册AnnotationAwareAspectJAutoProxyCreator, 是前面AspectJAwareAdvisorAutoProxyCreator的子类. 核心逻辑一样, 不同的是注解特性是通过重写AnnotationAwareAspectJAutoProxyCreator.findCandidateAdvisors方法体现, 寻找适用于bean的Advisor
+
+
 
 # task
 
@@ -590,63 +600,247 @@ AnnotationDrivenBeanDefinitionParser(注意时spring-tx包下的).parse:
 
 
 
-被`DispatcherServlet`检测的bean:
+## init
 
-**1.HanderMapping**
-
-两个主要的 HandlerMapping 实现是 RequestMappingHandlerMapping（支持@RequestMapping带注释的方法）和 SimpleUrlHandlerMapping（它维护 URI 路径模式到处理程序的显式注册）。
-
-编程方式注册handler方法
+Servlet标准定义了init方法是其生命周期的初始化方法, 具体初始化入口在DispatcherServlet的父类HttpServletBean.init执行:
 
 ```
-@Configuration
-public class MyConfig {
-
-    @Autowired
-    public void setHandlerMapping(RequestMappingHandlerMapping mapping, UserHandler handler) 
-            throws NoSuchMethodException {
-
-        RequestMappingInfo info = RequestMappingInfo
-                .paths("/user/{id}").methods(RequestMethod.GET).build(); 
-
-        Method method = UserHandler.class.getMethod("getUser", Long.class); 
-
-        mapping.registerMapping(info, handler, method); 
-    }
-}
+// Set bean properties from init parameters.
+PropertyValues pvs = new ServletConfigPropertyValues(getServletConfig(), this.requiredProperties);
+//包装DispatcherServlet，准备放入容器
+BeanWrapper bw = PropertyAccessorFactory.forBeanPropertyAccess(this);
+//用以加载spring-mvc配置文件
+ResourceLoader resourceLoader = new ServletContextResourceLoader(getServletContext());
+bw.registerCustomEditor(Resource.class, new ResourceEditor(resourceLoader, getEnvironment()));
+//没有子类实现此方法
+initBeanWrapper(bw);
+//对DispacherServlet设置参数至
+bw.setPropertyValues(pvs, true);
+// Let subclasses do whatever initialization they like.
+initServletBean();
 ```
 
-**2.HanderAdapter**
+主要读取init-param参数设置到DispatcherServlet的Setter中, 然后调用FrameworkServlet.initServletBean:
 
-帮助 DispatcherServlet 调用映射到请求的处理程序，而不管该处理程序的实际调用方式如何。例如，调用带注解的控制器需要解析注解。HandlerAdapter 的主要目的是保护 DispatcherServlet 免受此类细节的影响。
+在该方法中主要调用了initWebApplicationContext和initFrameworkServlet(空实现,无子类覆盖).
 
-**3.HandlerExceptionResolver**
+FrameworkServlet.initWebApplicationContext:
 
-解决异常的策略，可能将其映射到处理程序、HTML 错误视图或其他目标。
+1)调用 WebApplicationContextUtils.getWebApplicationContext(getServletContext())获取rootContext根容器, 其实就是在ServletContext的属性中获取.
 
-**4.ViewResolver**
+> Spring-mvc支持Spring容器与MVC容器共存，此时，Spring容器即根容器，mvc容器将根容器视为父容器.
 
-Resolve logical `String`-based view names returned from a handler to an actual `View` with which to render to the response. 
+> sprinb-mvc通过listener配置rootContext (listener先于filter和servlet执行)
+>
+> web.xml中配置根容器的方式:
+>
+> ```
+> <listener>
+>     <listener-class>org.springframework.web.context.ContextLoaderListener</listener-class>
+> </listener>
+> ```
 
-5.LocalResolver
+2)调用createWebApplicationContext创建容器:
 
-6.ThemeResolver
+ 2-1)调用getContextClass获取容器类型
 
-**7.MultipartResolver**
+> web.xml中配置容器类型:
+>
+> ```
+> <servlet>
+>     <servlet-name>SpringMVC</servlet-name>
+>     <servlet-class>org.springframework.web.servlet.DispatcherServlet</servlet-class>
+>     <!-- 配置文件位置 -->
+>     <init-param>
+>         <param-name>contextConfigLocation</param-name>
+>         <param-value>classpath:spring-servlet.xml</param-value>
+>     </init-param>
+>     <!-- 容器类型 -->
+>     <init-param>
+>         <param-name>contextClass</param-name>
+>         <param-value>java.lang.Object</param-value>
+>     </init-param>
+> </servlet>
+> ```
 
-Abstraction for parsing a multi-part request (for example, browser form file upload) with the help of some multipart parsing library
+ 2-2)调用configureAndRefreshWebApplicationContext:
 
-8.FlashMapManager
+  2-2-1)对容器进行属性设置;
 
-## AntPathMatcher和PathPattern
+  2-2-2)调用applyInitializers执行配置ApplicationContextInitializer(init-param传入);
 
-修改默认策略
+  2-2-3)调用容器的refresh方法解析配置文件(spring-servlet.xml);
+
+> spring-mvc容器默认为XmlWebApplicationContext,其通过重写`loadBeanDefinitions`方法改变了bean加载行为，使其指向spring-servlet.xml, 引入mvc命名空间.
+>
+> spring-mvc通过加入MvcNamespaceHandler(见[BeanDefinitionParser](#BeanDefinitionParser)), 该类的init方法注册了mvc:annotation-driven、mvc:default-servlet-handler、mvc:interceptors、mvc:view-resolvers等标签对应的BeanDefinitionParser, 其中:
+>
+> ```
+> 1.AnnotationDrivenBeanDefinitionParser.parse向容器注册以下组件:
+> 1)HandlerMapping:RequestMappingHandlerMapping,BeanNameUrlHandlerMapping;   2)HandlerAdapter:RequestMappingHandlerAdapter,HttpRequestHandlerAdapter,SimpleControllerHandlerAdapter;
+> 3)HandlerExceptionResolver:ExceptionHandlerExceptionResolver,ResponseStatusExceptionResolver,DefaultHandlerExceptionResolver;
+> 4)AntPathMatcher;
+> 5)UrlPathHelper.
+> 2.DefaultServletHandlerBeanDefinitionParser.parse向容器注册以下组件:
+> 1)DefaultServletHttpRequestHandler
+> 2)SimpleUrlHandlerMapping
+> 3)HttpRequestHandlerAdapter
+> 3.InterceptorsBeanDefinitionParser.parse将每个mvc:intercepter解析为MappedInterceptorBeanDefinition并注册到容器;
+> ...
+> ```
+
+> 执行refresh时,XmlWebApplicationContext.postProcessBeanFactory将执行(bean工厂创建完毕且beanDefinition已加载但未创建):
+>
+> 注册ServletContextAwareProcessor用以向实现了ServletContextAware的bean注册ServletContext;
+>
+> 注册registerWebApplicationScopes用以注册"request", "session", "globalSession", "application"四种scope;
+>
+> 注册registerEnvironmentBeans用以将servletContext、servletConfig以及各种启动参数注册到Spring容器中。
+
+ 2-3)调用DispatcherServlet.onRefresh(ApplicationContext), 再调用DispatcherServlet.initStrategies, 见下↓
+
+## initStrategies
+
+该方法初始化MVC(DispacherServlet):
+
+> 以下部分配置如果不存在则会通过spring-mvc包的org.springframework.web.servlet下的DispatcherServlet.properties获取默认配置
+
+1)initMultipartResolver设置MultipartResolver提供文件上传支持(从参数web容器中获取, 下同);
+
+2)initLocaleResolver设置LocaleResolver提供地区解析器如没有配置则使用默认;
+
+3)initThemeResolver设置ThemeResolver提供主题解析器;
+
+4)initHandlerMappings检查handlerMappings, 确保至少含有一个HandlerMapping, 如mvc:default-servlet-handler标签解析后注册的SimpleUrlHandlerMapping; 如果没有开启注解驱动, 使用默认的HandlerMapping;
+
+5)initHandlerAdapters检查handlerAdapters, 如没有配置则使用默认;
+
+6)initHandlerExceptionResolvers检查handlerExceptionResolvers, 如没有配置则使用默认;
+
+7)initRequestToViewNameTranslator设置RequestToViewNameTranslator用以完成从HttpServletRequest到视图名的解析，其使用场景是**给定的URL无法匹配任何控制器时**;
+
+8)initViewResolvers检查viewResolvers, 如没有配置则使用默认;
+
+9)initFlashMapManager设置SessionFlashMapManager用于在请求重定向时保持/传递参数.
+
+## HandlerMapping
+
+经过Init, 容器中已存在三个HandlerMapping实现, 以RequestMappingHandlerMapping为例:
+
+RequestMappingHandlerMapping根据@Controller和@RequestMapping注解进行解析, 初始化的入口位于AbstractHandlerMethodMapping.afterPropertiesSet(InitializingBean接口填充属性后自动调用)和AbstractHandlerMapping.initApplicationContext(WebApplicationObjectSupport接口自动调用):
+
+1)AbstractHandlerMethodMapping.afterPropertiesSet中调用了AbstractHandlerMethodMapping.initHandlerMethods:
+
+方法中先获取容器中所有bean, 判断bean的class对应的类上是否存在@Controller注解或者是@RequestMapping注解(isHandler方法),
+
+如果是调用detectHandlerMethods方法, 通过反射遍历类中所有的public方法，如果方法上含有@RequestMapping注解，那么将方法上的路径与类上的基础路径(如果有)进行合并，之后将映射(匹配关系)注册到MappingRegistry中(key为Methods,value实际上为RequestMappingInfo),
+
+方法还会将paths属性中的每个path与处理器的映射添加到urlLookup, 通过getNamingStrategy方法得到一个HandlerMethodMappingNamingStrategy接口的实例，用以根据HandlerMethod得到一个名字
+
+2)AbstractHandlerMapping.initApplicationContext中调用了detectMappedInterceptors(this.adaptedInterceptors):
+
+从容器中获取所有MappedInterceptor并放到adaptedInterceptors中.
+
+## HandlerAdapter
+
+以RequestMappingHandlerAdapter为例, 与HandlerMapping类似.
+
+RequestMappingHandlerAdapter.afterPropertiesSet:
+
+1)调用initControllerAdviceCache方法用以解析并缓存标注了@ControllerAdvice的bean;
+
+2)调用getDefaultArgumentResolvers设置一组默认的HandlerMethodArgumentResolver, 用于解析request从中得到Controller方法所需的参数;
+
+3)调用getDefaultInitBinderArgumentResolvers设置一组提供对@InitBinder支持的转换器, 也是HandlerMethodArgumentResolver类型;
+
+4)调用getDefaultReturnValueHandlers设置一组HandlerMethodReturnValueHandler用以处理方法调用(Controller方法)的返回值.
+
+## 请求响应
+
+Servlet标准定义了所有请求先由service方法处理，如果是get或post方法，那么再交由doGet或是doPost方法处理. 
+
+FrameworkServlet覆盖service:用于拦截PATCH请求, 如果是则直接调用processRequest; 否则交给父类service;
+
+HttpServlet.service中会判断方法增加额外操作(更新最后修改)后调用doGet、doHead、doPost等, 而FrameworkServlet也覆盖了这些方法, 也是调用processRequest.
+
+> Spring MVC会在请求分发之前进行上下文的准备工作，含两部分:
+>
+> 1. 将地区(Locale)和请求属性以ThreadLocal的方法与当前线程进行关联，分别可以通过LocaleContextHolder和RequestContextHolder进行获取。
+> 2. 将WebApplicationContext、FlashMap等组件放入到Request属性中。
+
+DispatcherServlet.doDispatch(会检查最后修改):
+
+1)调用DispatcherServlet.getHandler获取HandlerExecutionChain:
+
+​	方法中遍历handlerMappings, 委托给AbstractHandlerMapping.getHandler进行查找, 一旦查找到, 直接返回(即存在优先级, **根据AnnotationDrivenBeanDefinitionParser的注释，RequestMappingHandlerMapping有最高的优先级**), AbstractHandlerMapping.getHandler:
+
+​    1-1)调用getHandlerInternal根据url查找handler( 其实就是HandlerMethod, 根据在HandlerMapping初始化中的urlLookup??? );
+
+​    1-2)调用getHandlerExecutionChain从adaptedInterceptors( 在HadnlerMapping初始化时设置 )中获得所有可适配当前请求URL的MappedInterceptor并将其添加到HandlerExecutionChain的拦截器列表中;
+
+​    1-3)调用getCorsHandlerExecutionChain对跨域请求的调用链路HandlerExecutionChain插入了一个CorsInterceptor.
+
+2)根据handler调用DispatcherServlet.getHandlerAdapter获取适配器:
+
+​	该方法遍历handlerAdapters, 通过判断AbstractHandlerMethodAdapter.supports是否为true进行返回合适的适配器.
+
+​    而supports中又调用了supportsInternal交给具体的适配器去执行, 因为第一个适配器是RequestMappingHandlerAdapter，而其support方法直接返回true，这就导致了使用的适配器总是这一个.
+
+3)调用AbstractHandlerMethodAdapter.handler:
+
+​     该方法直接调用handlerInternal委托给子类执行, RequestMappingHandlerAdapter.handleInternal:
+
+​     3-1)如果开启了synchronizeOnSession, 根据session互斥量, 对同一个session的请求将同步执行, 即串行, 默认关闭;
+
+​	 3-2)调用invokeHandlerMethod在方法中进行真正的请求处理(调用HandlerMethod).
+
+**参数解析**
+
+1.请求处理时会使用argumentResolvers ( 初始化HandlerAdapter时设置的 )进行参数解析, 以RequestParamMethodArgumentResolver为例:
+
+RequestParamMethodArgumentResolver解析自定义参数, 支持@RequestParam和简单类型参数:
+
+RequestMappingHandlerAdapter对默认参数解析器进行初始化操作getDefaultArgumentResolvers方法时, 注册了两个RequestParamMethodArgumentResolver:
 
 ```
-spring.mvc.pathmatch.matching-strategy=path-pattern-parser
+resolvers.add(new RequestParamMethodArgumentResolver(getBeanFactory(),false));
+resolvers.add(new RequestParamMethodArgumentResolver(getBeanFactory(), true));
 ```
 
-https://blog.csdn.net/f641385712/article/details/118031407
+第二个boolean参数useDefaultResolution用于启动对常规类型参数的解析.
+
+具体过程是先根据获取方法参数名, 然后根据参数名去request查找对应属性.
+
+2.请求处理后会使用returnValueHandlers ( 初始化HandlerAdapter时设置的) 进行返回值解析, 以ViewNameMethodReturnValueHandler为例:
+
+主要根据返回值获取视图名称, 但未渲染.
+
+**视图渲染**
+
+DispatcherServlet.processDispatchResult:
+
+1)如果抛出了异常，那么processHandlerException方法将会遍历所有的handlerExceptionResolvers ( initStrategies中设置 ):
+
+   默认HandlerExceptionResolvers将改变响应状态码、调用标注了@ExceptionHandler的bean进行处理，如果没有@ExceptionHandler的bean或是不能处理此类异常，那么就会导致ModelAndView始终为null，最终Spring MVC将异常向上抛给Tomcat，然后Tomcat就会把堆栈打印出来。
+
+> ```
+> 自定义错误页面
+> <bean class="org.springframework.web.servlet.handler.SimpleMappingExceptionResolver">
+>     <property name="defaultErrorView" value="error"></property>
+> </bean>
+> ```
+
+2)调用DispatcherServlet.render, 继续调用resolveViewName:
+
+  遍历所有的ViewResolver( initStrategies中设置 )，只要有一个解析的结果(View)不为空，即停止遍历.
+
+  如InternalResourceView.renderMergedOutputModel本质就是将Model中的属性设置到Request，再利用原生Servlet RequestDispatcher API进行转发的过程.
+
+## 参数与返回值
+
+当在Controller或方法上标注@ResponseBody时表示需要将对象转为JSON并返回给前端，HttpMessageConverter接口负责HTTP请求-Java对象与Java对象-响应之间的转换, 默认为MappingJacksonHttpMessageConverter (AnnotationDrivenBeanDefinitionParser中初始化?)
+
+还有HandlerMethodArgumentResolver和HandlerMethodReturnValueHandler.
 
 ## URL中的Ant匹配
 
@@ -676,4 +870,6 @@ Ant 中的通配符有三种：
 //... 
 .antMatchers("/index.html","/static/**").permitAll()
 ```
+
+# boot
 
