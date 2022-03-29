@@ -161,7 +161,13 @@ module.exports = {
 }
 ```
 
+简单的
 
+```
+devServer: {
+    proxy: 'http://localhost:9999'
+  }
+```
 
 
 
@@ -207,6 +213,7 @@ import { Toast } from 'vant'
 import router from '../router'
 //设置请求url前缀
 axios.defaults.baseURL = process.env.NODE_ENV == 'development' ? 'http://localhost:28019/api/v1' : 'http://backend-api-01.newbee.ltd/api/v1'
+// 允许跨域携带cookie
 axios.defaults.withCredentials = true
 //设置请求头
 axios.defaults.headers['X-Requested-With'] = 'XMLHttpRequest'

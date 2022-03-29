@@ -924,13 +924,13 @@ public static void main(String[] args){
 
 **BIO**
 
-BIO是同步阻塞模型，一个客户端连接对应一个处理线程。在BIO中，accept和read方法都是阻塞操作，如果没有连接请求，accept方法阻塞；如果无数据可读取，read方法阻塞。
+同步阻塞模型，一个客户端连接对应一个处理线程。在BIO中，accept和read方法都是阻塞操作，如果没有连接请求，accept方法阻塞；如果无数据可读取，read方法阻塞。
 
 BIO是基于字节流和字符流进行操作的.
 
 **NIO**
 
-Java 中的 NIO 是 **I/O 多路复用模型** 还是 同步非阻塞 IO 模型?
+Java 中的 NIO 是 I/O 多路复用模型
 
 1.**同步非阻塞 IO 模型**
 

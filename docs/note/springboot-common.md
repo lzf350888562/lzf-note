@@ -1802,7 +1802,7 @@ public class EnableAutoConfigurationBootstrap {
 }
 ```
 
-# 依赖注入
+# Map依赖注入
 
 多个同接口组件，除了使用ApplicationContext注入，还可以使用更便捷的Map方式，其中string代表bean的名称，如果没有指定名称，则为类名的驼峰命名
 
@@ -2053,8 +2053,6 @@ SampleClass sample = (SampleClass) enhancer.create();
 
    基于注解的方式实现AOP需要在配置类中添加注解@EnableAspectJAutoProxy
 
-   spring aop深入理解 https://mrbird.cc/%E6%B7%B1%E5%85%A5%E7%90%86%E8%A7%A3Spring-AOP%E5%8E%9F%E7%90%86.html
-
    ```
    // exposeProxy = true表示通过aop框架暴露该代理对象到AOP上下文(Thr中,AopContext能够访问
    //(通过AopContext的ThreadLocal实现)
@@ -2066,176 +2064,10 @@ SampleClass sample = (SampleClass) enhancer.create();
    
    因为spring采用动态代理机制来实现事务控制，而动态代理(jdk代理,因为service实现了接口)最终都是要调用原始对象的，而原始对象在去调用方法时，是不会再触发代理了.
    
-   **问题:** 为什么自测结果不符?
    
-   ```
-   public class Parent {
-   	public void f1(){
-   		this.f2();
-   	}
-   	public void f2(){
-   		System.out.println("f2...");
-   	}
-   
-   	public static void main(String[] args) {
-   		Enhancer enhancer = new Enhancer();
-   		enhancer.setSuperclass(Parent.class);
-   		enhancer.setCallback(new MethodInterceptor() {
-   			@Override
-   			public Object intercept(Object o, Method method, Object[] args, MethodProxy methodProxy) throws Throwable {
-   				if(method.getName().equals("f2")){
-   					System.out.println("------>");
-   					Object o1 = methodProxy.invokeSuper(o, args);
-   					System.out.println("<------");
-   					return o1;
-   				}
-   				return methodProxy.invokeSuper(o,args);
-   			}
-   		});
-   		Parent o = (Parent)enhancer.create();
-   		o.f1();
-   	}
-   }  f
-   ------>
-   f2...
-   <------
-   ```
-   
-   答案:因为cglib生成的代理对象实际上为被代理对象的子类对象(这点可以从使用jdk代理增强时需要new一个被代理对象可以看出来), 所以cglib代理对象内部使用this调用的都是增强后的方法. 而jdk生成的代理对象与被代理对象是兄弟关系,代理对象中需要传入被代理对象来调用.
-   
-   使用jdk代理结果截然不同
-   
-   ```
-   public class ProxyTest {
-       public static void main(String[] args) {
-           Parent2 parent2 = new Parent2();
-           P proxyObj = (P)Proxy.newProxyInstance(Parent2.class.getClassLoader(), Parent2.class.getInterfaces(), new InvocationHandler() {
-               @Override
-               public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-                   Object res = null;
-                   if(method.getName().equals("f2")){
-                       System.out.println("---");
-                       res = method.invoke(parent2, args);
-                       System.out.println("---");
-                   }else{
-                       res = method.invoke(parent2, args);
-                   }
-                   return res;
-               }
-           });
-           proxyObj.f1();
-   
-       }
-   
-   }
-   class Parent2 implements P{
-       public void f1(){
-           //this 为被代理对象
-           this.f2();
-       }
-       public void f2(){
-           System.out.println("f2...");
-       }
-   }
-   interface P {
-       void f1();
-       void f2();
-   }
-   只输出 f2...
-   ```
-   
-   
-   
-   **切入点表达式**
-   
-   切入点指示符用来指示切入点表达式目的，，在Spring AOP中目前只有执行方法这一个连接点，Spring AOP支持的AspectJ切入点指示符如下：
-   
-            execution：用于匹配方法执行的连接点；
-       
-            within：用于匹配指定类型内的方法执行；
-       
-            this：用于匹配当前AOP代理对象类型的执行方法；注意是AOP代理对象的类型匹配，这样就可能包括引入接口也类型匹配；
-       
-            target：用于匹配当前目标对象类型的执行方法；注意是目标对象的类型匹配，这样就不包括引入接口也类型匹配；
-       
-            args：用于匹配当前执行的方法传入的参数为指定类型的执行方法；
-       
-            @within：用于匹配所以持有指定注解类型内的方法；
-       
-            @target：用于匹配当前目标对象类型的执行方法，其中目标对象持有指定的注解；
-       
-            @args：用于匹配当前执行的方法传入的参数持有指定注解的执行；
-       
-            @annotation：用于匹配当前执行方法持有指定注解的方法；
-   
-   1.execution：使用“execution(方法表达式)”匹配方法执行；
-   
-   | 模式                                                         | 描述                                                         |
-   | ------------------------------------------------------------ | ------------------------------------------------------------ |
-   | public * *(..)                                               | 任何公共方法的执行                                           |
-   | \* cn.javass..IPointcutService.*()                           | cn.javass包及所有子包下IPointcutService接口中的任何无参方法  |
-   | \* cn.javass..*.*(..)                                        | cn.javass包及所有子包下任何类的任何方法                      |
-   | \* cn.javass..IPointcutService.*( *)                         | cn.javass包及所有子包下IPointcutService接口的任何只有一个参数方法 |
-   | \* (!cn.javass..IPointcutService+).*(..)                     | 非“cn.javass包及所有子包下IPointcutService接口及子类型”的任何方法 |
-   | \* cn.javass..IPointcutService+.*()                          | cn.javass包及所有子包下IPointcutService接口及子类型的的任何无参方法 |
-   | \* cn.javass..IPointcut*.test*(java.util.Date)               | cn.javass包及所有子包下IPointcut前缀类型的的以test开头的只有一个参数类型为java.util.Date的方法，注意该匹配是根据方法签名的参数类型进行匹配的，而不是根据执行时传入的参数类型决定的如定义方法：public void test(Object obj);即使执行时传入java.util.Date，也不会匹配的； |
-   | \* cn.javass..IPointcut*.test*(..) throwsIllegalArgumentException, ArrayIndexOutOfBoundsException | cn.javass包及所有子包下IPointcut前缀类型的的任何方法，且抛出IllegalArgumentException和ArrayIndexOutOfBoundsException异常 |
-   | \* (cn.javass..IPointcutService+&& java.io.Serializable+).*(..) | 任何实现了cn.javass包及所有子包下IPointcutService接口和java.io.Serializable接口的类型的任何方法 |
-   | @java.lang.Deprecated * *(..)                                | 任何持有@java.lang.Deprecated注解的方法                      |
-   | @java.lang.Deprecated @cn.javass..Secure  * *(..)            | 任何持有@java.lang.Deprecated和@cn.javass..Secure注解的方法  |
-   | @(java.lang.Deprecated \|\|cn.javass..Secure) * *(..)        | 任何持有@java.lang.Deprecated或@ cn.javass..Secure注解的方法 |
-   | (@cn.javass..Secure  *) *(..)                                | 任何返回值类型持有@cn.javass..Secure的方法                   |
-   | \*  (@cn.javass..Secure *).*(..)                             | 任何定义方法的类型持有@cn.javass..Secure的方法               |
-   | \* *(@cn.javass..Secure (*) , @cn.javass..Secure (*))        | 任何签名带有两个参数的方法，且这个两个参数都被@ Secure标记了，如public void test(@Secure String str1, @Secure String str1); |
-   | \* *((@ cn.javass..Secure *))或\* *(@ cn.javass..Secure *)   | 任何带有一个参数的方法，且该参数类型持有@ cn.javass..Secure；如public void test(Model model);且Model类上持有@Secure注解 |
-   | \* *(@cn.javass..Secure (@cn.javass..Secure *) ,@ cn.javass..Secure (@cn.javass..Secure *)) | 任何带有两个参数的方法，且这两个参数都被@ cn.javass..Secure标记了；且这两个参数的类型上都持有@ cn.javass..Secure； |
-   | \* *(java.util.Map<cn.javass..Model, cn.javass..Model>,..)   | 任何带有一个java.util.Map参数的方法，且该参数类型是以< cn.javass..Model, cn.javass..Model >为泛型参数；注意只匹配第一个参数为java.util.Map,不包括子类型；如public void test(HashMap<Model, Model> map, String str);将不匹配，必须使用“* *(java.util.HashMap<cn.javass..Model,cn.javass..Model>, ..)”进行匹配;而public void test(Map map, int i);也将不匹配，因为泛型参数不匹配 |
-   | \* *(java.util.Collection<@cn.javass..Secure *>)             | 任何带有一个参数（类型为java.util.Collection）的方法，且该参数类型是有一个泛型参数，该泛型参数类型上持有@cn.javass..Secure注解；如public void test(Collection<Model> collection);Model类型上持有@cn.javass..Secure |
-   
-   2.within：使用“within(类型表达式)”匹配指定类型内的方法执行；
-   
-   | 模式                                 | 描述                                                         |
-   | ------------------------------------ | ------------------------------------------------------------ |
-   | within(cn.javass..*)                 | cn.javass包及子包下的任何方法执行                            |
-   | within(cn.javass..IPointcutService+) | cn.javass包或所有子包下IPointcutService类型及子类型的任何方法 |
-   | within(@cn.javass..Secure *)         | 持有cn.javass..Secure注解的任何类型的任何方法必须是在目标对象上声明这个注解，在接口上声明的对它不起作用 |
-   
-   3.this：使用“this(类型全限定名)”匹配当前AOP代理对象类型的执行方法；注意是AOP代理对象的类型匹配，这样就可能包括引入接口方法也可以匹配；注意this中使用的表达式必须是类型全限定名，不支持通配符；
-   
-   4.target：使用“target(类型全限定名)”匹配当前目标对象类型的执行方法；注意是目标对象的类型匹配，这样就不包括引入接口也类型匹配；注意target中使用的表达式必须是类型全限定名，不支持通配符；
-   
-   5.args：使用“args(参数类型列表)”匹配当前执行的方法传入的参数为指定类型的执行方法；注意是匹配传入的参数类型，不是匹配方法签名的参数类型；参数类型列表中的参数必须是类型全限定名，通配符不支持；args属于动态切入点，这种切入点开销非常大，非特殊情况最好不要使用；
-   
-   6.@within：使用“@within(注解类型)”匹配所以持有指定注解类型内的方法；注解类型也必须是全限定类型名；
-   
-   | @within (cn.javass.spring.chapter6.Secure) | 任何目标对象对应的类型持有Secure注解的类方法；必须是在目标对象上声明这个注解，在接口上声明的对它不起作用 |
-   | ------------------------------------------ | ------------------------------------------------------------ |
-   
-   7.@target：使用“@target(注解类型)”匹配当前目标对象类型的执行方法，其中目标对象持有指定的注解；注解类型也必须是全限定类型名；
-   
-   | @target (cn.javass.spring.chapter6.Secure) | 任何目标对象持有Secure注解的类方法；必须是在目标对象上声明这个注解，在接口上声明的对它不起作用 |
-   | ------------------------------------------ | ------------------------------------------------------------ |
-   
-   8.@args：使用“@args(注解列表)”匹配当前执行的方法传入的参数持有指定注解的执行；注解类型也必须是全限定类型名；
-   
-   | 模式                                     | 描述                                                         |
-   | ---------------------------------------- | ------------------------------------------------------------ |
-   | @args (cn.javass.spring.chapter6.Secure) | 任何一个只接受一个参数的方法，且方法运行时传入的参数持有注解 cn.javass.spring.chapter6.Secure；动态切入点，类似于arg指示符； |
-   
-   9.@annotation：使用“@annotation(注解类型)”匹配当前执行方法持有指定注解的方法；注解类型也必须是全限定类型名；
-   
-   | @annotation(cn.javass.spring.chapter6.Secure ) | 当前执行方法上持有注解 cn.javass.spring.chapter6.Secure将被匹配 |
-   | ---------------------------------------------- | ------------------------------------------------------------ |
-   
-   组合
-   
-   ```
-   @Pointcut("@annotation(com.ruoyi.common.annotation.DataSource)"   
-           + "|| @within(com.ruoyi.common.annotation.DataSource)")
-   ```
    
 
-> pointcut表达式也支持更直观的操作, 如
+> pointcut表达式支持更直观的操作, 如
 >
 > ```
 > @Pointcut("com.xyz.myapp.CommonPointcuts.dataAccessOperation() && args(account,..)")
@@ -2258,7 +2090,6 @@ SampleClass sample = (SampleClass) enhancer.create();
 > }
 > ```
 >
-> 
 
 JointPoint使用
 
@@ -2789,7 +2620,7 @@ public class ProxyTestController {
 
 答： 首先定义好注解（注解可以包含单位时间、最大调用次数等参数），然后在方法切面处理器的 onBefore 方法里面，使用缓存记录下单位时间内用户的提交次数，如果超出最大调用次数，返回 false，那么目标方法就不被允许调用了；然后在 getOnForbid 的方法里面，返回这种情况下的响应。
 
-# @Async异步调用
+# @Async
 
 `@Async`注解就能将原来的同步函数变为异步函数,
 
@@ -2815,14 +2646,6 @@ public class Task {
         long end = System.currentTimeMillis();
         System.out.println("完成任务二，耗时：" + (end - start) + "毫秒");
     }
-    @Async
-    public void doTaskThree() throws Exception {
-        System.out.println("开始做任务三");
-        long start = System.currentTimeMillis();
-        Thread.sleep(random.nextInt(10000));
-        long end = System.currentTimeMillis();
-        System.out.println("完成任务三，耗时：" + (end - start) + "毫秒");
-    }
 }
 ```
 
@@ -2844,7 +2667,6 @@ public class ApplicationTests {
 	public void test() throws Exception {
 		task.doTaskOne();
 		task.doTaskTwo();
-		task.doTaskThree();
 	}
 }
 ```
@@ -2876,24 +2698,7 @@ public class Task {
         System.out.println("完成任务一，耗时：" + (end - start) + "毫秒");
         return new AsyncResult<>("任务一完成");
     }
-    @Async
-    public Future<String> doTaskTwo() throws Exception {
-        System.out.println("开始做任务二");
-        long start = System.currentTimeMillis();
-        Thread.sleep(random.nextInt(10000));
-        long end = System.currentTimeMillis();
-        System.out.println("完成任务二，耗时：" + (end - start) + "毫秒");
-        return new AsyncResult<>("任务二完成");
-    }
-    @Async
-    public Future<String> doTaskThree() throws Exception {
-        System.out.println("开始做任务三");
-        long start = System.currentTimeMillis();
-        Thread.sleep(random.nextInt(10000));
-        long end = System.currentTimeMillis();
-        System.out.println("完成任务三，耗时：" + (end - start) + "毫秒");
-        return new AsyncResult<>("任务三完成");
-    }
+  	/
 }
 ```
 
@@ -2904,11 +2709,10 @@ public void test() throws Exception {
 
 	Future<String> task1 = task.doTaskOne();
 	Future<String> task2 = task.doTaskTwo();
-	Future<String> task3 = task.doTaskThree();
 
 	while(true) {
-		if(task1.isDone() && task2.isDone() && task3.isDone()) {
-			// 三个任务都调用完成，退出循环等待
+		if(task1.isDone() && task2.isDone()) {
+			// 二个任务都调用完成，退出循环等待
 			break;
 		}
 		Thread.sleep(1000);
@@ -2958,7 +2762,7 @@ public class ApplicationTests {
 
 ### 配置默认线程池
 
-通过异步任务加速执行的实现，是否存在问题或风险呢？
+异步任务存在的问题
 
 ```
 @RestController
@@ -2979,9 +2783,9 @@ public class HelloController {
 }
 ```
 
-当接口被频繁调用的时候，异步任务的数量就会大量增长：3 x n，如果任务处理不够快，就很可能会出现内存溢出。
+多次调用接口会频繁创建线程执行可能会出现内存溢出。
 
-根本原因是由于Spring Boot默认用于异步任务的线程池是这样配置的：
+因为Spring Boot默认用于异步任务的线程池是这样配置的：
 
 ```
 public static class Pool{
@@ -3012,30 +2816,6 @@ spring.task.execution.thread-name-prefix=task-
 - `spring.task.execution.shutdown.await-termination`：是否等待剩余任务完成后才关闭应用
 - `spring.task.execution.shutdown.await-termination-period`：等待剩余任务完成的最大时间
 - `spring.task.execution.thread-name-prefix`：线程名的前缀，设置好了之后可以方便我们在日志中查看处理任务所在的线程池
-
-```
-@Test
-public void test1() throws Exception {
-    long start = System.currentTimeMillis();
-
-    CompletableFuture<String> task1 = asyncTasks.doTaskOne();
-    CompletableFuture<String> task2 = asyncTasks.doTaskTwo();
-    CompletableFuture<String> task3 = asyncTasks.doTaskThree();
-
-    CompletableFuture.allOf(task1, task2, task3).join();
-
-    long end = System.currentTimeMillis();
-
-    log.info("任务全部完成，总耗时：" + (end - start) + "毫秒");
-}
-```
-
-根据输出日志可能有如下结果:
-
-- 任务一和任务二会马上占用核心线程，任务三进入队列等待
-- 任务一完成，释放出一个核心线程，任务三从队列中移出，并占用核心线程开始处理
-
-**注意**：只有在缓冲队列满之后才会申请超过核心线程数的线程来进行处理。所以，这里只有缓冲队列中10个任务满了，再来第11个任务的时候，才会在线程池中创建第三个线程来处理。。
 
 ## 自定义线程池
 
@@ -3107,14 +2887,6 @@ public class Task {
         long end = System.currentTimeMillis();
         log.info("完成任务二，耗时：" + (end - start) + "毫秒");
     }
-    @Async("taskExecutor")
-    public void doTaskThree() throws Exception {
-        log.info("开始做任务三");
-        long start = System.currentTimeMillis();
-        Thread.sleep(random.nextInt(10000));
-        long end = System.currentTimeMillis();
-        log.info("完成任务三，耗时：" + (end - start) + "毫秒");
-    }
 }
 ```
 
@@ -3124,16 +2896,13 @@ public class Task {
 @RunWith(SpringJUnit4ClassRunner.class)
 @SpringBootTest
 public class ApplicationTests {
-
     @Autowired
     private Task task;
 
     @Test
     public void test() throws Exception {
-
         task.doTaskOne();
         task.doTaskTwo();
-        task.doTaskThree();
 
         Thread.currentThread().join();
     }
@@ -3142,7 +2911,7 @@ public class ApplicationTests {
 
 ### 线程池隔离
 
-知道了如何自定义线程池后,我们可以采用创建多个线程池,通过@Async指定线程池名称使得不同的任务使用不同的线程池.
+以创建多个线程池,通过@Async指定线程池名称使得不同的任务使用不同的线程池.
 
 ```
 @EnableAsync
@@ -3236,88 +3005,7 @@ public class Chapter77ApplicationTests {
 }
 ```
 
-执行情况:
 
-1. 线程池1的三个任务，task1和task2会先获得执行线程，然后task3因为没有可分配线程进入缓冲队列
-2. 线程池2的三个任务，task4和task5会先获得执行线程，然后task6因为没有可分配线程进入缓冲队列
-3. 任务task3会在task1或task2完成之后，开始执行
-4. 任务task6会在task4或task5完成之后，开始执行
-
-### 线程池的拒绝策略
-
-假设，线程池配置为核心线程数2、最大线程数2、缓冲队列长度2。此时，有5个异步任务同时开始，会发生什么？
-
-```
- @Bean
- public Executor taskExecutor1() {
-    ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-    executor.setCorePoolSize(2);
-    executor.setMaxPoolSize(2);
-    executor.setQueueCapacity(2);
-    executor.setKeepAliveSeconds(60);
-    executor.setThreadNamePrefix("executor-1-");
-    return executor;
-}
-
- 		// 线程池1
-        CompletableFuture<String> task1 = asyncTasks.doTaskOne("1");
-        CompletableFuture<String> task2 = asyncTasks.doTaskOne("2");
-        CompletableFuture<String> task3 = asyncTasks.doTaskOne("3");
-        CompletableFuture<String> task4 = asyncTasks.doTaskOne("4");
-        CompletableFuture<String> task5 = asyncTasks.doTaskOne("5");
-
-        // 一起执行
-        CompletableFuture.allOf(task1, task2, task3, task4, task5).join();
-```
-
-会出现异常 `org.springframework.core.task.TaskRejectedException: Executor [java.util.concurrent.ThreadPoolExecutor@3e1a3801[Running, pool size = 2, active threads = 2, queued tasks = 2, completed tasks = 0]] did not accept task:`中，可以很明确的知道，第5个任务因为超过了执行线程+缓冲队列长度，而被拒绝了。
-
-所有，**默认情况下，线程池的拒绝策略是：当线程池队列满了，会丢弃这个任务，并抛出异常**。
-
-**配置拒绝策略**
-
-虽然线程池有默认的拒绝策略，但实际开发过程中，有些业务场景，直接拒绝的策略往往并不适用，有时候我们可能会选择舍弃最早开始执行而未完成的任务、也可能会选择舍弃刚开始执行而未完成的任务等更贴近业务需要的策略。所以，为线程池配置其他拒绝策略或自定义拒绝策略是很常见的需求.
-
-```
-ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-//...其他线程池配置
-executor.setRejectedExecutionHandler(new ThreadPoolExecutor.AbortPolicy());
-```
-
-在`ThreadPoolExecutor`中提供了4种线程的策略可以供开发者直接使用，你只需要像下面这样设置即可：
-
-```
-// AbortPolicy策略:默认策略，如果线程池队列满了丢掉这个任务并且抛出RejectedExecutionException异常。
-executor.setRejectedExecutionHandler(new ThreadPoolExecutor.AbortPolicy());
-
-// DiscardPolicy策略:如果线程池队列满了，会直接丢掉这个任务并且不会有任何异常。
-executor.setRejectedExecutionHandler(new ThreadPoolExecutor.DiscardPolicy());
-
-// DiscardOldestPolicy策略:如果队列满了，会将最早进入队列的任务删掉腾出空间，再尝试加入队列。
-executor.setRejectedExecutionHandler(new ThreadPoolExecutor.DiscardOldestPolicy());
-
-// CallerRunsPolicy策略:如果添加到线程池失败，那么主线程会自己去执行该任务，不会等待线程池中的线程去执行。
-executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
-```
-
-而如果你要自定义一个拒绝策略，那么可以这样写：
-
-```
-executor.setRejectedExecutionHandler(new RejectedExecutionHandler() {
-    @Override
-    public void rejectedExecution(Runnable r, ThreadPoolExecutor executor) {
-        // 拒绝策略的逻辑
-    }
-});
-```
-
-当然如果你喜欢用Lambda表达式，也可以这样写：
-
-```
-executor.setRejectedExecutionHandler((r, executor1) -> {
-    // 拒绝策略的逻辑
-});
-```
 
 ## 修改默认线程池
 
@@ -3374,117 +3062,4 @@ public class NativeAsyncTaskExecutePool implements AsyncConfigurer{
     }
 }
 ```
-
-
-
-## 线程池优雅关闭
-
-模拟问题
-
-```
-@SpringBootApplication
-public class Application {
-    public static void main(String[] args) {
-        SpringApplication.run(Application.class, args);
-    }
-    @EnableAsync
-    @Configuration
-    class TaskPoolConfig {
-        @Bean("taskExecutor")
-        public Executor taskExecutor() {
-            ThreadPoolTaskScheduler executor = new ThreadPoolTaskScheduler();
-            executor.setPoolSize(20);
-            executor.setThreadNamePrefix("taskExecutor-");
-            return executor;
-        }
-    }
-}
-```
-
-这里使用了外部资源redis
-
-```
-@Slf4j
-@Component
-public class Task {
-    @Autowired
-    private StringRedisTemplate stringRedisTemplate;
-    @Async("taskExecutor")
-    public void doTaskOne() throws Exception {
-        log.info("开始做任务一");
-        long start = System.currentTimeMillis();
-        log.info(stringRedisTemplate.randomKey());
-        long end = System.currentTimeMillis();
-        log.info("完成任务一，耗时：" + (end - start) + "毫秒");
-    }
-    @Async("taskExecutor")
-    public void doTaskTwo() throws Exception {
-        log.info("开始做任务二");
-        long start = System.currentTimeMillis();
-        log.info(stringRedisTemplate.randomKey());
-        long end = System.currentTimeMillis();
-        log.info("完成任务二，耗时：" + (end - start) + "毫秒");
-    }
-    @Async("taskExecutor")
-    public void doTaskThree() throws Exception {
-        log.info("开始做任务三");
-        long start = System.currentTimeMillis();
-        log.info(stringRedisTemplate.randomKey());
-        long end = System.currentTimeMillis();
-        log.info("完成任务三，耗时：" + (end - start) + "毫秒");
-    }
-}
-```
-
-测试方法 (模拟高并发下的ShutDown情况)
-
-```
-@RunWith(SpringJUnit4ClassRunner.class)
-@SpringBootTest
-public class ApplicationTests {
-    @Autowired
-    private Task task;
-    @Test
-    @SneakyThrows
-    public void test() {
-        for (int i = 0; i < 10000; i++) {
-            task.doTaskOne();
-            task.doTaskTwo();
-            task.doTaskThree();
-
-            if (i == 9999) {
-                System.exit(0);
-            }
-        }
-    }
-}
-```
-
-说明：通过for循环往上面定义的线程池中提交任务，由于是异步执行，在执行过程中，利用`System.exit(0)`来关闭程序，此时由于有任务在执行，就可以观察这些异步任务的销毁与Spring容器中其他资源的顺序是否安全。
-
-运行上面的单元测试，我们将碰到下面的异常内容。
-
-```
-JedisConnectionException: Could not get a resource from the pool
-```
-
-应用关闭的时候异步任务还在执行，由于Redis连接池先销毁了，导致异步任务中要访问Redis的操作就报了上面的错.
-
-**解决办法**
-
-```
-@Bean("taskExecutor")
-public Executor taskExecutor() {
-    ThreadPoolTaskScheduler executor = new ThreadPoolTaskScheduler();
-    executor.setPoolSize(20);
-    executor.setThreadNamePrefix("taskExecutor-");
-    executor.setWaitForTasksToCompleteOnShutdown(true);    //关键
-    executor.setAwaitTerminationSeconds(60);  
-    return executor;
-}
-```
-
-说明：`setWaitForTasksToCompleteOnShutdown（true）`该方法就是这里的关键，用来设置线程池关闭的时候等待所有任务都完成再继续销毁其他的Bean，这样这些异步任务的销毁就会先于Redis线程池的销毁。同时，这里还设置了`setAwaitTerminationSeconds(60)`，该方法用来设置线程池中任务的等待时间，如果超过这个时候还没有销毁就强制销毁，以确保应用最后能够被关闭，而不是阻塞住
-
-
 

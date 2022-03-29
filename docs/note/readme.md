@@ -2,8 +2,6 @@
 
 [advanced-java](https://doocs.github.io/advanced-java) 分布式 高并发 高可用 微服务试题
 
-[被删的前端游乐场](http://www.godbasin.com/) 
-
 [git30days](https://hub.fastgit.org/doggy8088/Learn-Git-in-30-days)
 
 [github漫游指南](https://hub.fastgit.org/kevhan/github)
@@ -158,15 +156,7 @@ AXURE:前端美工软件
 
  [服务器监控](https://hub.fastgit.org/B-Software/Ward) √
 
-[博客](https://hub.fastgit.org/MarkerHub/vueblog ) √
-
 [小说阅读](https://hub.fastgit.org/201206030/fiction_house) ?爬虫
-
-[学习示例代码](https://hub.fastgit.org/eugenp/tutorials ) ×
-
-[java多框架demo](https://hub.fastgit.org/quarkusio/quarkus-quickstarts)
-
-[java多框架demo](https://hub.fastgit.org/wuyouzhuguli/SpringAll )
 
 [电商](https://hub.fastgit.org/newbee-ltd/newbee-mall) √
 
@@ -177,8 +167,6 @@ AXURE:前端美工软件
 [人力资源管理系统](https://hub.fastgit.org/lenve/vhr )
 
 [电商](https://hub.fastgit.org/macrozheng/mall)
-
-[SSM权限项目](https://github.com/baichengzhou/SpringMVC-Mybatis-Shiro-redis-0.2)
 
 网盘 [后端](https://hub.fastgit.org/zhaojun1998/zfile/) [前端](https://hub.fastgit.org/zhaojun1998/zfile-vue/)
 

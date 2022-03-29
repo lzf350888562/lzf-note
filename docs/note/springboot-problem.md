@@ -469,6 +469,52 @@ public class ControllerExceptionHandler {
 
 此时通过浏览器访问返回500.html页面,通过postman访问范围map内容json.
 
+# war打包
+
+```
+<packaging>war</packaging>
+```
+
+然后添加如下的Tomcat依赖配置，覆盖Spring Boot自带的Tomcat依赖：
+
+```
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-tomcat</artifactId>
+    <scope>provided</scope>
+</dependency>
+```
+
+在`<build></build>`标签内配置项目名（该配置类似于server.context-path=mrbird）：
+
+```
+...
+<build>
+    ...
+    <finalName>mrbird</finalName>
+</build>
+```
+
+添加启动类ServletInitializer：
+
+```
+import org.springframework.boot.builder.SpringApplicationBuilder;
+import org.springframework.boot.web.support.SpringBootServletInitializer;
+
+public class ServletInitializer extends SpringBootServletInitializer {
+    @Override
+    protected SpringApplicationBuilder configure(SpringApplicationBuilder application) {
+        return application.sources(Application.class);
+    }
+}
+```
+
+其中Application为Spring Boot的启动类。
+
+准备完毕后，运行`mvn clean package`命令即可在target目录下生产war包
+
+
+
 # 跨域
 
 **1.注解驱动**
@@ -563,6 +609,119 @@ httpSecurity.addFilterBefore(corsFilter, LogoutFilter.class);
 ```
 
 网上还有类似的解决方案：扩展corsFilter，其主要也是通过提升该filter的优先级。
+
+# Devtool热部署
+
+所谓的热部署就是在你修改了后端代码后不需要手动重启，工具会帮你快速的自动重启是修改生效。其深层原理是使用了两个`ClassLoader`，一个`Classloader`加载那些不会改变的类（第三方Jar包），另一个`ClassLoader`加载会更改的类，称为`restart ClassLoader`，这样在有代码更改的时候，原来的`restart ClassLoader` 被丢弃，重新创建一个`restart ClassLoader`，由于需要加载的类相比较少，所以实现了较快的重启时间。
+
+```
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-devtools</artifactId>
+    <optional>true</optional>
+</dependency>
+```
+
+devtools会监听classpath下的文件变动，并且会立即重启应用（发生在保存时机），因为其采用的虚拟机机制，该项重启是很快的。
+
+所有可选配置
+
+```
+# Whether to enable a livereload.com-compatible server.
+spring.devtools.livereload.enabled=true 
+
+# Server port.
+spring.devtools.livereload.port=35729 
+
+# Additional patterns that should be excluded from triggering a full restart.
+spring.devtools.restart.additional-exclude= 
+
+# Additional paths to watch for changes.
+spring.devtools.restart.additional-paths= 
+
+# Whether to enable automatic restart.
+spring.devtools.restart.enabled=true
+
+# Patterns that should be excluded from triggering a full restart.
+spring.devtools.restart.exclude=META-INF/maven/**,META-INF/resources/**,resources/**,static/**,public/**,templates/**,**/*Test.class,**/*Tests.class,git.properties,META-INF/build-info.properties
+
+# Whether to log the condition evaluation delta upon restart.
+spring.devtools.restart.log-condition-evaluation-delta=true 
+
+# Amount of time to wait between polling for classpath changes.
+spring.devtools.restart.poll-interval=1s 
+
+# Amount of quiet time required without any classpath changes before a restart is triggered.
+spring.devtools.restart.quiet-period=400ms 
+
+# Name of a specific file that, when changed, triggers the restart check. If not specified, any classpath file change triggers the restart.
+spring.devtools.restart.trigger-file=
+```
+
+
+
+
+
+
+
+
+
+# Spring Boot CLI
+
+Spring Boot CLI（Command Line Interface）是一个命令行工具，您可以用它来快速构建Spring原型应用。通过Spring Boot CLI，我们可以通过编写Groovy脚本来快速的构建出Spring Boot应用，并通过命令行的方式将其运行起来
+
+**安装Spring Boot CLI**
+
+**通用安装**:所有平台都可以使用的安装方法。
+
+第一步：下载Spring Boot CLI的工具包：
+
+- [spring-boot-cli-2.0.1.RELEASE-bin.zip](https://repo.spring.io/release/org/springframework/boot/spring-boot-cli/2.0.1.RELEASE/spring-boot-cli-2.0.1.RELEASE-bin.zip)
+- [spring-boot-cli-2.0.1.RELEASE-bin.tar.gz](https://repo.spring.io/release/org/springframework/boot/spring-boot-cli/2.0.1.RELEASE/spring-boot-cli-2.0.1.RELEASE-bin.tar.gz)
+
+第二步：解压下载内容，可以看到bin目录下已经有适用于windows和linux平台的两个可执行文件了，我们已经可以直接使用它；为了更方便的使用Spring Boot CLI的命令，我们可以将上面bin目录中对应的可执行文件加入到当前系统的环境变量即可。
+
+**Mac OSX Brew安装**
+
+在Mac OSX系统下面就非常方便了，我们可以通过Brew来进行安装，只需要分别执行下面的两条的命令即可：
+
+```
+$ brew tap pivotal/tap
+$ brew install springboot
+```
+
+**验证安装**
+
+不论使用哪种方法安装，在安装好之后，我们可以通过下面的命令来验证一下当前的安装结果：
+
+```
+$ spring --version
+Spring CLI v2.0.0.RELEASE
+```
+
+**使用**
+
+新建Groovy脚本 hello,groovy
+
+```
+@RestController
+class ThisWillActuallyRun {
+
+    @RequestMapping("/")
+    String home() {
+        "Hello World!"
+    }
+    
+}
+```
+
+使用`spring`命令运行该Groovy脚本
+
+```
+spring run hello.groovy
+```
+
+localhost:8080访问
 
 # 自动化配置存在的问题
 
@@ -886,21 +1045,13 @@ sudo ln -s /var/yourapp/yourapp.jar /etc/init.d/yourapp
 
 >依赖注入配置时,通过required=false属性 , @Nullable 和 java8的Optional方式, 可以达到不必须依赖的效果.
 >
->同样,  这三种方式也使用与MVC, required=false可与 @RequestParam、@RequestHeader等结合使用。
+>同样,  这三种方式也可与MVC, required=false可与 @RequestParam、@RequestHeader等结合使用。
 
 > JSR-330的@Singleton 相当于 @Scope("singleton") , 因为是默认, 所以无用
 
 > 在spring配置类中, 可以用@ImportResource注解导入xml文件配置
 
 >通过@ComponentScan的nameGenerator指定BeanNameGenerator可实现自定义 Bean 命名策略
-
-> 手动注册组件
-
-```java
-AnnotationConfigApplicationContext ctx = new AnnotationConfigApplicationContext();
-ctx.register(SomeConfig.class, StandaloneDataConfig.class, JndiDataConfig.class);
-ctx.refresh();
-```
 
 > HttpEntity< T > 与@RequestBody功能相同:
 >
