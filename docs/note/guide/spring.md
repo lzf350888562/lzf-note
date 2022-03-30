@@ -130,44 +130,6 @@ applyBeanPostProcessorsBeforeInitialization(existingBean ,beanName)  -->
 
 最后广播事件, ApplicationContext初始化完成.
 
-### 循环依赖
-
-ioc中
-
-构造方法无法解决循环依赖问题,而通过settor方法可以解决循环依赖问题.
-
-即**将实例化和初始化分开处理,提前暴露对象** ,在中间过程给其他对象赋值的时候,并不是一个完整对象
-
-假如有A依赖B B依赖A的场景:
-
-```
-<bean id="a" class="org.example.A">
-	<property name="b" ref="b">
-</bean>
-<bean id="b" class="org.example.B">
-	<property name="a" ref="a">
-</bean>
-```
-
-![循环依赖](picture/循环依赖.png)
-
-```
-一级缓存 存放成品bean
-private final Map<String, Object> singletonObjects = new ConcurrentHashMap<>(256);
-三级缓存 提前暴露半成品
-private final Map<String, ObjectFactory<?>> singletonFactories = new HashMap<>(16);
-二级缓存 存放半成品bean
-private final Map<String, Object> earlySingletonObjects = new ConcurrentHashMap<>(16);
-```
-
-其中,泛型`ObjectFactory`为函数式接口,只提供了getObject方法
-
-因为循环依赖问题存在于实例化初始化阶段,所以该问题需要在refresh方法的finishBeanFactoryInitialization(beanFactory)方法中的beanFactory.preInstantiateSingletons方法中解决
-
-
-
-第三级缓存原因在于使用aop代理问题, 为保证注入的对象不是原始对象, 需要提前创建代理对象.
-
 
 
 ## 事件驱动
@@ -313,7 +275,7 @@ afterPrototypeCreation与beforePrototypeCreation对应
 
 NamespaceHandlerSupport.parse方法中, 会继续调用findParserForElement通过获取该元素的localName(如context:annotation-config标签就是annotation-config)寻找适用于此元素的BeanDefinitionParser对象; 然后调用对应BeanDefinitionParser.parse方法:
 
-> 注意:对于context开头的的特殊bean, 不再对应普通的BeanDefinition, 而是被抽象成ComponentDefinition组件以完成特定功能, 组件集合表示为CompositeComponentDefinition
+> 注意:对于context开头的的特殊bean, 不再对应普通的BeanDefinition, 而是被抽象成多个ComponentDefinition组件以完成特定功能, 组件集合表示为CompositeComponentDefinition
 
 1.AnnotationConfigBeanDefinitionParser(annotation-config).parse:
 

@@ -112,6 +112,8 @@ MyCat
 
 [docsify](https://www.code-nav.cn/rd/?rid=79550af26016dd3b01eb463c6ec11b09)：文档网站生成
 
+vuepres: vue风格文档网站生成
+
 webify: 应用托管,静态网页, 类似vscode的live功能.
 
 NATAOO: 内网穿透 , 配合webify可实现外网静态网站
