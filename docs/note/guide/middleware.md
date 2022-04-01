@@ -112,62 +112,49 @@ MQ如何实现可靠性投递?
 
 ## Kafka
 
-Kafka 将生产者发布的消息发送到 **Topic（主题）** 中，需要这些消息的消费者可以订阅这些 **Topic（主题）**
+### 集群
 
-![	](picture/KafkaTopicPartitioning.png)
+Kafka通过zk维护成员关系, 每个broker都有唯一id(设置/自动生成), 启动时通过创建**临时节点**把id注册到zk的/brekers/ids路径. kafka组件订阅该路径, 当有broker加入或退出时, 可得到通知.
 
-1. **Producer（生产者）** : 产生消息的一方。
-2. **Consumer（消费者）** : 消费消息的一方。
-3. **Broker（代理）** : 可以看作是一个独立的 Kafka 实例。多个 Kafka Broker 组成一个 Kafka Cluster。
+控制器负责分区的leader选举. 集群中第一个启动的broker会在zk创建一个临时节点/controller让自己成为控制器. 其他broker也会尝试创建, 但会创建失败, 然后会再该节点上创建watch对象, 监听该节点变更通知. 当控制器与zk断开连接时, 临时节点消失, 其他broker得到通知会重复开始的步骤选出新控制器.
 
-每个 Broker 中又包含了 Topic 以及 Partition 这两个重要的概念：
+> 为防止同时出现多个控制器(脑裂), 每个新控制器会通过zk的条件递增获取controller epoch. 其他broker会忽略旧epoch消息.
 
-- **Topic（主题）** : Producer 将消息发送到特定的主题，Consumer 通过订阅特定的 Topic(主题) 来消费消息。
-- **Partition（分区）** : Partition 属于 Topic 的一部分。一个 Topic 可以有多个 Partition ，并且同一 Topic 下的 Partition 可以分布在不同的 Broker 上，这也就表明一个 Topic 可以横跨多个 Broker 。这正如我上面所画的图一样。
+当控制器通过zk路径发现一个broker离开集群, 会为分区leader刚好在该broker上的分区副本选取新leader. 然后告诉那些包含了该分区(副本)的broker新leader和follower信息. 这时, **新leader开始处理请求, 新follower开始同步新leader;** 
 
-> Kafka 中的 Partition（分区） 实际上可以对应成为消息队列中的队列。这样是不是更好理解一点？
+> follower唯一作用为与leader保持一致, 如果leader(所在broker)崩溃, 提升其中一个为leader.
 
+当控制器通过zk发现一个新的broker加入集群, 会通过broker id检查该broker是否包含现有分区的副本, 如果有, 控制器将变更同时发送给新加入的broker和其他broker, 新broker上的副本开始从leader处复制消息.
 
+一个主题被分为多个分区, 分区可有多个副本保存在broker上.
 
-**多副本机制**
+为实现同步, follower向leader发送包含下一个同步偏移量(有序)数据的请求, leader根据每个follower的当前偏移量知道各自的同步进度. 如果follower在10s内没有任何请求消息, 或10s内没有请求最新的数据, 则认为该follower不同步. 在leader失效时, 不同步的follower无法参与新首领选举.
 
-分区（Partition）中的多个副本(Replica)之间会有一个 leader ，其他副本称为 follower。发送的消息会被发送到 leader ，然后 follower 才能从 leader 中拉取消息进行同步。 
-
-> 生产者和消费者只与 leader 交互。可理解为其他副本只是 leader 的拷贝，它们的存在只是为了保证消息存储的安全性。当 leader 发生故障时会从 follower 中选举出一个 leader,但是 follower 中如果有和 leader 同步程度达不到要求的参加不了 leader 的竞选。
-
-Kafka引入多分区机制,各个 Partition 可以分布在不同的 Broker 上, 这样便能提供比较好的并发能力（负载均衡）
-
-kafka引入多副本机制,这也极大地提高了消息存储的安全性, 提高了容灾能力，不过也相应的增加了所需要的存储空间。
+: 因为broker会拒绝分区leader在另一个broker(或不存在)的对特定分区的请求, 所以Kafka客户端需要自己通过元数据将请求发送到正确的broker. 客户端可通过向任一一个broker发送(每个都有缓存元数据信息)元数据请求, 获取客户端相关的topic列表信息, 包括这些topic所包含的分区、每个分区的副本、副本的首领信息. 并保证一定时间内刷新元数据.
 
 
 
-**zk在kafka中的作用**
-
-1.**Broker 注册** ：在 Zookeeper 上会有一个专门**用来进行 Broker 服务器列表记录**的节点。每个 Broker 在启动时，都会到 Zookeeper 上进行注册，即到 `/brokers/ids` 下创建属于自己的节点。每个 Broker 就会将自己的 IP 地址和端口等信息记录到该节点中去
-
-2.**Topic 注册** ： 在 Kafka 中，同一个**Topic 的消息会被分成多个分区**并将其分布在多个 Broker 上，**这些分区信息及与 Broker 的对应关系**也都是由 Zookeeper 在维护。比如我创建了一个名字为 my-topic 的主题并且它有两个分区，对应到 zookeeper 中会创建这些文件夹：`/brokers/topics/my-topic/Partitions/0`、`/brokers/topics/my-topic/Partitions/1`
-
-3.**负载均衡** ：上面也说过了 Kafka 通过给特定 Topic 指定多个 Partition, 而各个 Partition 可以分布在不同的 Broker 上, 这样便能提供比较好的并发能力。 对于同一个 Topic 的不同 Partition，Kafka 会尽力将这些 Partition 分布到不同的 Broker 服务器上。当生产者产生消息后也会尽量投递到不同 Broker 的 Partition 里面。当 Consumer 消费的时候，Zookeeper 可以根据当前的 Partition 数量以及 Consumer 数量来实现动态负载均衡。
-
-......
 
 
 
-**kafka如何保证消息的消费顺序?**
 
- Kafka 中 Partition(分区)是真正保存消息的地方，我们发送的消息都被放在了这里。而我们的 Partition(分区) 又存在于 Topic(主题) 这个概念中，并且我们可以给特定 Topic 指定多个 Partition。
+在 Kafka 中，同一个**Topic 的消息会被分成多个分区**并将其分布在多个 Broker 上，**这些分区信息及与 Broker 的对应关系**也都是由 Zookeeper 在维护。比如我创建了一个名字为 my-topic 的主题并且它有两个分区，对应到 zookeeper 中会创建这些文件夹：`/brokers/topics/my-topic/Partitions/0`、`/brokers/topics/my-topic/Partitions/1`
 
-每次添加消息到 Partition(分区) 的时候都会采用尾加法，如下图所示。 **Kafka 只能为我们保证 Partition(分区) 中的消息有序。**
+**负载均衡** ：上面也说过了 Kafka 通过给特定 Topic 指定多个 Partition, 而各个 Partition 可以分布在不同的 Broker 上, 这样便能提供比较好的并发能力。 对于同一个 Topic 的不同 Partition，Kafka 会尽力将这些 Partition 分布到不同的 Broker 服务器上。当生产者产生消息后也会尽量投递到不同 Broker 的 Partition 里面。当 Consumer 消费的时候，Zookeeper 可以根据当前的 Partition 数量以及 Consumer 数量来实现动态负载均衡。
+
+### 分区顺序消费
+
+ Kafka 中 Partition(分区)是真正保存消息的地方,  而Partition又存在于 Topic中,  并且我们可以给特定 Topic 指定多个 Partition.
+
+每次添加消息到 Partition的时候都会采用尾加法 . **Kafka 只能为我们保证 Partition(分区) 中的消息有序.**
 
 ![img](picture/KafkaTopicPartionsLayout.png)
 
-所以，我们就有一种很简单的保证消息消费顺序的方法：**1 个 Topic 只对应一个 Partition**。这样当然可以解决问题，但是破坏了 Kafka 的设计初衷。
+所以要保证消息消费顺序,  可以**1 个 Topic 只对应一个 Partition**.  这样当然可以解决问题，但是破坏了 Kafka 的设计初衷.  
 
-Kafka 中发送 1 条消息的时候，可以指定 topic, partition, key,data（数据） 4 个参数。如果你发送消息的时候指定了 Partition 的话，所有消息都会被发送到指定的 Partition。并且，同一个 key 的消息可以保证只发送到同一个 partition，这个我们可以采用表/对象的 id 来作为 key 。
+> Kafka 中的 Partition（分区） 实际上可以对应成为消息队列中的队列。这样是不是更好理解一点？
 
-
-
-**Kafka 如何保证消息不丢失**
+### 保证消息可靠性
 
 1.对于生产者:生产者(Producer) 调用`send`方法发送消息之后，消息可能因为网络问题并没有发送过去。
 
@@ -227,35 +214,9 @@ acks 的默认值即为1，代表我们的消息被leader副本接收之后就�
 
 我们最开始也说了我们发送的消息会被发送到 leader 副本，然后 follower 副本才能从 leader 副本中拉取消息进行同步。多个 follower 副本之间的消息同步情况不一样，当我们配置了 **unclean.leader.election.enable = false**  的话，当 leader 副本发生故障时就不会从  follower 副本中和 leader 同步程度达不到要求的副本中选择出  leader ，这样降低了消息丢失的可能性。
 
-
-
-**Kafka 如何保证消息不重复消费**
-
-**kafka出现消息重复消费的原因：**
-
-- 服务端侧已经消费的数据没有成功提交 offset（根本原因）。
-- Kafka 侧 由于服务端处理业务时间长或者网络链接等等原因让 Kafka 认为服务假死，触发了分区 rebalance。
-
-**解决方案：**
-
-- 消费消息服务做幂等校验，比如 Redis 的set、MySQL 的主键等天然的幂等功能。这种方法最有效。
-
-- 将 
-
-  `enable.auto.commit`
-
-   参数设置为 false，关闭自动提交，开发者在代码中手动提交 offset。那么这里会有个问题：
-
-  什么时候提交offset合适？
-
-  - 处理完消息再提交：依旧有消息重复消费的风险，和自动提交一样
-  - 拉取到消息即提交：会有消息丢失的风险。允许消息延时的场景，一般会采用这种方式。然后，通过定时任务在业务不繁忙（比如凌晨）的时候做数据兜底。
-
-### 为什么高性能
+### 磁盘顺序读写
 
 大吞吐量, 天然支持Hadoop大数据生态
-
-**磁盘顺序读写**
 
 Kafka基于顺序读写实现高性能.
 

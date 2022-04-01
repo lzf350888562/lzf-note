@@ -2053,8 +2053,6 @@ windows:
 
 数据目录下的my.ini为mysql配置文件,linux为,my.cnf
 
-![](D:\Study notes\LZFNotes\utils\note\picture\sql-join.jpg)
-
 ## 表操作
 
 ```

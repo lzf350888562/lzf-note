@@ -2481,8 +2481,6 @@ public class InvokeRecordAspect extends BaseMethodAspect {
 
 2.@Order 是用来标记这个切面应该在哪一层，数字越小，则在越外层（越先进入，越后结束） —— 方法调用记录的切面很明显应该在大气层（小编：王者荣耀术语，即最外层），因为方法调用记录的切面应该最后结束，所以我们给一个小点的数字。
 
-![](D:\Study notes\LZFNotes\utils\note\picture\aop-order.jpg)
-
 **测试**
 
 ```

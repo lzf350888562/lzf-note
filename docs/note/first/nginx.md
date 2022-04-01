@@ -194,8 +194,6 @@ fair;
 
 简单理解就是nginx处理静态页面,Tomcat处理动态页面.也是基于反向代理.
 
-
-
 假设存在资源目录/data/www 和/data/image
 
 ```
@@ -209,7 +207,7 @@ location /image/ {
 }
 ```
 
-
+利用该功能可搭建静态服务器,  注意, 如果root映射的路径在/root下, 需要将nginx.conf的第一行设置为user root, 否则403; 但是不建议映射root
 
 # 高可用
 
