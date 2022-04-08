@@ -1,33 +1,11 @@
-Spring Boot在所有内部日志中使用[Commons Logging](http://commons.apache.org/proper/commons-logging/)，但是默认配置也提供了对常用日志的支持，如：[Java Util Logging](http://docs.oracle.com/javase/7/docs/api/java/util/logging/package-summary.html)，[Log4J](http://logging.apache.org/log4j/), [Log4J2](https://logging.apache.org/log4j/2.x/)和[Logback](https://logback.qos.ch/)。每种Logger都可以通过配置使用控制台或者文件输出日志内容。
+# Log
 
-[SLF4J](http://www.slf4j.org/) —— Simple Logging Facade For Java，它是一个针对于各类Java日志框架的统一Facade抽象。Java日志框架众多——常用的有`java.util.logging`, `log4j`, `logback`，`commons-logging`, Spring框架使用的是Jakarta Commons Logging API（JCL）。而SLF4J定义了统一的日志抽象接口，而真正的日志实现则是在运行时决定的——它提供了各类日志框架的绑定。
-
-[Logback](https://logback.qos.ch/)是log4j框架的作者开发的新一代日志框架，它效率更高、能够适应诸多的运行环境，同时天然支持SLF4J。
+## SpringBoot
 
 默认情况下，Spring Boot会用Logback来记录日志，并用INFO级别输出到控制台。
 
-**TRACE** < **DEBUG** < **INFO** < **WARN** < **ERROR** < **FATAL**
-
-# springboot
-
-配置日志级别,默认全局为info级别,特定包下为debug级别
-
 ```
-logging:
-  level:
-    root:info
-    com.example.xxx1:debug
-    com.example.xxx2:debug
-```
-
-
-
-## 格式化日志
-
-Spring Boot在所有内部日志中使用[Commons Logging](http://commons.apache.org/proper/commons-logging/)，但是默认配置也提供了对常用日志的支持，如：[Java Util Logging](http://docs.oracle.com/javase/7/docs/api/java/util/logging/package-summary.html)，[Log4J](http://logging.apache.org/log4j/), [Log4J2](http://logging.apache.org/log4j/)和[Logback](http://logback.qos.ch/)。每种Logger都可以通过配置使用控制台或者文件输出日志内容。
-
-```
-2016-04-13 08:23:50.120  INFO 37397 --- [           main] org.hibernate.Version                    : HHH000412: Hibernate Core {4.3.11.Final}
+xxxxxxxxxx 2016-04-13 08:23:50.120  INFO 37397 --- [           main] org.hibernate.Version                    : HHH000412: Hibernate Core {4.3.11.Final}
 ```
 
 输出内容元素具体如下：
@@ -40,16 +18,19 @@ Spring Boot在所有内部日志中使用[Commons Logging](http://commons.apache
 - Logger名 — 通常使用源代码的类名
 - 日志内容
 
-## 控制台输出
+**TRACE** < **DEBUG** < **INFO** < **WARN** < **ERROR** < **FATAL**
 
-在Spring Boot中默认配置了`ERROR`、`WARN`和`INFO`级别的日志输出到控制台。
+配置日志级别,默认全局为info级别,特定包下为debug级别
 
-我们可以通过两种方式切换至`DEBUG`级别：
+```
+logging:
+  level:
+    root:info
+    com.example.xxx1:debug
+    com.example.xxx2:debug
+```
 
-- 在运行命令后加入`--debug`标志，如：`$ java -jar myapp.jar --debug`
-- 在`application.properties`中配置`debug=true`，该属性置为true的时候，核心Logger（包含嵌入式容器、hibernate、spring）会输出更多内容，但是你自己应用的日志并不会输出为DEBUG级别。
-
-## 多彩输出
+**多彩输出**
 
 如果你的终端支持ANSI，设置彩色输出会让日志更具可读性。通过在`application.properties`中设置`spring.output.ansi.enabled`参数来支持。
 
@@ -57,7 +38,7 @@ Spring Boot在所有内部日志中使用[Commons Logging](http://commons.apache
 - DETECT：会检查终端是否支持ANSI，是的话就采用彩色输出（推荐项）
 - ALWAYS：总是使用ANSI-colored格式输出，若终端不支持的时候，会有很多干扰信息，不推荐使用
 
-## 文件输出
+**文件输出**
 
 Spring Boot默认配置只会输出到控制台，并不会记录到文件中，但是我们通常生产环境使用时都需要以文件方式记录。
 
@@ -66,23 +47,16 @@ Spring Boot默认配置只会输出到控制台，并不会记录到文件中，
 - logging.file，设置文件，可以是绝对路径，也可以是相对路径。如：`logging.file=my.log`
 - logging.path，设置目录，会在该目录下创建spring.log文件，并写入日志内容，如：`logging.path=/var/log`
 
-**日志文件会在10Mb大小的时候被截断，产生新的日志文件，默认级别为：ERROR、WARN、INFO**
+> 日志文件会在10Mb大小的时候被截断，产生新的日志文件，默认级别为：ERROR、WARN、INFO
 
-**日志文件以天为单位, 到第二天时前一天的日志自动打包成gz**
+> 日志文件以天为单位, 到第二天时前一天的日志自动打包成gz
 
-## 级别控制
+**自定义输出格式**
 
-在Spring Boot中只需要在`application.properties`中进行配置完成日志记录的级别控制。
+在Spring Boot中可以通过在`application.properties`配置如下参数控制输出格式：
 
-配置格式：`logging.level.*=LEVEL`
-
-- `logging.level`：日志级别控制前缀，`*`为包名或Logger名
-- `LEVEL`：选项TRACE, DEBUG, INFO, WARN, ERROR, FATAL, OFF
-
-举例：
-
-- `logging.level.com.didispace=DEBUG`：`com.didispace`包下所有class以DEBUG级别输出
-- `logging.level.root=WARN`：root日志以WARN级别输出
+- logging.pattern.console：定义输出到控制台的样式（不支持JDK Logger）
+- logging.pattern.file：定义输出到文件的样式（不支持JDK Logger）
 
 ## 自定义日志配置
 
@@ -97,16 +71,7 @@ Spring Boot默认配置只会输出到控制台，并不会记录到文件中，
 
 **Spring Boot官方推荐优先使用带有`-spring`的文件名作为你的日志配置（如使用`logback-spring.xml`，而不是`logback.xml`）**
 
-## 自定义输出格式
-
-在Spring Boot中可以通过在`application.properties`配置如下参数控制输出格式：
-
-- logging.pattern.console：定义输出到控制台的样式（不支持JDK Logger）
-- logging.pattern.file：定义输出到文件的样式（不支持JDK Logger）
-
-# logback
-
-Springboot默认logback-spring.xml
+## Logback
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -128,6 +93,8 @@ Springboot默认logback-spring.xml
     <appender name="file" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
             <fileNamePattern>${log.path}/logback.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>30</maxHistory>
+        	<totalSizeCap>1GB</totalSizeCap>
         </rollingPolicy>
         <encoder>
             <pattern>%d{HH:mm:ss.SSS} %contextName [%thread] %-5level %logger{36} - %msg%n</pattern>
@@ -139,16 +106,18 @@ Springboot默认logback-spring.xml
         <appender-ref ref="file" />
     </root>
 
-    <!-- logback为java中的包 -->
+    <!-- 包 -->
+    <!-- 控制controller包下的所有类的日志的打印，没有指定打印级别，继承root的日志级别"info" -->
+    <!-- 没有指定appender, 继承root的"console"和file"-->
     <logger name="com.mrbird.controller"/>
-    <!--logback.LogbackDemo：类的全路径 -->
+    <!-- 类的全路径 -->
+    <!-- 指定了处理"warn"级别日志,不传递到上级(root)-->
     <logger name="com.mrbird.controller.LoginController" level="WARN" additivity="false">
+        <!-- 指定了addpender -->
         <appender-ref ref="console"/>
     </logger>
 </configuration>
 ```
-
-## 节点与属性详解
 
 **根节点`<configuration>`包含的属性**
 
@@ -156,29 +125,15 @@ Springboot默认logback-spring.xml
 - scanPeriod：设置监测配置文件是否有修改的时间间隔，如果没有给出时间单位，默认单位是毫秒。当scan为true时，此属性生效。默认的时间间隔为1分钟。
 - debug：当此属性设置为true时，将打印出logback内部日志信息，实时查看logback运行状态。默认值为false。
 
-**设置上下文名称`<contextName>`**
+**`<contextName>`设置上下文名称**
 
 每个logger都关联到logger上下文，默认上下文名称为“default”。但可以使用设置成其他名字，用于区分不同应用程序的记录。一旦设置，不能修改,可以通过%contextName来打印日志上下文名称
 
-**设置变量`<property>`** 用来定义变量值的标签，有两个属性，name和value；其中name的值是变量的名称，value的值时变量定义的值。通过定义的值会被插入到logger上下文中。定义变量后，可以使“${}”来使用变量。
+**`<property>`设置变量值** 有name和value属性；其中name的值是变量的名称，value的值时变量定义的值。定义的值会被插入到logger上下文中。定义变量后，可以使“${}”来使用变量。
 
-**`<appender>用来格式化日志输出节点，有俩个属性name和class，class用来指定哪种输出策略，常用就是控制台输出策略和文件输出策略。`**
+**`<appender>`格式化日志输出节点**，有name和class属性，class用来指定哪种输出策略，常用就是控制台输出策略和文件输出策略。
 
-appender用来格式化日志输出节点，有俩个属性name和class，class用来指定哪种输出策略，常用就是控制台输出策略和文件输出策略。
-
-```
-<!--输出到控制台-->
-<appender name="console" class="ch.qos.logback.core.ConsoleAppender">
-    <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
-        <level>ERROR</level>
-    </filter>
-    <encoder>
-        <pattern>%d{HH:mm:ss.SSS} %contextName [%thread] %-5level %logger{36} - %msg%n</pattern>
-    </encoder>
-</appender>
-```
-
-`<encoder>`表示对日志进行编码：
+**`<encoder>`对日志进行编码**：
 
 - `%d{HH: mm:ss.SSS}`——日志输出时间。
 - `%thread`——输出日志的进程名字，这在Web应用以及异步任务处理中很有用。
@@ -187,415 +142,30 @@ appender用来格式化日志输出节点，有俩个属性name和class，class�
 - `%msg`——日志消息。
 - `%n`——平台的换行符
 
-ThresholdFilter为系统定义的拦截器，例如我们用ThresholdFilter来过滤掉ERROR级别以下的日志不输出。如果不用记得注释掉，不然你控制台会发现没日志.
-
-```
-<!--输出到文件-->
-<appender name="file" class="ch.qos.logback.core.rolling.RollingFileAppender">
-    <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-        <fileNamePattern>${log.path}/logback.%d{yyyy-MM-dd}.log</fileNamePattern>
-        <maxHistory>30</maxHistory>
-        <totalSizeCap>1GB</totalSizeCap>
-    </rollingPolicy>
-    <encoder>
-        <pattern>%d{HH:mm:ss.SSS} %contextName [%thread] %-5level %logger{36} - %msg%n</pattern>
-    </encoder>
-</appender>
-```
-
-其中重要的是rollingPolicy的定义：
+**`rollingPolicy`标签**：
 
 - `<fileNamePattern>${log.path}/logback.%d{yyyy-MM-dd}.log</fileNamePattern>`定义了日志的切分方式——把每一天的日志归档到一个文件中；
 - `<maxHistory>30</maxHistory>`表示只保留最近30天的日志，以防止日志填满整个磁盘空间。同理，可以使用`%d{yyyy-MM-dd_HH-mm}`来定义精确到分的日志切分方式；
 - `<totalSizeCap>1GB</totalSizeCap>`用来指定日志文件的上限大小，例如设置为1GB的话，那么到了这个值，就会删除旧的日志。
 
-**`<root>`**
+**`<root>`指定最基础的日志输出级别**
 
-root节点是必选节点，用来指定最基础的日志输出级别，只有一个level属性，用来设置打印级别，大小写无关：TRACE, DEBUG, INFO, WARN, ERROR, ALL 和 OFF，不能设置为INHERITED或者同义词NULL。
+只有一个level属性，用来设置打印级别，大小写无关：TRACE, DEBUG, INFO, WARN, ERROR, ALL 和 OFF，不能设置为INHERITED或者同义词NULL。
 
 默认是DEBUG。可以包含零个或多个元素，标识这个appender将会添加到这个logger。
 
-```
+```xml
 <root level="debug">
     <appender-ref ref="console" />
     <appender-ref ref="file" />
 </root>
 ```
 
-**`<logger>`**
-
-`<logger>`用来设置某一个包或者具体的某一个类的日志打印级别、以及指定`<appender>`。`<logger>`仅有一个name属性，一个可选的level和一个可选的addtivity属性。
+**`<logger>`设置某一个包或者具体的某一个类的日志打印级别、以及指定`<appender>`**。`<logger>`有一个name属性，一个可选的level和一个可选的addtivity属性。
 
 - `name`：用来指定受此logger约束的某一个包或者具体的某一个类。
 - `level`：用来设置打印级别，大小写无关：TRACE, DEBUG, INFO, WARN, ERROR, ALL 和 OFF，还有一个特俗值INHERITED或者同义词NULL，代表强制执行上级的级别。如果未设置此属性，那么当前logger将会继承上级的级别。
 - `addtivity`：是否向上级logger传递打印信息。默认是true。
-
-### logger标签深入
-
-1.
-
-`<logger name="com.mrbird.controller" />`将控制controller包下的所有类的日志的打印，但是并没用设置打印级别，所以继承他的上级的日志级别“info”；
-
-没有设置addtivity，默认为true，将此logger的打印信息向上级传递；
-
-没有设置appender，此logger本身不打印任何信息。
-
-`<root level="info">`将root的打印级别设置为“info”，指定了名字为“console”的appender。
-
-当执行com.mrbird.controller.LearnController类的login方法时，LearnController 在包com.mrbird.controller中，所以首先执行`<logger name="com.mrbird.controller"/>`，将级别为“info”及大于“info”的日志信息传递给root，本身并不打印； root接到下级传递的信息，交给已经配置好的名为“console”的appender处理，“console”appender将信息打印到控制台；
-
-2.
-
-```
-<!--logback.LogbackDemo：类的全路径 -->
-<logger name="com.mrbird.controller.LearnController" level="WARN" additivity="false">
-    <appender-ref ref="console"/>
-</logger>
-```
-
-控制com.mrbird.controller.LearnController类的日志打印，打印级别为“WARN”;additivity属性为false，表示此logger的打印信息不再向上级传递；指定了名字为“console”的appender。
-
-这时候执行`com.mrbird.controller.LearnController`类的login方法时，先执行`<logger name="com.mrbird.controller.LearnController" level="WARN" additivity="false">`, 将级别为“WARN”及大于“WARN”的日志信息交给此logger指定的名为“console”的appender处理，在控制台中打出日志，不再向上级root传递打印信息。
-
-## 例
-
-仅输出到控制台
-
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<configuration>
-    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
-        <encoder>
-            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n
-            </pattern>
-        </encoder>
-    </appender>
-
-    <root level="INFO">
-        <appender-ref ref="STDOUT" />
-    </root>
-</configuration>
-```
-
-详细1
-
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<configuration>
-    <!-- 日志存放路径 -->
-	<property name="log.path" value="D:/log/ruoyi" />
-    <!-- 日志输出格式 -->
-	<property name="log.pattern" value="%d{HH:mm:ss.SSS} [%thread] %-5level %logger{20} - [%method,%line] - %msg%n" />
-
-	<!-- 控制台输出 -->
-	<appender name="console" class="ch.qos.logback.core.ConsoleAppender">
-		<encoder>
-			<pattern>${log.pattern}</pattern>
-		</encoder>
-	</appender>
-	
-	<!-- 系统日志输出 -->
-	<appender name="file_info" class="ch.qos.logback.core.rolling.RollingFileAppender">
-	    <file>${log.path}/sys-info.log</file>
-        <!-- 循环政策：基于时间创建日志文件 -->
-		<rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <!-- 日志文件名格式 -->
-			<fileNamePattern>${log.path}/sys-info.%d{yyyy-MM-dd}.log</fileNamePattern>
-			<!-- 日志最大的历史 60天 -->
-			<maxHistory>60</maxHistory>
-		</rollingPolicy>
-		<encoder>
-			<pattern>${log.pattern}</pattern>
-		</encoder>
-		<filter class="ch.qos.logback.classic.filter.LevelFilter">
-            <!-- 过滤的级别 -->
-            <level>INFO</level>
-            <!-- 匹配时的操作：接收（记录） -->
-            <onMatch>ACCEPT</onMatch>
-            <!-- 不匹配时的操作：拒绝（不记录） -->
-            <onMismatch>DENY</onMismatch>
-        </filter>
-	</appender>
-	
-	<appender name="file_error" class="ch.qos.logback.core.rolling.RollingFileAppender">
-	    <file>${log.path}/sys-error.log</file>
-        <!-- 循环政策：基于时间创建日志文件 -->
-        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <!-- 日志文件名格式 -->
-            <fileNamePattern>${log.path}/sys-error.%d{yyyy-MM-dd}.log</fileNamePattern>
-			<!-- 日志最大的历史 60天 -->
-			<maxHistory>60</maxHistory>
-        </rollingPolicy>
-        <encoder>
-            <pattern>${log.pattern}</pattern>
-        </encoder>
-        <filter class="ch.qos.logback.classic.filter.LevelFilter">
-            <!-- 过滤的级别 -->
-            <level>ERROR</level>
-			<!-- 匹配时的操作：接收（记录） -->
-            <onMatch>ACCEPT</onMatch>
-			<!-- 不匹配时的操作：拒绝（不记录） -->
-            <onMismatch>DENY</onMismatch>
-        </filter>
-    </appender>
-	
-	<!-- 用户访问日志输出  -->
-    <appender name="sys-user" class="ch.qos.logback.core.rolling.RollingFileAppender">
-		<file>${log.path}/sys-user.log</file>
-        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <!-- 按天回滚 daily -->
-            <fileNamePattern>${log.path}/sys-user.%d{yyyy-MM-dd}.log</fileNamePattern>
-            <!-- 日志最大的历史 60天 -->
-            <maxHistory>60</maxHistory>
-        </rollingPolicy>
-        <encoder>
-            <pattern>${log.pattern}</pattern>
-        </encoder>
-    </appender>
-	
-	<!-- 系统模块日志级别控制  -->
-	<logger name="com.ruoyi" level="info" />
-	<!-- Spring日志级别控制  -->
-	<logger name="org.springframework" level="warn" />
-
-	<root level="info">
-		<appender-ref ref="console" />
-	</root>
-	
-	<!--系统操作日志-->
-    <root level="info">
-        <appender-ref ref="file_info" />
-        <appender-ref ref="file_error" />
-    </root>
-	
-	<!--系统用户操作日志-->
-    <logger name="sys-user" level="info">
-        <appender-ref ref="sys-user"/>
-    </logger>
-</configuration> 
-```
-
-**多级别分别输出**
-
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<configuration  scan="true" scanPeriod="10 seconds">
-    <!-- 日志级别从低到高分为TRACE < DEBUG < INFO < WARN < ERROR < FATAL，如果设置为WARN，则低于WARN的信息都不会输出 -->
-    <!-- scan:当此属性设置为true时，配置文件如果发生改变，将会被重新加载，默认值为true -->
-    <!-- scanPeriod:设置监测配置文件是否有修改的时间间隔，如果没有给出时间单位，默认单位是毫秒。当scan为true时，此属性生效。默认的时间间隔为1分钟。 -->
-    <!-- debug:当此属性设置为true时，将打印出logback内部日志信息，实时查看logback运行状态。默认值为false。 -->
-
-    <contextName>logback</contextName>
-    <!-- name的值是变量的名称，value的值时变量定义的值。通过定义的值会被插入到logger上下文中。定义变量后，可以使“${}”来使用变量。 -->
-    <property name="log.path" value="D:/log/guli" />
-
-    <!-- 彩色日志 -->
-    <!-- 配置格式变量：CONSOLE_LOG_PATTERN 彩色日志格式 -->
-    <!-- magenta:洋红 -->
-    <!-- boldMagenta:粗红-->
-    <!-- cyan:青色 -->
-    <!-- white:白色 -->
-    <!-- magenta:洋红 -->
-    <property name="CONSOLE_LOG_PATTERN"
-              value="%yellow(%date{yyyy-MM-dd HH:mm:ss}) |%highlight(%-5level) |%blue(%thread) |%blue(%file:%line) |%green(%logger) |%cyan(%msg%n)"/>
-
-    <!--输出到控制台-->
-    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
-        <!--此日志appender是为开发使用，只配置最底级别，控制台输出的日志级别是大于或等于此级别的日志信息-->
-        <!-- 例如：如果此处配置了INFO级别，则后面其他位置即使配置了DEBUG级别的日志，也不会被输出 -->
-        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
-            <level>INFO</level>
-        </filter>
-        <encoder>
-            <Pattern>${CONSOLE_LOG_PATTERN}</Pattern>
-            <!-- 设置字符集 -->
-            <charset>UTF-8</charset>
-        </encoder>
-    </appender>
-
-    <!--输出到文件-->
-
-    <!-- 时间滚动输出 level为 INFO 日志 -->
-    <appender name="INFO_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <!-- 正在记录的日志文件的路径及文件名 -->
-        <file>${log.path}/log_info.log</file>
-        <!--日志文件输出格式-->
-        <encoder>
-            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n</pattern>
-            <charset>UTF-8</charset>
-        </encoder>
-        <!-- 日志记录器的滚动策略，按日期，按大小记录 -->
-        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <!-- 每天日志归档路径以及格式 -->
-            <fileNamePattern>${log.path}/info/log-info-%d{yyyy-MM-dd}.%i.log</fileNamePattern>
-            <timeBasedFileNamingAndTriggeringPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedFNATP">
-                <maxFileSize>100MB</maxFileSize>
-            </timeBasedFileNamingAndTriggeringPolicy>
-            <!--日志文件保留天数-->
-            <maxHistory>15</maxHistory>
-        </rollingPolicy>
-        <!-- 此日志文件只记录info级别的 -->
-        <filter class="ch.qos.logback.classic.filter.LevelFilter">
-            <level>INFO</level>
-            <onMatch>ACCEPT</onMatch>
-            <onMismatch>DENY</onMismatch>
-        </filter>
-    </appender>
-
-    <!-- 时间滚动输出 level为 WARN 日志 -->
-    <appender name="WARN_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <!-- 正在记录的日志文件的路径及文件名 -->
-        <file>${log.path}/log_warn.log</file>
-        <!--日志文件输出格式-->
-        <encoder>
-            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n</pattern>
-            <charset>UTF-8</charset> <!-- 此处设置字符集 -->
-        </encoder>
-        <!-- 日志记录器的滚动策略，按日期，按大小记录 -->
-        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <fileNamePattern>${log.path}/warn/log-warn-%d{yyyy-MM-dd}.%i.log</fileNamePattern>
-            <timeBasedFileNamingAndTriggeringPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedFNATP">
-                <maxFileSize>100MB</maxFileSize>
-            </timeBasedFileNamingAndTriggeringPolicy>
-            <!--日志文件保留天数-->
-            <maxHistory>15</maxHistory>
-        </rollingPolicy>
-        <!-- 此日志文件只记录warn级别的 -->
-        <filter class="ch.qos.logback.classic.filter.LevelFilter">
-            <level>warn</level>
-            <onMatch>ACCEPT</onMatch>
-            <onMismatch>DENY</onMismatch>
-        </filter>
-    </appender>
-
-    <!-- 时间滚动输出 level为 ERROR 日志 -->
-    <appender name="ERROR_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <!-- 正在记录的日志文件的路径及文件名 -->
-        <file>${log.path}/log_error.log</file>
-        <!--日志文件输出格式-->
-        <encoder>
-            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n</pattern>
-            <charset>UTF-8</charset> <!-- 此处设置字符集 -->
-        </encoder>
-        <!-- 日志记录器的滚动策略，按日期，按大小记录 -->
-        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <fileNamePattern>${log.path}/error/log-error-%d{yyyy-MM-dd}.%i.log</fileNamePattern>
-            <timeBasedFileNamingAndTriggeringPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedFNATP">
-                <maxFileSize>100MB</maxFileSize>
-            </timeBasedFileNamingAndTriggeringPolicy>
-            <!--日志文件保留天数-->
-            <maxHistory>15</maxHistory>
-        </rollingPolicy>
-        <!-- 此日志文件只记录ERROR级别的 -->
-        <filter class="ch.qos.logback.classic.filter.LevelFilter">
-            <level>ERROR</level>
-            <onMatch>ACCEPT</onMatch>
-            <onMismatch>DENY</onMismatch>
-        </filter>
-    </appender>
-
-    <!--
-        <logger>用来设置某一个包或者具体的某一个类的日志打印级别、以及指定<appender>。
-        <logger>仅有一个name属性，
-        一个可选的level和一个可选的addtivity属性。
-        name:用来指定受此logger约束的某一个包或者具体的某一个类。
-        level:用来设置打印级别，大小写无关：TRACE, DEBUG, INFO, WARN, ERROR, ALL 和 OFF，
-              如果未设置此属性，那么当前logger将会继承上级的级别。
-    -->
-    <!--
-        使用mybatis的时候，sql语句是debug下才会打印，而这里我们只配置了info，所以想要查看sql语句的话，有以下两种操作：
-        第一种把<root level="INFO">改成<root level="DEBUG">这样就会打印sql，不过这样日志那边会出现很多其他消息
-        第二种就是单独给mapper下目录配置DEBUG模式，代码如下，这样配置sql语句会打印，其他还是正常DEBUG级别：
-     -->
-
-<!--    开发环境对应与application.properties文件-->
-    <!--开发环境:打印控制台-->
-    <springProfile name="dev">
-        <!--可以输出项目中的debug日志，包括mybatis的sql日志-->
-        <logger name="edu.hunnu" level="INFO" />
-
-        <!--
-            root节点是必选节点，用来指定最基础的日志输出级别，只有一个level属性
-            level:用来设置打印级别，大小写无关：TRACE, DEBUG, INFO, WARN, ERROR, ALL 和 OFF，默认是DEBUG
-            可以包含零个或多个appender元素。
-        -->
-        <root level="INFO">
-            <appender-ref ref="CONSOLE" />
-            <appender-ref ref="INFO_FILE" />
-            <appender-ref ref="WARN_FILE" />
-            <appender-ref ref="ERROR_FILE" />
-        </root>
-    </springProfile>
-
-
-    <!--生产环境:输出到文件-->
-    <springProfile name="pro">
-
-        <root level="INFO">
-            <appender-ref ref="CONSOLE" />
-            <appender-ref ref="DEBUG_FILE" />
-            <appender-ref ref="INFO_FILE" />
-            <appender-ref ref="ERROR_FILE" />
-            <appender-ref ref="WARN_FILE" />
-        </root>
-    </springProfile>
-
-</configuration>
-```
-
-详细3
-
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-
-<configuration>
-    <!--定义日志文件的存储地址,使用绝对路径-->
-    <property name="LOG_HOME" value="d:/log"/>
-
-    <!-- Console 输出设置 -->
-    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
-        <encoder>
-            <!--格式化输出：%d表示日期，%thread表示线程名，%-5level：级别从左显示5个字符宽度%msg：日志消息，%n是换行符-->
-            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
-            <charset>utf8</charset>
-        </encoder>
-    </appender>
-
-    <!-- 按照每天生成日志文件 -->
-    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <!--日志文件输出的文件名-->
-            <fileNamePattern>${LOG_HOME}/xc.%d{yyyy-MM-dd}.log</fileNamePattern>
-        </rollingPolicy>
-        <encoder>
-            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
-        </encoder>
-    </appender>
-
-    <!-- 异步输出 -->
-    <appender name="ASYNC" class="ch.qos.logback.classic.AsyncAppender">
-        <!-- 不丢失日志.默认的,如果队列的80%已满,则会丢弃TRACT、DEBUG、INFO级别的日志 -->
-        <discardingThreshold>0</discardingThreshold>
-        <!-- 更改默认的队列的深度,该值会影响性能.默认值为256 -->
-        <queueSize>512</queueSize>
-        <!-- 添加附加的appender,最多只能添加一个 -->
-        <appender-ref ref="FILE"/>
-    </appender>
-
-
-    <logger name="org.apache.ibatis.cache.decorators.LoggingCache" level="DEBUG" additivity="false">
-        <appender-ref ref="CONSOLE"/>
-    </logger>
-    <logger name="org.springframework.boot" level="DEBUG"/>
-    <root level="info">
-        <!--<appender-ref ref="ASYNC"/>-->
-        <appender-ref ref="FILE"/>
-        <appender-ref ref="CONSOLE"/>
-    </root>
-</configuration>
-```
-
-
 
 # log4j
 

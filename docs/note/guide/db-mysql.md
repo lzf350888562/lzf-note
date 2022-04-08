@@ -4,7 +4,7 @@ OLAP联机分析处理:
 
  --> 数据仓库  如hive 采用 hash索引
 
---> clickhoust/druid/kylin
+--> clickhouse/druid/kylin
 
 OLTP联机事务处理:
 
@@ -12,33 +12,350 @@ OLTP联机事务处理:
 
 -->关系型数据库
 
-# mysql
-
-**局部性原理**:之前被查询过的数据很可能再次被查询;
-
-**磁盘预读:**在磁盘与内存进行交互的时候,有一个最小逻辑单元称之为页,datapage,与操作系统相关,一般为4k或8k,每次在进行数据交互的时候,一定读取的是页的整数倍.
-
-mysql的innodb在进行数据读取的时候也是跟页相关的,datapagesize,默认情况下是16kb.,包括树的节点.
-
-如innodb节点大小可通过:查看
-
-```
-show global status like 'Innodb_page_size' 
-```
-
-**mysql结构**
+# MySQL
 
 ![MySQL架构图](picture/v2-7692847118da7b1fd1835066a9e4e273_1440w.jpg)
 
-server中的查询缓存在mysql8版本之后失效:命中率低,查询一次清空.
+## InnoDB
 
-简单来说 MySQL 主要分为 Server 层和存储引擎层：
+前情提要: 
 
-**Server 层**：主要包括连接器、查询缓存、分析器、优化器、执行器等，所有跨存储引擎的功能都在这一层实现，比如存储过程、触发器、视图，函数等，还有一个通用的日志模块 binglog 日志模块。
+- MySQL 5.6 中InnoDB的版本为1.2
+- InnoDB通过LSN(Log Sequence Number)来标记版本, 是一个8字节的数字, 单位是字节. 每个页有LSN, 重做日志也有LSN, Checkpoint也有LSN.
 
-**存储引擎**： 主要负责数据的存储和读取，采用可以替换的插件式架构，支持 InnoDB、MyISAM、Memory 等多个存储引擎，其中 InnoDB 引擎有自有的日志模块 redolog 模块。
+### 线程
 
+1.Master Thread
 
+异步线程, 负责将缓冲池数据刷盘, 如脏页刷新、 合并insert buffer、undo页回收等.
+
+2.I/O Thread
+
+负责通过AIO处理IO请求, 如主从同步时binlog读取. 包括4个I/O Thread:
+
+1)write 2)read 3)insert buffer 4)log
+
+不同的InnoDB版本其个数不相同, 可通过`show engine innodb status`的FILE I/O项查看I/O Thread;
+
+3.Purge Thread
+
+负责回收事务提交后对应的作废undolog, 在InnoDB 1.1开始可从Master Thread中独立出来, 默认不开启, 可通过innodb_purge_thread=1开启, InnoDb 1.2开始可支持多个Purge Thread加快undo页回收.
+
+4.Page Cleaner Thread
+
+负责脏页刷新, InnoDB 1.2开始从Master Thread中独立出来, 减轻其负担.
+
+#### Master Thread
+
+该线程负责了InnoDB主要的工作, 是个后台线程.
+
+**InnoDB 1.0 之前**
+
+Master Thread具有最高线程优先级别, 其内部由多个loop组成(循环), Master Thread会根据数据库运行状态在多个loop中切换:
+
+①主循环 Loop : 负责大多数操作, 包括**每秒的操作和每10秒的操作**, 伪代码如下:
+
+```c
+void master_thread(){
+	loop;
+	for(int i=0; i<10; i++){
+		do thing once per second
+		sleep 1 second if necessary
+	}
+	do things once per ten seconds
+	goto loop;
+}
+```
+
+因为loop通过sleep实现, 所以每秒和每10秒操作时间并不精确(redis loop因为时间事件先于文件时间执行, 所以也会导致100ms的时间事件不精确).
+
+其中每秒一次的操作包括:
+
+- 将重做日志缓冲刷新到磁盘重做日志文件, 即使**该事务还没提交**, 为了防止大事务提交时间长的问题(总是);
+- 根据当前一秒内发生的I/O次数是否小于5次, 决定是否合并插入缓冲(可能);
+- 根据innodb_max_dirty_pages_pct设置的脏页比例, 至多刷新100个InnoDB的缓冲池中的脏页到磁盘(可能);
+- 如果当前没有用户活动, 则切换到 background loop(可能).
+
+其中每10秒一次的操作包括:
+
+- 根据过去10秒内磁盘的IO操作是否小于200次, 决定是否刷新100个脏页到磁盘(可能);
+- 合并至多5个插入缓冲(总是);
+- 将重做日志缓冲刷新到磁盘重做日志文件(总是);
+- full purge操作, 删除最多20个无用的undo页(总是);
+- innodb_max_dirty_pages_pct大于70%刷新100个, 小于则刷新10个脏页到磁盘(总是).
+
+②backgroud loop : 当没有用户活动时 或 数据库关闭时会切换到该循环
+
+- 删除无用undo页(总是);
+- 合并20个插入缓冲(总是);
+- 跳回主循环Loop或flush loop
+
+③flush loop : 不断刷新100个页直到符合条件, 然后跳转到suspend loop.
+
+④suspend loop : 将Master Thread挂起, 等待事件发生.
+
+**InnoDB 1.2之前**
+
+因为1.0对缓冲池的刷盘IO做了限制(最多100页), 在写入密集的应用中(脏页和插入缓冲过多), 会导致主线程忙不过来, 如果发送宕机需要恢复时, 从重做日志恢复的时间需要更久.  因此InnoDB Plugin提供了innodb_io_capacity参数(默认200)控制刷新到磁盘的脏页的数量, 并且合并插入缓冲时的数量为innodb_io_capacity*5%.
+
+> 若使用SSD或RAID时存储设备拥有更高的IO速度, 可将innodb_io_capacity设置得更高.
+
+因为1.0之前innodb_max_dirty_pages_pct默认值为90, 而InnoDB在每秒刷新缓冲池和flush loop中都要判断脏页比例是否大于该值才决定刷盘, 在内存量大时增加了刷盘耗时. 所以在1.0之后变为了75, 即可以加快刷盘的频率, 又能保证磁盘IO的负载.
+
+另外1.0新增了innodb_purge_batch_size参数控制每次full purge操作回收的undo页的数量, innodb_adaptive_flushing参数来根据产生重做日志的速度来决定最合适的刷新脏页数量.
+
+通过show engine innodb status的INNODB MONITOR OUTPUT可查看MasterThread运行状态:
+
+```
+-----------
+BACKGROUND THREAD
+-----------
+srv_master_thread loops: <每秒活动执行次数> 1_second, <sleep的次数> sleeps, <每10秒活动执行次数> 10_seconds, <background loop次数> background,<flush loop> flush次数
+```
+
+> 在服务器压力较小下, 可发现sleeps值等于1_second值,与理想伪代码中的实现一致; 
+>
+> 但在服务器压力很大时, 可发现sleeps值远小于1_second的值, 这是因为InnoDB对其进行了优化, 在压力大时并不总是等待1s. 因此也可通过两值反映服务器的负载压力.
+
+**InnoDB 1.2**
+
+将刷新脏页的操作分离到Page Cleaner Thread, 分工, 提供并发性.
+
+### 内存
+
+1.缓冲池
+
+首次读取页时, 会先将页存放到缓冲池; 下次读取页时会先判断该页是否在缓冲池中, 若在则表示**命中**, 直接读取.
+
+修改操作也将先在缓冲池修改, 然后通过**Checkpoint机制以一定的频率刷盘**.
+
+缓冲池大小通过innodb_buffer_pool_size控制, 包括索引页、数据页、undo页、 插入缓冲、自适应哈希索引等, 其中索引页和数据页占多数.
+
+InnoDB 1.0开始允许多个缓冲池实例存在, 每个页根据哈希值平摊到不同缓冲池实例, 可通过innodb_buffer_pool_instances设置, 同样可通过`show engine innodb status`的INDIVIDUAL BUFFER POOL INFO项查看, 并可通过如 ---buffer pool 0查看指定缓冲池实例.
+
+MySQL5.6开始可通过information_schema.INNODB_POOL_STATS表查看缓冲池状态: 
+
+```
+select POOL_ID,POOL_SIZE,FREE_BUFFERS,DATABASE_PAGES from INNODB_POOL_STATS;
+```
+
+2.LRU List、Free List、Flush List
+
+InnoDB通过LRU列表管理页的, 列表前面表示热点页; 新读取到的页并不是直接插入LRU列表首部, 而是插入到midpoint位置, 由innodb_old_blocks_pct参数控制, 默认为37, 即表示在链表的5/8处. midpoint前的列表为热点数据NEW区, 后面为OLD区. 
+
+>  如果热点数据较多, 可通过减小innodb_old_blocks_pct的值将midpoint位置后移增大NEW区, 减少热点页被刷出的几率.
+
+并且为了进一步防止热点数据被冲刷(当大数据量查询页时), InnoDB通过innodb_old_blocks_time参数控制在页加入到midpoint位置后需要等待多长时间才能被加入到LRU列表首部.
+
+> 通过INNODB_BUFFER_PAGE_LRU表可以观察LRU列表每个页的具体信息, 其中TABLE_NAME列为NULL表示该页属于系统表空间.
+
+Free列表记录缓冲池可用列表, 数据库刚启动时LRU列表为空, Free列表存放所有空闲页. 当需要分页时先从Free列表查询是否存在可用空闲页, 若有则从Free列表删除, 放入LRU列表; 否则LRU淘汰尾页, 然后分配给新页.
+
+page made young 操作表示页从LRU列表的OLD区加入到NEW区;
+
+page not made young 操作表示因为innodb_old_blocks_time限制导致页无法从OLD区加入到new区.
+
+Flush列表记录脏页, LRU列表中被修改后与磁盘页不一致的页为脏页, MySQL通过checkpoint机制将脏页刷盘.
+
+> 因为脏页同时存在于Flush列表和LRU列表, 所以可通过INNODB_BUFFER_PAGE_LRU表筛选查看Flush列表, 只需要添加过滤条件where OLDEST_MODIFICATION > 0即可.
+
+通过`show engine innodb status`的INNODB MONITOR OUTPUT可查看缓冲池运行状态:
+
+```
+Buffer pool size <缓冲池总共的页数>
+Free buffers <Free列表页的数量>
+Database pages <LRU列表页的数量>
+Old database pages <OLD区页数>
+Modified db pages <脏页数>
+Pages made young <页前移的次数>, not young <因iobt无法前移的次数>
+youngs/s <每秒页前移次数>,non-youngs/s <每秒因iobt无法前移的次数>
+...
+Buffer pool hit rate <缓冲池命中率>
+```
+
+其中 LRU列表页数+Free列表页数≠缓冲池总页数 是因为页还会被分配给前面提到的其他页, 占绝少数; Buffer pool hit rate不应小于95%.
+
+> INNODB_BUFFER_POOL同样可以查询上述信息.
+
+另外, 因为InnoDB支持页压缩, 所以使用unzip_LRU列表管理非16KB的压缩页, 注意, 该列表的所有页同样在LRU列表中.
+
+unzip_LRU列表对不同大小的压缩页分别管理, 并通过**伙伴算法**进行内存分配, 如需要从缓冲池申请4KB的页, 过程为:
+
+```
+1.检查4KB的unzip_LRU列表, 是存在可用的空闲页;
+2.若有则直接使用;
+3.否则,检查8KB的unzip_LRU列表;
+3.若能得到8KB的unzip_LRU列表的空闲页,则将页分成2个4KB的页,存放到4KB的unzip_LRU列表并使用;
+4.否则从LRU列表申请一个16KB的页,将该页分成1个8KB和2个4KB的页,分别存放到对应的unzip_LRU列表中.
+```
+
+> 因为unzip_LRU列表的所有页同样在LRU列表中, 所以可通过INNODB_BUFFER_PAGE_LRU表筛选查看unzip_LRU列表, 只需要添加过滤条件where COMPRESSED_SIZE <> 0即可.
+
+3.重做日志缓冲
+
+InnoDB内存区中独立与缓冲池之外, InnoDB先将重做日志信息放入重做日志缓冲, 然后再以一定频率刷新到重做日志文件. 重做日志缓冲一般较小, 只需要容纳每秒产生的事务量即可, 可通过innodb_log_buffer_size配置, 默认8MB. 
+
+在以下三种情况时, 重做日志缓冲将刷新到磁盘的重做日志文件:
+
+①Master Thread每秒刷新;
+
+②每个事务提交时(默认);
+
+③当重做日志缓冲池剩余空闲小于1/2时.
+
+> Write Ahead Log: 事务提交时, 先写重做日志, 再修改页. 当宕机时, 可通过重做日志完成数据恢复.
+
+4.额外的内存池
+
+???
+
+### Checkpoint
+
+checkpoint技术主要解决以下问题:
+
+1.缩短数据恢复时间:
+
+当数据库宕机时, 不需要重做所有日志, checkpoint之前的页都已经完成刷盘, 只需对checkpoint之后的重做日志进行恢复.
+
+2.缓冲池执行LRU时尾页为脏页: 
+
+当缓冲池不够用时, LRU将溢出尾页, 若此页尾脏页, 则需要强制执行checkpoint将脏页刷回磁盘.
+
+3.重做日志不可用时:
+
+重做日志的设计为固定大小循环使用, 对checkpoint之前的部分进行覆盖重用, 若无法覆盖时, 需要强制执行checkpoint将缓冲池中的页至少刷新到当前重做日志的位置, 将checkpoint位置后推.
+
+InnoDB存在4种checkpoint情况:
+
+①Master Thread Checkpoint:
+
+Master Thread以每秒或每十秒的速度从缓冲池的脏页列表中刷新一定比例的页回磁盘(异步).
+
+②FLUSH_LRU_LIST Checkpoint:
+
+当执行LRU时, 如果尾页为脏页, 则执行checkpoint.(对应问题2)
+
+> InnoDB需要保证LRU中需要存在大约100个空闲页可供使用, 否则需要执行LRU.
+>
+> 在InnoDB 1.2以前, 检查空闲页的工作发生在用户查询线程, 会阻塞用户操作;
+>
+> 在InnoDB 1.2开始, 由Page Cleaner Thread进行检查, 避免用户线程阻塞.
+
+③Async/Sync Flush Checkpoint:
+
+当重做日志文件不可用时, 强制刷盘(对应问题3) , 以保证重做日志循环使用.
+
+在重做日志中, 若将已写入到重做日志最新页的[LSN记](#InnoDB)为redo_lsn, 将已经刷盘的最新页的LSN记为checkpoint_lsn, 且:
+
+checkpoint_age = redo_lsn - checkpoint_lsn
+
+async_water_mark = 75% * total_redo_log_file_size (所有重做日志文件总大小)
+
+sync_water_mark = 90% * total_redo_log_file_size
+
+则:
+
+```
+1)当checkpoint_age < async_water_mark时, 不需要刷新任何脏页到磁盘;
+2)当 async_water_mark < checkpoint_age < sync_water_mark时, 执行Async Flush Checkpoint, 从Flush列表中刷新足够的脏页到磁盘, 使满足1;
+3)当checkpoint_age > sync_water_mark时,  执行Sync Flush Checkpoint,  从Flush列表中刷新足够的脏页到磁盘, 使满足1, 该情况较少发生, 除非重做日志设置得太小且进行类似LOAD DATA的BUCK INSERT操作.
+```
+
+> InnoDB 1.2以前, Async Flush Checkpoint 会阻塞发现问题的用户查询线程, Sync Flush Checkpoint 会阻塞索引的用户查询线程;
+>
+> InnoDB 1.2之后, 两个刷新操作都由Page Cleaner Thread完成, 故不会阻塞用户查询线程.
+
+④Dirty Page too much Checkpoint:
+
+脏页数量太多导致checkpoint, 比例由Innodb_max_dirty_pages_pct控制, 默认75, 表示脏页占比75%时执行checkpoint.
+
+### 关键特性
+
+1.插入缓冲;
+
+2.两次写;
+
+3.自适应哈希索引:
+
+B+树高度一般为3或4, 即需要3-4次查询, InnoDB会监控对表上各索引页的查询, 如果观察到建立哈希索引可以带来速度提升, 则**自动**会为某些热点页建立自适应哈希索引AHI. AHI通过缓冲池的页构造而来, 建立速度很快, 且不需要对整张表构建哈希索引.
+
+通过`show engine innodb status`的INNODB MONITOR OUTPUT可查看AHI的大小和使用情况, 在INSERT BUFFER AND ADAPTIVE HASH INDEX下.
+
+4.异步IO:
+
+用户在发出一个IO请求后立即再发出另一个IO请求, 当全部IO请求发送完毕后, 等待所有IO操作完成.
+
+AIO还可以进行IO Merge, 通过多个页的(space,offset)判断是否连续, 将多个IO合并为一个IO.
+
+5.刷新临接页:
+
+Flush Neighbor Page, 当刷新一个脏页时, 会检测该页所在区(extent, 64个页为一个区)的所有页, 如果存在脏页, 则一并刷新. 只在传统机械硬盘下该功能效果显著, 对于固态硬盘(较高IOPS性能), 建议innodb_flush_neighbors设置为0关闭此特性.
+
+#### 插入缓冲
+
+**Insert Buffer**
+
+在对于带有自增主键的聚簇索引插入因为顺序插入速度非常快, 但二级索引因为其离散型导致插入性能下降(并不是所有, 如时间二级索引).
+
+InnoDB中, 对于满足**不是唯一索引**条件的二级索引的插入或更新操作, 先判断插入的非聚簇索引页是否存在于缓冲池(并不是直接插入到索引页), 若存在则直接插入; 否则, 先存入Insert Buffer中, 然后再以一定的频率和情况(读取时)进行Insert Buffer和索引页的merge操作. 因为将多个插入合并到对一个索引页的操作, 提高了对二级索引的插入性能.
+
+> 对于唯一二级索引, 在插入时会去查找索引页判断插入的唯一性, 而Insert Buffer的目的是为了将多个对索引页的操作合并为一个而减少离散读取, 唯一索引的检查将导致Insert Buffer失去意义.
+
+> Insert Buffer也有redo保护, 在使用InnoDB时的大量插入操作, 若发送了服务器宕机, 因为有大量Insert Buffer没有合并到二级索引,  导致恢复时间较长. ----回答自《InnoDB技术内幕》作者
+
+通过`show engine innodb status`可查看Insert Buffer信息:
+
+```
+-----------------------------------
+INSERT BUFFER AND ADAPTIVE HASH INDEX
+-----------------------------------
+Ibuf:size <合并的索引页数量>,free list <空闲列表长度>, seg size <插入缓冲的大小>,
+<插入的记录数> inserts, <合并的插入记录数> merged recs, <合并的次数> merges
+```
+
+其中, merges/merged recs越小, 说明插入缓冲对二级索引页的离散IO量越少.
+
+> 如果写操作密集, 插入缓冲将占用过多的缓冲池内存空间, 默认最大可达1/2.
+
+**Change Buffer**
+
+Insert Buffer的升级, InnoDB 1.0加入, 可对INSERT、DELETE、UPDATE进行缓冲, 与Insert Buffer功能类似, 在缓冲区中不存在要修改的索引页时, 进行缓冲.
+
+可通过innodb_change_buffering指定要开启的缓冲类型, 默认开启所有. InnoDB 1.2后可通过innodb_change_buffer_max_size控制Change Buffer最大使用内存, 默认25表示最多使用1/4的缓冲池内存空间.
+
+**实现**
+
+Insert Buffer的数据结构为一棵全局B+树(MySQL4.1之前每张表都有一棵), 负责存储所有表的二级索引的插入缓冲, 存放在共享表空间ibdata1文件中.(Insert Buffer的redo机制?)
+
+> 不能通过独立表空间idb文件恢复表数据, 因为表的二级索引数据可能还在Insert Buffer中, 需要通过其来重建二级索引.
+
+B+树的非叶子节点为search key(9字节), 包含表示待插入记录所在表空间id(InnoDB中每个表都有一个唯一的表空间id)的space项, 用来兼容老版的marker项, 表示页所在偏移量的offset项. 根据(space,offset)可定位一个页.
+
+当一个二级索引要插入到页(space,offset)时, 若页不存在与缓冲池, 则会创建一个search key, 然后将记录插入到叶子节点中.
+
+叶子节点除了包含非叶子节点的项之外, 还包含metadata项(4字节) 和 二级索引记录.
+
+另外为保证每次merge成功, 使用Insert Buffer Bitmap页来记录每个二级索引页的可用空间.
+
+合并Insert Buffer发生在以下情况:
+
+- 二级索引页需要被读到缓冲池时(如select), 需要检查该页是否有记录存在于Insert Buffer B+树中, 若有, 则先将B+树中该页的所有待插入的记录合并到二级索引中;
+- 当Insert Buffer Bitmap页追踪到该二级索引页可用空间小于1/32页时, 强制将B+树中该页的所有记录合并到二级索引中;
+- Master Thread每秒或每10秒一次合并操作.
+
+#### 两次写
+
+部分写失效: 服务器宕机时, InnoDB可能正在写入某个页到表中, 这时会存在没写完的部分而导致数据丢失.
+
+> 部分写失效会导致页损坏, 是无法通过重做日志进行恢复的, 因为重做日志记录的是对页的物理操作(在某个数据页上做什么修改).
+
+doublewrite的思想为: 在重做日志操作前, 建立一个页的副本, 当写入页失效时, 通过副本还原该页, 再进行重做.
+
+doublewrite由 内存中2MB的doublewrite buffer 和 磁盘上共享表空间(ibdata1)中连续的128个页(也是2MB) 组成. 
+
+在对缓冲池脏页进行刷新时, 不直接写盘, 先通过memcpy函数将脏页复制到内存的doublewrite buffer中, 然后从doublewrite buffer中分两次**顺序写入**到磁盘共享表空间中连续的页, 每次1MB, 最后马上调用fsync函数同步磁盘各个表空间文件(.idb)(**离散写**).
+
+此时如果服务器在页写入磁盘时发生故障, 在恢复过程中, InnoDB可以从共享表空间中的doublewrite中找到该页的一个副本, 覆盖到表空间文件的失效页, 再应用重做日志.
 
 ## 索引
 
@@ -308,7 +625,9 @@ Extra: NULL
 
 与编程中的二层嵌套类似,  驱动表中的每一条记录与被驱动表总的记录进行比较, 驱动表的选择决定了查询性能的高低.
 
-> mysql会自动选择最优驱动表, 但是在多级关联情况下有可能会出现选择问题
+> mysql会自动选择最优驱动表, 但是在多级关联情况下有可能会出现选择问题;
+>
+> 可以使用STRAIGHT_JOIN让优化器按照指定的关联顺序查询, 通常不建议使用.
 
 案例:
 
@@ -869,7 +1188,7 @@ class ReadView {
 
 ## 日志
 
-1.日志类型
+日志类型
 
 物理日志:存储了数据被修改的值
 
@@ -1021,12 +1340,6 @@ InnoDB内存可用来保存更新的结果, 再配合redolog, 避免随机写盘
 
 ### 二阶段提交
 
-`redo log`（重做日志）让`InnoDB`存储引擎拥有了崩溃恢复能力。
-
-`binlog`（归档日志）保证了`MySQL`集群架构的数据一致性。
-
-虽然它们都属于持久化的保证，但是侧重点不同。
-
 在执行更新语句过程，会记录`redo log`与`binlog`两块日志，以基本的事务为单位，`redo log`在事务执行过程中可以不断写入，而`binlog`只有在提交事务时才写入，所以`redo log`与`binlog`的写入时机不一样。
 
 ![img](picture/01-16379872985449.png)
@@ -1061,13 +1374,37 @@ InnoDB内存可用来保存更新的结果, 再配合redolog, 避免随机写盘
 
 保证事务的**原子性**。
 
+对表进行修改时, 原先的行被标记为删除, 但一致性定读需要暴露这些行的版本信息.
+
 所有事务进行的修改都会先记录到**回滚日志**中，然后再执行相关的操作。如果执行过程中遇到异常的话，我们直接利用 **回滚日志** 中的信息将数据回滚到修改之前的样子即可！并且，回滚日志会先于数据持久化到磁盘上。这样就保证了即使遇到数据库突然宕机等情况，当用户再次启动数据库的时候，数据库还能够通过查询回滚日志来回滚将之前未完成的事务。
 
 另外，`MVCC` 的实现依赖于：**隐藏字段、Read View、undo log**。
 
-## Innodb buffer pool lru
+## 文件排序
 
-为了保证buffer pool命中率, 不能采用原始LRU, 通过5:3将LRU链表分为New区和Old区
+当无法利用索引进行排序或使用索引时回表数据量大时, MySQL需要进行文件排序: 
+
+如果需要排序的数据量小于排序缓冲区, 则使用内存进行快速排序;
+
+如果内存不够, 则先将数据分块, 对每个块独立快排后保存到磁盘, 然后合并.
+
+排序方式有两种:
+
+1.两次传输排序: 读取行指针和需要排序的字段, 对其进行排序, 然后根据排序结果读取行.
+
+该方式进行了两次数据读取, 并且第二次读取通过行指针进行了大量随机I/O.
+
+2.单次传输排序: 读取查询所需要的所有列, 再根据指定列进行排序, 然后直接返回结果.
+
+该方式只需一次顺序I/O读取数据, 在I/O密集应用中能显著提升效率.
+
+> 两种方式各有千秋, MySQL默认需要查询的所有列总长度不超过max_len_for_sort_data时使用单次传输排序, 否则使用两次排序传输.
+
+> 另外, 文件排序生成的临时表空间可能比数据实际存储空间大很多(如varchar分配定长空间)
+
+当在关联查询中使用文件排序时,  如果order by中的所有列都来自关联的第一个表, 则会直接对第一个表进行文件排序后进行关联(Using filesort); 否则会将所有关联结果放到临时表中, 最后进行文件排序(Using temporary; Using filesort). 并且当查询中带有limit时, limit将在排序后执行, 当数据量大时效率差.
+
+
 
 ## 慢查询日志
 
@@ -1091,7 +1428,7 @@ long_query_time = 2
 
 sending to client:表示等待客户端接收结果, 如客户端接收处理速度慢, 服务端net_buffer已满, 若长时间处于该状态, 表示需要优化查询结果
 
-> 客户端将查询结果一行一行放到net_buffer, 写满再调用网络接口发送
+> 服务端将查询结果一行一行放到net_buffer, 写满再调用网络接口发送
 
 sending data: 表示查询语句执行阶段, 包括锁等待
 
@@ -1107,11 +1444,19 @@ MySQL折中方案:从 MySQL 5.7.6 开始，MySQL内置了[ngram全文解析器](
 
 >  对于复杂业务场景的全文检索查询，还是要用ES
 
-# visual explain
+## visual explain
 
 MySQL Workbench:
 
 添加MySQL连接
+
+## 优化笔记
+
+> 来自个人实践与资料收集
+
+- 将一个多表关联查询通过应用程序分解成一个个单表查询(相当于手动NLJ), 可更方便利用缓存, 避免随机关联查询冗余记录, 并减少锁竞争;(《高性能MySQL》)
+- 使用UNION+LIMIT时在每个子局中使用LIMIT(UNION外还需要同样的LIMIT)减少临时表大小.
+- 全表扫描可能导致缓冲池LRU列表被污染, 导致热点数据被冲刷.
 
 # 高可用高性能
 

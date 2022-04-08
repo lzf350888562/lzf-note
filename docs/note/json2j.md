@@ -1,33 +1,27 @@
-# fastjson
+# Json
 
-BeanToArray序列化
-
-```
-String jsonOutput= JSON.toJSONString(bean, SerializerFeature.BeanToArray);
-```
+## Fastjson
 
 创建 JSON 对象非常简单，只需使用 JSONObject（fastJson提供的json对象） 和 JSONArray（fastJson提供json数组对象） 对象即可。
 
-来回转换
+序列化与反序列化:
 
 ```
 String jsonObject = JSON.toJSONString(person);
 Person newPerson = JSON.parseObject(jsonObject, Person.class);
 ```
 
-注意
+注意:
 
 FastJson 在进行操作时，是根据 getter 和 setter 的方法进行的，并不是依据 Field 进行。
 
-若属性是私有的，必须有 set 方法。否则无法反序列化。
-
-注意反序列化时为对象时，必须要有默认无参的构造函数，否则会报异常:
+反序列化时为对象时，必须要有默认无参的构造函数，否则会报异常:
 
 FastJson默认是会将没赋值的属性不进行序列化
 
-## @JSONField
+### @JSONField
 
-```
+```java
 //默认情况FastJson库可以序列化 Java bean 实体,但我们可以使用serialize指定字段不序列化。
 @JSONField(name="AGE", serialize=false)
 private int age;
@@ -43,48 +37,21 @@ private Date dateOfBirth;
 @JSONField(serialize = false)
 ```
 
+## Jackson
 
+**ObjectMapper**
 
+序列化与反序列化:
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-# jackson
-
-来回转换
-
-```
+```java
 ObjectMapper mapper = new ObjectMapper();
 String json = mapper.writeValueAsString(user); 
 User user = mapper.readValue(json, User.class);
 ```
 
-## ObjectMapper
+### 字段注解
 
-```
-private static final ObjectMapper getMapper() {
-		ObjectMapper mapper = new ObjectMapper();
-		// 设置自定义的 SimpleDateFormat，该对象支持"yyyy-MM-dd HH:mm:ss"格式 
-		mapper.setDateFormat(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"));
-		return mapper;
-	}
-```
-
-
-
-## 字段注解@JsonProperty等
-
-```
+```java
 //序列化email属性为mail  
 @JsonProperty("mail")  
 private String email;
@@ -106,9 +73,9 @@ JsonInclude.Include.NON_EMPTY 这个属性包含NON_NULL，NON_ABSENT之后还�
 JsonInclude.Include.NON_DEFAULT  如果字段是默认值的话就不序列化。
 JsonInclude.Include.CUSTOM ?
 
-**类上注解**
+### 类注解
 
-### @JsonIgnoreProperties
+@JsonIgnoreProperties
 
 如果需要转换的json字符串里的字段多余要转换的对象的字段
 
@@ -128,9 +95,7 @@ objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES,false);
 
 
 
-
-
-### @JsonName
+@JsonName
 
 指定json key命名规则
 
@@ -140,11 +105,13 @@ objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES,false);
 
 属性小写单词以下划线分隔
 
-### @JsonUnwrapperd
+
+
+@JsonUnwrapperd
 
 扁平化转换
 
-```
+```java
 @Data
 public class Account {
 	@JsonUnwrapped
@@ -172,13 +139,12 @@ public class Account {
 }
 ```
 
-## 指定序列化器
+### 指定序列化器
 
-```
+```java
 public class UserSerializer extends JsonSerializer<User> {
 	@Override
-	public void serialize(User user, JsonGenerator generator, SerializerProvider provider)
-			throws IOException, JsonProcessingException {
+	public void serialize(User user, JsonGenerator generator, SerializerProvider provider)throws IOException, JsonProcessingException {
 		generator.writeStartObject();
 		generator.writeStringField("user-name", user.getUserName());
 		generator.writeEndObject();
@@ -187,8 +153,7 @@ public class UserSerializer extends JsonSerializer<User> {
 
 public class UserDeserializer extends JsonDeserializer<User> {
 	@Override
-	public User deserialize(JsonParser parser, DeserializationContext context)
-			throws IOException, JsonProcessingException {
+	public User deserialize(JsonParser parser, DeserializationContext context)throws IOException, JsonProcessingException {
 		JsonNode node = parser.getCodec().readTree(parser);
 		String userName = node.get("user-name").asText();
 		User user = new User();
@@ -207,50 +172,48 @@ public class UserDeserializer extends JsonDeserializer<User> {
 
 也可以单独对某个属性指定序列化器
 
-> 在SpringBoot中, 可通过@JsonComponent进行配置:
->
-> ```
-> @JsonComponent
-> public class MyJsonComponent {
->     public static class Serializer extends JsonSerializer<MyObject> {
-> 
->         @Override
->         public void serialize(MyObject value, JsonGenerator jgen, SerializerProvider serializers) throws IOException {
->             jgen.writeStringField("name", value.getName());
->             jgen.writeNumberField("age", value.getAge());
->         }
->     }
-> 
->     public static class Deserializer extends JsonDeserializer<MyObject> {
-> 
->         @Override
->         public MyObject deserialize(JsonParser jsonParser, DeserializationContext ctxt)
->                 throws IOException, JsonProcessingException {
->             ObjectCodec codec = jsonParser.getCodec();
->             JsonNode tree = codec.readTree(jsonParser);
->             String name = tree.get("name").textValue();
->             int age = tree.get("age").intValue();
->             return new MyObject(name, age);
->         }
->     }
-> }
-> ```
->
-> 
+在SpringBoot中, 还可通过@JsonComponent进行配置:
 
-## **Date类型的属性转换**
+```java
+@JsonComponent
+public class MyJsonComponent {
+ public static class Serializer extends JsonSerializer<MyObject> {
 
-除了单独加在属性上面
+     @Override
+     public void serialize(MyObject value, JsonGenerator jgen, SerializerProvider serializers) throws IOException {
+         jgen.writeStringField("name", value.getName());
+         jgen.writeNumberField("age", value.getAge());
+     }
+ }
 
+ public static class Deserializer extends JsonDeserializer<MyObject> {
+     @Override
+     public MyObject deserialize(JsonParser jsonParser, DeserializationContext ctxt)
+             throws IOException, JsonProcessingException {
+         ObjectCodec codec = jsonParser.getCodec();
+         JsonNode tree = codec.readTree(jsonParser);
+         String name = tree.get("name").textValue();
+         int age = tree.get("age").intValue();
+         return new MyObject(name, age);
+     }
+ }
+}
 ```
-#默认情况下json实际格式带有时区并且时世界标准实际,和我们的时间查了8个消失.  设置返回json全局时间格式
+
+### 配置
+
+```properties
+#默认情况下json实际格式带有时区并且时世界标准实际,和我们的时间差了8个小时
+#该方式为全局设置, 通过
 spring.jackson.date-format=yyyy-MM-dd HH:mm:ss
 spring.jackson.time-zone=GMT+8
+#将所有数字转为string类型返回,避免前端精度
+spring.jackson.generator.write-numbers-as-strings=true
 ```
 
 或者通过配置文件的形式
 
-```
+```java
 @Configuration
 public class JacksonConfig {
 	@Bean
@@ -262,11 +225,11 @@ public class JacksonConfig {
 }
 ```
 
-## @JsonView
+### @JsonView
 
 以注解指定规则接口的形式指定哪些字段进行json转换
 
-```
+```java
 @JsonNaming(PropertyNamingStrategy.LowerCaseWithUnderscoresStrategy.class)
 public class User implements Serializable {
 	private static final long serialVersionUID = 6222176558369919436L;
@@ -288,7 +251,7 @@ public class User implements Serializable {
 
 在controller方法上添加注解指定输出规则
 
-```
+```java
 	@JsonView(User.AllUserFieldView.class)  
 	@RequestMapping("getuser")
 	@ResponseBody
@@ -317,7 +280,7 @@ public class User implements Serializable {
 
 编程方式实现:
 
-```
+```java
 	@RequestMapping("getuser")
 	@ResponseBody
 	public User getUser() {
@@ -333,9 +296,7 @@ public class User implements Serializable {
 	}
 ```
 
-
-
-## 自定义读取json
+### Json字符串
 
 读取某个属性
 
@@ -354,18 +315,4 @@ JavaType type = mapper.getTypeFactory().constructParametricType(List.class, User
 List<User> list = mapper.readValue(jsonStr, type);
 ```
 
-## 配置文件
-
-```
-#将所有数字转为string类型返回,避免前端精度
-spring.jackson.generator.write-numbers-as-strings=true
-
-spring:
-  t
-  jackson:
-    time-zone: GMT+8
-    date-format: yyyy-MM-dd HH:mm:ss
-
-```
-
-# Gson
+## Gson

@@ -658,13 +658,39 @@ spring.devtools.restart.quiet-period=400ms
 spring.devtools.restart.trigger-file=
 ```
 
+# 自定义属性警告问题
 
+下面内容都与该依赖有关
 
+```
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-configuration-processor</artifactId>
+</dependency>
+```
 
+除了在IDEA中手动取消警告,更合适的方式是配置元数据.
 
+在spring boot 项目autoconfigure依赖包下 ,可以看到一个名为additional-spring-configuration-metadata.json文件.
 
+里面指定了属性配置的元数据信息,它可以帮助IDE来完成配置联想和配置提示的展示。
 
+**配置元数据的自动生成**
 
+```
+@Data
+@Configuration
+@ConfigurationProperties(prefix = "com.xxx")
+public class DidiProperties {
+    private String from;
+}
+```
+
+mvn install
+
+查看target.classes.META-INF下的spring-configuration-metadata.json文件,
+
+并且再使用属性配置时,已经没有高亮警告了.
 
 # Spring Boot CLI
 

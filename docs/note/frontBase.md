@@ -1,4 +1,4 @@
-# dom
+# DOM
 
 **innerHTML和innerText**
 
