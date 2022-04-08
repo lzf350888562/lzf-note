@@ -658,6 +658,34 @@ spring.devtools.restart.quiet-period=400ms
 spring.devtools.restart.trigger-file=
 ```
 
+# 系统公共属性
+
+```
+Properties props = System.getProperties();
+//系统名称 如Windows 10
+props.getProperty("os.name");
+//系统架构 如amd64
+props.getProperty("os.arch");
+//项目根路径
+props.getProperty("user.dir");
+//javahome
+props.getProperty("java.home");
+//java版本
+props.getProperty("java.version");
+
+//jvm名称
+ManagementFactory.getRuntimeMXBean().getVmName();
+//启动
+ManagementFactory.getRuntimeMXBean().getStartTime()
+
+//jvm运行内存情况  可与oshi内容结合比较
+//jvm内存总量
+Runtime.getRuntime().totalMemory();
+//jvm可用内存
+Runtime.getRuntime().freeMemory();
+Runtime.getRuntime().maxMemory()
+```
+
 # 自定义属性警告问题
 
 下面内容都与该依赖有关

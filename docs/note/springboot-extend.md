@@ -1,11 +1,13 @@
 
 
-# 请求参数校验
+# Spring扩展
 
-Bean Validation是Java定义的一套基于注解的数据校验规范，目前已经从JSR 303的1.0版本升级到JSR 349的1.1版本，再到JSR 380的2.0版本（2.0完成于2017.08），已经经历了三个版本 。需要注意的是，JSR只是一项标准，它规定了一些校验注解的规范，但没有实现，比如@Null、@NotNull、@Pattern等，它们位于 javax.validation.constraints这个包下。而hibernate validator是对这个规范的实现，并增加了一些其他校验注解，如 @NotBlank、@NotEmpty、@Length等，它们位于org.hibernate.validator.constraints这个包下。
+## 请求参数校验
+
+Bean Validation是Java定义的一套基于注解的数据校验规范，但没有实现，比如@Null、@NotNull、@Pattern等，它们位于 javax.validation.constraints这个包下。而hibernate validator是对这个规范的实现，并增加了一些其他校验注解，如 @NotBlank、@NotEmpty、@Length等，它们位于org.hibernate.validator.constraints这个包下。
 
 ```
-spring-boot 项目已经集成在starter-web中
+<!--spring-boot 项目已经集成在starter-web中-->
 <dependency>
     <groupId>org.hibernate.validator</groupId>
     <artifactId>hibernate-validator</artifactId>
@@ -15,9 +17,7 @@ spring-boot 项目已经集成在starter-web中
 
 1.单参数校验
 
-单参数校验就是controller接口按照单参数接收前端传值，没有封装对象进行接收，如果有封装对象那就是对象参数校验。
-
-单参数校验只需要在参数前添加注解即可
+该方式需要在controller类上添加@Validated注解
 
 ```
 public Result deleteUser(@NotNull(message = "id不能为空") Long id) {
@@ -25,34 +25,26 @@ public Result deleteUser(@NotNull(message = "id不能为空") Long id) {
 }
 ```
 
-**注意，如果使用单参数校验，controller类上必须添加@Validated注解**
-
 2.对象参数校验
 
 对象参数校验使用时，需要先在对象的校验属性(或gettor)上添加注解，然后在Controller方法的对象参数前添加@Validated 注解
 
-```
+```java
 @PostMapping
-public AjaxResult add(@Validated @RequestBody SysDept dept)
-{
-	//....
-}
-```
+public AjaxResult add(@Validated @RequestBody SysDept dept){
 
-```
-public class SysDept
-{
+}
+
+public class SysDept{
 	@NotBlank(message = "部门名称不能为空")
     @Size(min = 0, max = 30, message = "部门名称长度不能超过30个字符")
     private String deptName;
 	//或者
 	@NotBlank(message = "部门名称不能为空")
     @Size(min = 0, max = 30, message = "部门名称长度不能超过30个字符")
-    public String getDeptName()
-    {
+    public String getDeptName(){
         return deptName;
     }
-	//...
 }
 ```
 
@@ -75,28 +67,24 @@ public class SysDept
 | @AssertFalse               | 该字段的值只能为false                                        |
 | @Future                    | 该字段的值必须时一个将来的日期                               |
 
-而后，当输入不能满足条件是，就会抛出异常，通常由统一由异常中心处理.
-
-
-
-## 高级
+> 当输入不能满足条件是，就会抛出异常，通常由统一由异常中心处理.
 
 ### 注解分组
 
-在对象参数校验场景下，有一种特殊场景，同一个参数对象在不同的场景下有不同的校验规则。
+当同一个参数对象在不同的场景下有不同的校验规则时
 
-比如，在创建对象时不需要传入id字段（id字段是主键，由系统生成，不由用户指定），但是在修改对象时就必须要传入id字段。在这样的场景下就需要对注解进行分组。
+比如，在创建对象时不需要传入id字段，但是在修改对象时就必须要传入id字段。在这样的场景下就需要对注解进行分组。
 
-1）组件有个默认分组Default.class, 所以我们可以再创建一个分组UpdateAction.class，如下所示：
+1）组件有个默认分组Default.class, 所以我们可以再创建一个分组UpdateAction：
 
-```
+```java
 public interface UpdateAction {
 }
 ```
 
 2）在参数类中需要校验的属性上，在注解中添加groups属性：
 
-```
+```java
 public class UserAO {
     @NotNull(groups = UpdateAction.class, message = "id不能为空")
     private Long id;
@@ -113,7 +101,7 @@ public class UserAO {
 
 然后在controller的方法中，在@Validated注解里指定哪种场景即可，没有指定就代表采用Default.class，采用其他分组就需要显示指定,可同时指定多个分组
 
-```
+```java
 public Result addUser(@Validated UserAO userAo) {
   // do something
 }
@@ -126,7 +114,7 @@ public Result updateUser(@Validated({Default.class, UpdateAction.class}) UserAO 
 
 如果需要校验的参数对象中还嵌套有一个对象属性，而该嵌套的对象属性也需要校验，那么就需要在该对象属性上增加@Valid注解。
 
-```
+```java
 public class UserAO {
     @NotNull(groups = UpdateAction.class, message = "id不能为空")
     private Long id;  
@@ -147,13 +135,9 @@ public class Phone {
 }
 ```
 
+### 统一处理参数校验异常
 
-
-## 统一处理参数校验异常
-
-
-
-单参数校验失败 ConstraintViolationException:对应校验注解写在方法参数上面(方法所在类需要加@Validated)的情况:
+1.单参数校验失败 ConstraintViolationException:对应校验注解写在方法参数上面(方法所在类需要加@Validated)的情况:
 
 ```
 @RestControllerAdvice
@@ -176,33 +160,9 @@ public class GlobalExceptionHandler {
     }
 ```
 
-2
+2.get请求的对象参数校验失败后抛出的异常是BindException:
 
-```
-
-if(e instanceof ConstraintViolationException){
-  // 单个参数校验异常
-  Result result = Result.buildErrorResult(ErrorCodeEnum.PARAM_ILLEGAL);
-  Set<ConstraintViolation<?>> sets = ((ConstraintViolationException) e).getConstraintViolations();
-  if(CollectionUtils.isNotEmpty(sets)){
-    StringBuilder sb = new StringBuilder();
-    sets.forEach(error -> {
-                    if (error instanceof FieldError) {
-                        sb.append(((FieldError)error).getField()).append(":");
-                    }
-                    sb.append(error.getMessage()).append(";");
-                });
-    String msg = sb.toString();
-    msg = StringUtils.substring(msg, 0, msg.length() -1);
-    result.setMessage(msg);
-  }
-  return result;
-}
-```
-
-get请求的对象参数校验失败后抛出的异常是BindException
-
-```
+```java
 @ExceptionHandler(BindException.class)
 @ResponseStatus(HttpStatus.BAD_REQUEST)
 public String validExceptionHandler(BindException e) {
@@ -217,9 +177,9 @@ public String validExceptionHandler(BindException e) {
 }
 ```
 
-post请求的对象参数校验失败后抛出的异常是MethodArgumentNotValidException
+3.post请求的对象参数校验失败后抛出的异常是MethodArgumentNotValidException
 
-```
+```java
 if (e instanceof MethodArgumentNotValidException){
       // post请求的对象参数校验异常
       Result result = Result.buildErrorResult(ErrorCodeEnum.PARAM_ILLEGAL);
@@ -232,19 +192,17 @@ if (e instanceof MethodArgumentNotValidException){
 }
 ```
 
-缺少参数抛出的异常是MissingServletRequestParameterException
+4.缺少参数抛出的异常是MissingServletRequestParameterException
 
-```
+```java
 e.getParameterName()  //获取缺少的参数名
 ```
 
-## 校验新世界
+### 校验新世界
 
-```
+```java
 @NotBlank String username = user.getUsername();
 ```
-
-# 单元测试
 
 ## MockMvc
 
@@ -252,15 +210,11 @@ MockMvc是由spring-test包提供，实现了对Http请求的模拟，能够直�
 
 接口MockMvcBuilder，提供一个唯一的build方法，用来构造MockMvc。主要有两个实现：StandaloneMockMvcBuilder和DefaultMockMvcBuilder，分别对应两种测试方式，即独立安装和集成Web环境测试（并不会集成真正的web环境，而是通过相应的Mock API进行模拟测试，无须启动服务器）。MockMvcBuilders提供了对应的创建方法standaloneSetup方法和webAppContextSetup方法，在使用时直接调用即可。
 
-```
-//SpringBoot1.4版本之前用的是SpringJUnit4ClassRunner.class
+```java
 @RunWith(SpringRunner.class)
-//SpringBoot1.4版本之前用的是@SpringApplicationConfiguration(classes = Application.class)
 @SpringBootTest
-//测试环境使用，用来表示测试环境使用的ApplicationContext将是WebApplicationContext类型的
 @WebAppConfiguration
 public class HelloWorldTest {
-
 	private MockMvc mockMvc;
 
 	@Autowired
@@ -275,280 +229,62 @@ public class HelloWorldTest {
 	}
 ```
 
-```
-@Test
-public void testHello() throws Exception {
+1、mockMvc.perform执行一个请求。
+2、MockMvcRequestBuilders.get("XXX")构造一个请求。
+3、ResultActions.param添加请求传值
+4、ResultActions.accept(MediaType.TEXT_HTML_VALUE))设置返回类型
+5、ResultActions.andExpect添加执行完成后的断言。
+6、ResultActions.andDo添加一个结果处理器，表示要对结果做点什么事情
+7、ResultActions.andReturn表示执行完成后返回相应的结果。
 
-	/*
-	 * 1、mockMvc.perform执行一个请求。
-	 * 2、MockMvcRequestBuilders.get("XXX")构造一个请求。
-	 * 3、ResultActions.param添加请求传值
-	 * 4、ResultActions.accept(MediaType.TEXT_HTML_VALUE))设置返回类型
-	 * 5、ResultActions.andExpect添加执行完成后的断言。
-	 * 6、ResultActions.andDo添加一个结果处理器，表示要对结果做点什么事情
-	 *   比如此处使用MockMvcResultHandlers.print()输出整个响应结果信息。
-	 * 7、ResultActions.andReturn表示执行完成后返回相应的结果。
-	 */
-	mockMvc.perform(MockMvcRequestBuilders
+```java
+mockMvc.perform(MockMvcRequestBuilders
 			.get("/hello")
-			// 设置返回值类型为utf-8，否则默认为ISO-8859-1
 			.accept(MediaType.APPLICATION_JSON_UTF8_VALUE)
 			.param("name", "Tom"))
 			.andExpect(MockMvcResultMatchers.status().isOk())
 			.andExpect(MockMvcResultMatchers.content().string("Hello Tom!"))
+    		//使用MockMvcResultHandlers.print()输出整个响应结果信息
 			.andDo(MockMvcResultHandlers.print());
-}
 ```
 
+**Session携带**:在创建MockMvc时指定session
 
-
-```
-import static org.hamcrest.Matchers.equalTo;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
-@RunWith(SpringRunner.class)
-@SpringBootTest
-public class Chapter21ApplicationTests {
-    private MockMvc mvc;
-    @Before
-    public void setUp() {
-        mvc = MockMvcBuilders.standaloneSetup(new UserController()).build();
-    }
-    @Test
-    public void testUserController() throws Exception {
-        // 测试UserController
-        RequestBuilder request;
-        // 1、get查一下user列表，应该为空
-        request = get("/users/");
-        mvc.perform(request)
-                .andExpect(status().isOk())
-                .andExpect(content().string(equalTo("[]")));
-        // 2、post提交一个user
-        request = post("/users/")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"id\":1,\"name\":\"测试大师\",\"age\":20}");
-        mvc.perform(request)
-                .andExpect(content().string(equalTo("success")));
-        // 3、get获取user列表，应该有刚才插入的数据
-        request = get("/users/");
-        mvc.perform(request)
-                .andExpect(status().isOk())
-                .andExpect(content().string(equalTo("[{\"id\":1,\"name\":\"测试大师\",\"age\":20}]")));
-        // 4、put修改id为1的user
-        request = put("/users/1")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"name\":\"测试终极大师\",\"age\":30}");
-        mvc.perform(request)
-                .andExpect(content().string(equalTo("success")));
-        // 5、get一个id为1的user
-        request = get("/users/1");
-        mvc.perform(request)
-                .andExpect(content().string(equalTo("{\"id\":1,\"name\":\"测试终极大师\",\"age\":30}")));
-        // 6、del删除id为1的user
-        request = delete("/users/1");
-        mvc.perform(request)
-                .andExpect(content().string(equalTo("success")));
-        // 7、get查一下user列表，应该为空
-        request = get("/users/");
-        mvc.perform(request)
-                .andExpect(status().isOk())
-                .andExpect(content().string(equalTo("[]")));
-    }
-}
-```
-
-### Session携带
-
-在创建MockMvc时指定session
-
-```
-private MockMvc mockMvc;
-private MockHttpSession session;
-	
+```java
 @Autowired
 private WebApplicationContext wac;
 @Before
 public void setupMockMvc(){
 	mockMvc = MockMvcBuilders.webAppContextSetup(wac).build();
-   session = new MockHttpSession();
-   User user =new User();
-   user.setUsername("Dopa");
-   user.setPasswd("ac3af72d9f95161a502fd326865c2f15");
+    session = new MockHttpSession();
+    User user =new User();
+    user.setUsername("Dopa");
+    user.setPasswd("ac3af72d9f95161a502fd326865c2f15");
     session.setAttribute("user",user); 
 }
 ```
 
-### (多)文件上传和单元测试
+**(多)文件上传**
 
-```
-#用于限制了上传请求和上传文件的大小
-spring.servlet.multipart.max-file-size=2MB
-spring.servlet.multipart.max-request-size=2MB
+```java
+MockMultipartFile file = new MockMultipartFile(
+        "file",
+        "hello.txt",
+        MediaType.TEXT_PLAIN_VALUE,
+        "Hello, World!".getBytes()
 
-file.upload.path=/Users/didi/
-```
-
-以Thymeleaf为例
-
-upload.html
-
-```
-<!DOCTYPE html>
-<html>
-<head lang="en">
-    <meta charset="UTF-8" />
-    <title>文件上传页面</title>
-</head>
-<body>
-<h1>文件上传页面</h1>
-<form method="post" action="/upload" enctype="multipart/form-data">
-    选择要上传的文件：<input type="file" name="file"><br>
-    <hr>
-    <input type="submit" value="提交">
-</form>
-</body>
-</html>
+MvcResult result = mockMvc.perform(
+        MockMvcRequestBuilders
+                .multipart("/upload")
+                .file(file))
+        .andDo(print())
+        .andExpect(status().isOk())
+        .andReturn();
 ```
 
-```
-@Controller
-@Slf4j
-public class UploadController {
+## JavaMailSender
 
-    @Value("${file.upload.path}")
-    private String path;
-
-    @GetMapping("/")
-    public String uploadPage() {
-        return "upload";
-    }
-
-    @PostMapping("/upload")
-    @ResponseBody
-    public String create(@RequestPart MultipartFile file) throws IOException {
-        String fileName = file.getOriginalFilename();
-        String filePath = path + fileName;
-
-        File dest = new File(filePath);
-        Files.copy(file.getInputStream(), dest.toPath());
-        return "Upload file success : " + dest.getAbsolutePath();
-    }
-}
-```
-
-注意：这里主要演示文件上传的主要流程，真实应用还有更多内容要考虑，比如：文件上传后的文件名处理（防止重名）、分布式情况下文件上传后如何共享访问等.
-
-
-
-**多文件上传**
-
-```
-<!DOCTYPE html>
-<html>
-<head lang="en">
-    <meta charset="UTF-8" />
-    <title>文件上传页面 - didispace.com</title>
-</head>
-<body>
-<h1>文件上传页面</h1>
-<form method="post" action="/upload" enctype="multipart/form-data">
-    文件1：<input type="file" name="files"><br>
-    文件2：<input type="file" name="files"><br>
-    <hr>
-    <input type="submit" value="提交">
-</form>
-</body>
-</html>
-```
-
-可以看到这里多增加一个input文件输入框，同时文件输入框的名称修改为了files，因为是多个文件，所以用了复数。注意：这几个输入框的name是一样的，这样才能在后端处理文件的时候组织到一个数组中。
-
-```
-@PostMapping("/upload")
-@ResponseBody
-//MultipartFile使用数组，参数名称files对应html页面中input的name，一定要对应。
-public String create(@RequestPart MultipartFile[] files) throws IOException {
-    StringBuffer message = new StringBuffer();
-
-    for (MultipartFile file : files) {
-        String fileName = file.getOriginalFilename();
-        String filePath = path + fileName;
-
-        File dest = new File(filePath);
-        Files.copy(file.getInputStream(), dest.toPath());
-        message.append("Upload file success : " + dest.getAbsolutePath()).append("<br>");
-    }
-    return message.toString();
-}
-```
-
-**单元测试**
-
-```
-@SpringBootTest(classes = Chapter43Application.class)
-public class FileTest {
-
-    @Autowired
-    protected WebApplicationContext context;
-    protected MockMvc mvc;
-
-    @BeforeEach
-    public void setUp() {
-        mvc = MockMvcBuilders.webAppContextSetup(context).build();
-    }
-
-    @Test
-    public void uploadFile() throws Exception {
-    	//MockMvc m
-        MockMultipartFile file = new MockMultipartFile(
-                "file",
-                "hello.txt",
-                MediaType.TEXT_PLAIN_VALUE,
-                "Hello, World!".getBytes()
-        );
-
-        final MvcResult result = mvc.perform(
-                MockMvcRequestBuilders
-                        .multipart("/upload")
-                        .file(file))
-                .andDo(print())
-                .andExpect(status().isOk())
-                .andReturn();
-    }
-}
-```
-
-## 注解
-
-**@ActiveProfiles,一般作用于测试类上， 用于声明生效的 Spring 配置文件。**
-
-```
-@SpringBootTest(webEnvironment = RANDOM_PORT)
-@ActiveProfiles("test")
-@Slf4j
-public abstract class TestBase {
-  ......
-}
-```
-
-**`@WithMockUser` Spring Security 提供的，用来模拟一个真实用户，并且可以赋予权限。**
-
-```
-  @Test
-    @Transactional
-    @WithMockUser(username = "user-id-18163138155", authorities = "ROLE_TEACHER")
-    void should_import_student_success() throws Exception {
-        ......
-    }
-```
-
-
-
-# JavaMailSender
-
-```
+```xml
 <dependency>
     <groupId>org.springframework.boot</groupId>
     <artifactId>spring-boot-starter-mail</artifactId>
@@ -557,7 +293,7 @@ public abstract class TestBase {
 
 **qq邮箱**
 
-```
+```properties
 spring.mail.host=smtp.qq.com
 spring.mail.username=用户名
 # 设置密码，该处的密码是QQ邮箱开启SMTP的授权码而非QQ密码
@@ -572,7 +308,7 @@ spring.mail.properties.mail.smtp.starttls.required=true
 
 由于Spring Boot的starter模块提供了自动化配置，所以在引入了`spring-boot-starter-mail`依赖之后，会根据配置文件中的内容去创建`JavaMailSender`实例，因此我们可以直接在需要使用的地方直接`@Autowired`来引入邮件发送对象。
 
-```
+```java
 @RunWith(SpringJUnit4ClassRunner.class)
 @SpringApplicationConfiguration(classes = Application.class)
 public class ApplicationTests {
@@ -593,9 +329,9 @@ public class ApplicationTests {
 }
 ```
 
-## 附件与嵌入静态资源
+### 附件与嵌入静态资源
 
-```
+```java
 @Test
 public void sendAttachmentsMail() throws Exception {
 	MimeMessage mimeMessage = mailSender.createMimeMessage();
@@ -612,11 +348,9 @@ public void sendAttachmentsMail() throws Exception {
 }
 ```
 
-
-
 除了发送附件之外，我们在邮件内容中可能希望通过嵌入图片等静态资源，让邮件获得更好的阅读体验，而不是从附件中查看具体图片，下面的测试用例演示了如何通过`MimeMessageHelper`实现在邮件正文中嵌入静态资源。
 
-```
+```java
 @Test
 public void sendInlineMail() throws Exception {
 	MimeMessage mimeMessage = mailSender.createMimeMessage();
@@ -634,13 +368,13 @@ public void sendInlineMail() throws Exception {
 
 **这里需要注意的是`addInline`函数中资源名称`weixin`需要与正文中`cid:weixin`对应起来**
 
-## 模板邮件(velocity)
+### 模板邮件(velocity)
 
 通常我们使用邮件发送服务的时候，都会有一些固定的场景，比如重置密码、注册确认等，给每个用户发送的内容可能只有小部分是变化的。所以，很多时候我们会使用模板引擎来为各类邮件设置成模板，这样我们只需要在发送时去替换变化部分的参数即可。
 
 在Spring Boot中使用模板引擎来实现模板化的邮件发送也是非常容易的，下面我们以velocity为例实现一下。
 
-```
+```xml
 <dependency>
     <groupId>org.springframework.boot</groupId>
     <artifactId>spring-boot-starter-velocity</artifactId>
@@ -651,7 +385,7 @@ public void sendInlineMail() throws Exception {
 
 在`resources/templates/`下，创建一个模板页面`template.vm`：
 
-```
+```html
 <html>
 <body>
     <h3>你好， ${username}, 这是一封模板邮件!</h3>
@@ -661,7 +395,7 @@ public void sendInlineMail() throws Exception {
 
 测试
 
-```
+```java
 @Test
 public void sendTemplateMail() throws Exception {
 	MimeMessage mimeMessage = mailSender.createMimeMessage();
@@ -679,45 +413,13 @@ public void sendTemplateMail() throws Exception {
 }
 ```
 
-# 系统属性
-
-```
-Properties props = System.getProperties();
-//系统名称 如Windows 10
-props.getProperty("os.name");
-//系统架构 如amd64
-props.getProperty("os.arch");
-//项目根路径
-props.getProperty("user.dir");
-//javahome
-props.getProperty("java.home");
-//java版本
-props.getProperty("java.version");
-
-//jvm名称
-ManagementFactory.getRuntimeMXBean().getVmName();
-//启动
-ManagementFactory.getRuntimeMXBean().getStartTime()
-
-//jvm运行内存情况  可与oshi内容结合比较
-//jvm内存总量
-Runtime.getRuntime().totalMemory();
-//jvm可用内存
-Runtime.getRuntime().freeMemory();
-Runtime.getRuntime().maxMemory()
-```
 
 
+## Actuator监控端点
 
-# Actuator监控端点
+`spring-boot-starter-actuator`用于暴露自身信息, 如`/health`端点能够全面检查应用的健康状态，该端点也被Spring Cloud中的服务治理（Eureka、Consul）用来检查应用的健康状态。
 
-在Spring Boot的众多Starter POMs中有一个特殊的模块，它不同于其他模块那样大多用于开发业务功能或是连接一些其他外部资源。它完全是一个用于暴露自身信息的模块，所以很明显，它的主要作用是用于监控与管理，它就是：`spring-boot-starter-actuator`。
-
-`spring-boot-starter-actuator`模块的实现对于实施微服务的中小团队来说，可以有效地减少监控系统在采集应用指标时的开发量。当然，它也并不是万能的，有时候我们也需要对其做一些简单的扩展来帮助我们实现自身系统个性化的监控需求。下面，在本文中，我们将详解的介绍一些关于`spring-boot-starter-actuator`模块的内容，包括它的原生提供的端点以及一些常用的扩展和配置方式。
-
-其中，`/health`端点能够全面检查应用的健康状态，该端点也被Spring Cloud中的服务治理（Eureka、Consul）用来检查应用的健康状态。
-
-```
+```xml
 <dependency>
   <groupId>org.springframework.boot</groupId>
   <artifactId>spring-boot-starter-actuator</artifactId>
@@ -759,7 +461,7 @@ endpoints:
     id: instances
 ```
 
-## 应用配置类
+### 应用配置类
 
 由于Spring Boot为了改善传统Spring应用繁杂的配置内容，采用了包扫描和自动化配置的机制来加载原本集中于xml文件中的各项内容。虽然这样的做法，让我们的代码变得非常简洁，但是整个应用的实例创建和依赖关系等信息都被离散到了各个配置类的注解上，这使得我们分析整个应用中资源和实例的各种关系变得非常的困难。而这类端点就可以帮助我们轻松的获取一系列关于Spring 应用配置内容的详细报告，比如：自动化配置的报告、Bean创建的报告、环境属性的报告等。
 
@@ -926,7 +628,7 @@ info.app.version=v1.0.0
 }
 ```
 
-## 度量指标类
+### 度量指标类
 
 上面我们所介绍的应用配置类端点所提供的信息报告在应用启动的时候都已经基本确定了其返回内容，可以说是一个静态报告。而度量指标类端点提供的报告内容则是动态变化的，这些端点提供了应用程序在运行过程中的一些快照信息，比如：内存使用情况、HTTP请求统计、外部资源指标等。这些端点对于我们构建微服务架构中的监控系统非常有帮助，由于Spring Boot应用自身实现了这些端点，所以我们可以很方便地利用它们来收集我们想要的信息，以制定出各种自动化策略。下面，我们就来分别看看这些强大的端点功能。
 
@@ -1069,7 +771,7 @@ public class RocketMQHealthIndicator implements HealthIndicator {
 ]
 ```
 
-## 操作控制类
+### 操作控制类
 
 仔细的读者可能会发现，我们在“初识Actuator”时运行示例的控制台中输出的所有监控端点，已经在介绍应用配置类端点和度量指标类端点时都讲解完了。那么还有哪些是操作控制类端点呢？实际上，由于之前介绍的所有端点都是用来反映应用自身的属性或是运行中的状态，相对于操作控制类端点没有那么敏感，所以他们默认都是启用的。而操作控制类端点拥有更强大的控制能力，如果要使用它们的话，需要通过属性来配置开启。
 
@@ -1081,7 +783,7 @@ endpoints.shutdown.enabled=true
 
 在配置了上述属性之后，只需要访问该应用的`/shutdown`端点就能实现关闭该应用的远程操作。由于开放关闭应用的操作本身是一件非常危险的事，所以真正在线上使用的时候，我们需要对其加入一定的保护机制，比如：定制Actuator的端点路径、整合Spring Security进行安全校验等。
 
-## /info端点输出Git信息
+### /info端点输出Git信息
 
 添加`git-commit-id-plugin`插件，该插件用来产生git的版本信息
 
@@ -1176,7 +878,7 @@ management.info.git.mode=full
 }
 ```
 
-## 传统spring配置
+### 传统spring配置
 
 在Spring Boot应用中，我们只需要简单的引入`spring-boot-starter-actuator`依赖就能为应用添加各种有用的监控端点。所以，在使用Spring Cloud构建微服务架构的时候，如果还存在一些遗留的传统Spring应用时，我们就需要为这些应用也加入`/health`端点。
 
@@ -1241,7 +943,7 @@ public class MyAppSpringConfig {
 }
 ```
 
-## Spring-Boot-Admin
+### Spring-Boot-Admin
 
 原生的actuator太复杂.
 
@@ -1251,7 +953,7 @@ Spring Boot Admin（SBA）是一款基于Actuator开发的开源软件：https:/
 
 **服务端**
 
-```
+```xml
 <dependency>
     <groupId>de.codecentric</groupId>
     <artifactId>spring-boot-admin-server</artifactId>
@@ -1279,7 +981,7 @@ server:
 
 **客户端注册**
 
-```
+```xml
 <dependency>
     <groupId>de.codecentric</groupId>
     <artifactId>spring-boot-admin-starter-client</artifactId>
@@ -1334,20 +1036,9 @@ spring:
           to: xxx@qq.com
 ```
 
-### 邮件预警
-
-SBA服务端也可以配置邮件预警服务，默认情况下对于被检测的应用启动或者停止的时候会触发预警。
-
-```
-<dependency>
-    <groupId>org.springframework.boot</groupId>
-    <artifactId>spring-boot-starter-mail</artifactId>
-</dependency>
-```
 
 
-
-# Spring StateMachine
+## Spring StateMachine
 
 快速入门案例
 
@@ -1355,7 +1046,7 @@ SBA服务端也可以配置邮件预警服务，默认情况下对于被检测�
 
 创建一个Spring Boot的基础工程，并在`pom.xml`中加入`spring-statemachine-core`的依赖，具体如下
 
-```
+```xml
 <dependency>
 		<groupId>org.springframework.statemachine</groupId>
 		<artifactId>spring-statemachine-core</artifactId>
@@ -1365,7 +1056,7 @@ SBA服务端也可以配置邮件预警服务，默认情况下对于被检测�
 
 根据上面所述的订单需求场景定义状态和事件枚举，具体如下：
 
-```
+```java
 public enum States {
     UNPAID,                 // 待支付
     WAITING_FOR_RECEIVE,    // 待收货
@@ -1382,7 +1073,7 @@ public enum Events {
 
 创建状态机配置类：
 
-```
+```java
 @Configuration
 @EnableStateMachine  //启用Spring StateMachine状态机功能
 public class StateMachineConfig extends EnumStateMachineConfigurerAdapter<States, Events> {
@@ -1445,7 +1136,7 @@ public class StateMachineConfig extends EnumStateMachineConfigurerAdapter<States
 
 创建应用主类来完成整个流程
 
-```
+```java
 @SpringBootApplication
 public class Application implements CommandLineRunner {
 	public static void main(String[] args) {
@@ -1479,11 +1170,11 @@ INFO 2312 --- [           main] eConfig$$EnhancerBySpringCGLIB$$a05acb3d : 用�
 - 为状态机定义状态的迁移动作
 - 为状态机指定监听处理器
 
-## 状态监听器
+**状态监听器**
 
 使用Spring StateMachine来实现状态机的时候，代码逻辑变得非常简单并且具有层次化。整个状态的调度逻辑主要依靠配置方式的定义，而所有的业务逻辑操作都被定义在了状态监听器中，其实状态监听器可以实现的功能远不止上面我们所述的内容，它还有更多的事件捕获，我们可以通过查看`StateMachineListener`接口来了解它所有的事件定义：
 
-```
+```java
 public interface StateMachineListener<S,E> {
 	void stateChanged(State<S,E> from, State<S,E> to);
 	void stateEntered(State<S,E> state);
@@ -1500,11 +1191,11 @@ public interface StateMachineListener<S,E> {
 }
 ```
 
-## 注解监听器
+**注解监听器**
 
 对于状态监听器，Spring StateMachine还提供了优雅的注解配置实现方式，所有`StateMachineListener`接口中定义的事件都能通过注解的方式来进行配置实现。比如，我们可以将之前实现的状态监听器用注解配置来做进一步的简化：
 
-```
+```java
 @WithStateMachine
 public class EventConfig {
     private Logger logger = LoggerFactory.getLogger(getClass());
@@ -1525,7 +1216,7 @@ public class EventConfig {
 
 实现了与快速入门中定义的`listener()`方法创建的监听器相同的功能，但是由于通过注解的方式配置，省去了原来事件监听器中各种if的判断，使得代码显得更为简洁，拥有了更好的可读性。
 
-# 非阻塞WebFlux
+## 非阻塞WebFlux
 
 官方https://docs.spring.io/spring-framework/docs/current/reference/html/web-reactive.html#spring-webflux
 
@@ -1535,7 +1226,7 @@ public class EventConfig {
 
 Mono和Flux在发布订阅模式中都属于发布者,查看源码会发现它们都实现了Publisher接口。
 
-```
+```xml
 <dependency>
     <groupId>org.springframework.boot</groupId>
     <artifactId>spring-boot-starter-webflux</artifactId>
@@ -1544,7 +1235,7 @@ Mono和Flux在发布订阅模式中都属于发布者,查看源码会发现它�
 
 Mono表示0 ~ 1个元素的数据发布者，Flux表示 0 ~ N个元素的数据发布者。
 
-```
+```java
 public class MonoFluxTest {
     public static void main(String[] args) {
         Subscriber<Integer> subscriber = new Subscriber<Integer>() {
@@ -1594,9 +1285,9 @@ public class MonoFluxTest {
 处理完了!
 ```
 
-## Mono和Flux
+### Mono和Flux
 
-```
+```java
 @RestController
 public class TestController {
     // Mono 表示 0-1 个元素，Flux 0-N 个元素
@@ -1653,7 +1344,7 @@ public class TestController {
 
 前端可以通过H5的`EventSource`来接收。
 
-```
+```js
 var es = new EventSource("async/flux");
     es.onmessage = function (evt) {
         console.log(evt.data);
@@ -1665,7 +1356,7 @@ var es = new EventSource("async/flux");
 
 需要调用`es.close()`来关闭事件流，不然`EventSource`会在数据传输完毕会自动重连，这样就会不间断的调用请求.
 
-### 生成操作
+#### 生成操作
 
 **Flux生成**
 
@@ -1679,7 +1370,7 @@ var es = new EventSource("async/flux");
 6. `range(int start, int count)`：创建包含从 start 起始的 count 个数量的 Integer 对象的序列。
 7. `interval(Duration period)`和 `interval(Duration delay, Duration period)`：创建一个包含了从 0 开始递增的 Long 对象的序列。其中包含的元素按照指定的间隔来发布。除了间隔时间之外，还可以指定起始元素发布之前的延迟时间。
 
-```
+```java
 Flux.just("Hello", "World").subscribe(System.out::println);
 Flux.fromArray(new Integer[] {1, 2, 3}).subscribe(System.out::println);
 Flux.empty().subscribe(System.out::println);
@@ -1693,7 +1384,7 @@ Thread.currentThread().join(10000);
 
 **generate**()方法通过同步和逐一的方式来产生 Flux 序列。序列的产生是通过调用所提供的 SynchronousSink 对象的 next()，complete()和 error(Throwable)方法来完成的, 如果不调用 complete()方法，所产生的是一个无限序列。
 
-```
+```java
 Flux.generate(sink -> {
     sink.next("Hello");
     sink.complete();
@@ -1713,7 +1404,7 @@ Flux.generate(ArrayList::new, (list, sink) -> {
 
 **create**()方法与 generate()方法的不同之处在于所使用的是 FluxSink 对象。FluxSink 支持同步和异步的消息产生，并且可以在一次调用中产生多个元素
 
-```
+```java
 Flux.create(sink -> {
     for (int i = 0; i < 10; i++) {
         sink.next(i);
@@ -1731,7 +1422,7 @@ Mono 的创建方式与之前介绍的 Flux 比较相似。Mono 类中也包含�
 3. `ignoreElements(Publisher<T> source)`：创建一个 Mono 序列，忽略作为源的 Publisher 中的所有元素，只产生结束消息。
 4. `justOrEmpty(Optional<? extends T> data)`和 `justOrEmpty(T data)`：从一个 Optional 对象或可能为 null 的对象中创建 Mono。只有 Optional 对象中包含值或对象不为 null 时，Mono 序列才产生对应的元素。
 
-```
+```java
 Mono.just("are").subscribe(System.out::println);
 Mono.empty().subscribe(System.out::println);
 Mono.fromSupplier(() -> "you").subscribe(System.out::println);
@@ -1740,11 +1431,11 @@ Mono.justOrEmpty(Optional.of("ok")).subscribe(System.out::println);
 
 还可以通过 create()方法来使用 MonoSink 来创建 Mono：
 
-```
+```java
 Mono.create(sink -> sink.success("Hello")).subscribe(System.out::println);
 ```
 
-### 中间操作
+#### 中间操作
 
 **filter**
 
@@ -1766,7 +1457,7 @@ take 系列操作符用来从当前流中提取元素。提取的方式可以有
 
 4 `takeWhile(Predicate<? super T> continuePredicate)`： 当 Predicate 返回 true 时才进行提取。
 
-```
+```java
 Flux.range(1, 20).take(10).subscribe(System.out::println);
 Flux.range(1, 20).takeLast(10).subscribe(System.out::println);
 Flux.range(1, 20).takeWhile(i -> i < 10).subscribe(System.out::println);
@@ -1788,7 +1479,7 @@ Flux.range(1, 10).reduceWith(() -> 10, (x, y) -> x + y).subscribe(System.out::pr
 
 `merge`操作符用来把多个流合并成一个 Flux 序列：
 
-```
+```java
 Flux.merge(
         Flux.interval(Duration.of(500, ChronoUnit.MILLIS)).take(2),
         Flux.interval(Duration.of(500, ChronoUnit.MILLIS)).take(2)
@@ -1801,7 +1492,7 @@ Flux.merge(
 
 类似数据流分区
 
-```
+```java
 //每次输出20个
 Flux.range(1, 100).buffer(20).subscribe(System.out::println);
 //[1,2] [3,4] [5,6] [7,8] [9,10]
@@ -1814,7 +1505,7 @@ Flux.range(1, 10).bufferWhile(i -> i % 2 == 0).subscribe(System.out::println);
 
 将两个流的元素按照元素位置一一组合：
 
-```
+```java
 Flux.just("a", "b", "c", "d")
     .zipWith(Flux.just("e", "f", "g", "h", "i"))
     .subscribe(System.out::println);
@@ -1824,7 +1515,7 @@ Flux.just("a", "b", "c", "d")
 
 没有配对上的被丢弃。
 
-```
+```java
 Flux.just("a", "b", "c", "d")
     .zipWith(Flux.just("e", "f", "g", "h", "i"), (s1, s2) -> String.format("%s-%s", s1, s2))
     .subscribe(System.out::println);
@@ -1838,7 +1529,7 @@ a-e   b-f   c-g   d-g
 
 比如：
 
-```
+```java
 Flux.just(5, 10).flatMap(
             x -> Flux.range(1, x).take(x)
     ).subscribe(System.out::println);
@@ -1846,11 +1537,11 @@ Flux.just(5, 10).flatMap(
 
 1 2 3 4 5 1 2 3 4 5 6 7 8 9 10
 
-### 终端处理
+#### 终端处理
 
 通过`subscribe()`方法处理正常和错误消息：
 
-```
+```java
 Flux.just(1, 2)
     .concatWith(Mono.error(new IllegalStateException()))
     .subscribe(System.out::println, System.err::println);
@@ -1864,18 +1555,14 @@ Flux.just(1, 2)
 java.lang.IllegalStateException
 ```
 
-
-
 出现错误时返回默认值：
 
-```
+```java
 Flux.just(1, 2)
     .concatWith(Mono.error(new IllegalStateException()))
     .onErrorReturn(0)
     .subscribe(System.out::println);
 ```
-
-
 
 输出：
 
@@ -1885,11 +1572,9 @@ Flux.just(1, 2)
 0
 ```
 
-
-
 出现错误时使用另外的流：
 
-```
+```java
 Flux.just(1, 2)
     .concatWith(Mono.error(new IllegalArgumentException()))
     .onErrorResume(e -> {
@@ -1910,11 +1595,11 @@ Flux.just(1, 2)
 -1
 ```
 
-## +CRUD
+### CRUD
 
 结合Mongo DB在WebFlux的架构下实现增删改查样例。和Spring Boot整合Mongo DB 不同的是，我们使用的是Reactive Mongo DB依赖，所有增删改查方法返回值类型为Flux或者Mono。
 
-```
+```xml
 <dependency>
     <groupId>org.springframework.boot</groupId>
     <artifactId>spring-boot-starter-webflux</artifactId>
@@ -1927,7 +1612,7 @@ Flux.just(1, 2)
 
 要开启`Reactive Mongo DB`的相关配置，需要在Spring Boot启动类上添加`@EnableReactiveMongoRepositories`注解：
 
-```
+```java
 @SpringBootApplication
 @EnableReactiveMongoRepositories
 public class WebfluxApplication {
@@ -1939,7 +1624,7 @@ public class WebfluxApplication {
 
 接着在配置文件application.yml里配置Mongo DB连接：
 
-```
+```yml
 spring:
   data:
     mongodb:
@@ -1950,10 +1635,9 @@ spring:
 
 使用的是`webflux`数据库，所以需要在Mongo DB里新建一个`webflux`数据库（并创建user文档/表，以供待会使用）.创建`User`实体类:
 
-```
+```java
 @Document(collection = "user")
 public class User {
-
     @Id
     private String id;
     private String name;
@@ -1964,21 +1648,17 @@ public class User {
 }
 ```
 
-## 简单增删改查
-
 创建`UserDao`接口，继承自`ReactiveMongoRepository`：
 
-```
+```java
 @Repository
 public interface UserDao extends ReactiveMongoRepository<User, String> {
 }
 ```
 
-和 Spring Boot整合Mongo DB不同的是，我们继承的是`ReactiveMongoRepository`而非`MongoRepository`，它所提供的方法都是响应式非阻塞的:
+和 Spring Boot整合Mongo DB不同的是，我们继承的是`ReactiveMongoRepository`而非`MongoRepository`，它所提供的方法都是响应式非阻塞的.
 
-![](picture/react-mongodb.png)
-
-```
+```java
 @Service
 public class UserService {
     @Autowired
@@ -2009,7 +1689,7 @@ public class UserService {
 }
 ```
 
-```
+```java
 @RestController
 @RequestMapping("user")
 public class UserController {
@@ -2067,11 +1747,11 @@ public class UserController {
 
 对于返回值为`Flux<T>`类型的方法，推荐定义两个一样的方法，一个以普通形式返回，一个以Server Sent Event的形式返回。对于修改和删除，如果需要修改和删除的用户不存在，我们返回404。
 
-### 排序分页
+**排序分页**
 
 在Spring Boot整合Mongo DB 中，是通过MongoTemplate`实现了排序与分页。与`MongoTemplate`对于的响应式的对象为`ReactiveMongoTemplate`，所以我们照葫芦画瓢，仿照`MongoTemplate`的写法来实现：
 
-```
+```java
 /**
  * 分页查询，只返回分页后的数据，count值需要通过 getUserByConditionCount
  * 方法获取
@@ -2109,18 +1789,18 @@ private Query getQuery(User user) {
 
 之所以拆分是因为没找到与`PageableExecutionUtils`类的`getPage`方法类似的方法，如果是响应式的话，返回值类型应该是`Mono<Page<User>>`，不知道有没别的更好的实现方法？
 
-# WebSocket长连接
+## WebSocket长连接
 
 实现简单的客户端与服务端建立长连接并互发送文本消息
 
-```
+```xml
 <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-web</artifactId>
-        </dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-web</artifactId>
+</dependency>
 <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-websocket</artifactId>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-websocket</artifactId>
 </dependency>
 ```
 
@@ -2128,7 +1808,7 @@ private Query getQuery(User user) {
 
 因为我们的目的是实现和客户端的通信，并且内容为文本内容，所以我们继承的是`TextWebSocketHandler`；如果传输的是二进制内容，则可以继承`BinaryWebSocketHandler`，更多信息可以自行查看`WebSocketHandler`的子类。
 
-```
+```java
 @Component
 public class MyStringWebSocketHandler extends TextWebSocketHandler {
     private Logger log = LoggerFactory.getLogger(this.getClass());
@@ -2178,11 +1858,10 @@ public class MyStringWebSocketHandler extends TextWebSocketHandler {
 
 `WebSocketSession`对象代表每个客户端会话
 
-```
+```java
 @Configuration
 @EnableWebSocket
 public class WebSocketServerConfigure implements WebSocketConfigurer {
-
     @Autowired
     private MyStringWebSocketHandler myStringWebSocketHandler;
 
@@ -2203,7 +1882,7 @@ public class WebSocketServerConfigure implements WebSocketConfigurer {
 
 在resources目录下新建static包，然后在该包下新建client.html：
 
-```
+```xml
 <!DOCTYPE html>
 <html lang="en">
 <head>

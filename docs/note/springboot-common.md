@@ -4,9 +4,19 @@
 
 ## 配置文件
 
+> 通过spring.profiles.include可指定导入application-xxx.yml属性配置文件
 
+在Spring应用程序的environment中读取属性的时候，每个属性的唯一名称符合如下规则：
 
-在Spring Boot 2.0中对配置属性加载的时候会除了像1.x版本时候那样**移除特殊字符**外，还会将配置均以**全小写**的方式进行匹配和加载。  等价例
+- 通过`.`分离各个元素
+- 最后一个`.`将前缀与属性名称分开
+- 必须是字母（a-z）和数字(0-9)
+- 必须是小写字母
+- 用连字符`-`来分隔单词
+- 唯一允许的其他字符是`[`和`]`，用于List的索引
+- 不能以数字开头
+
+移除特殊字符并以**全小写**的方式进行**匹配**和加载, 以下等价
 
 ```
 spring.jpa.databaseplatform=mysql
@@ -15,16 +25,7 @@ spring.jpa.databasePlatform=mysql
 spring.JPA.database_platform=mysql
 ```
 
-```
-spring:
-  jpa:
-    databaseplatform: mysql
-    database-platform: mysql
-    databasePlatform: mysql
-    database_platform: mysql
-```
-
-**Tips：推荐使用全小写配合`-`分隔符的方式来配置，比如：`spring.jpa.database-platform=mysql`**
+> 推荐使用全小写配合`-`分隔符的方式来配置, 并且通过Enviroment和@Value只能以该方式获取属性
 
 List**类型**
 
@@ -59,36 +60,11 @@ spring:
     url: http://example.com, http://spring.io
 ```
 
-**注意：在Spring Boot 2.0中对于List类型的配置必须是连续的，不然会抛出`UnboundConfigurationPropertiesException`异常，所以如下配置是不允许的：**
-
-```
-foo[0]=a
-foo[2]=b
-```
-
-**在Spring Boot 1.x中上述配置是可以的，`foo[1]`由于没有配置，它的值会是`null`**
+> 在Spring Boot 2.0中对于List类型的配置必须是连续的，不然会抛出`UnboundConfigurationPropertiesException`异常
 
 Map**类型**
 
-Map类型在properties和yaml中的标准配置方式如下：
-
-- properties格式：
-
-```
-spring.my-example.foo=bar
-spring.my-example.hello=world
-```
-
-- yaml格式：
-
-```
-spring:
-  my-example:
-    foo: bar
-    hello: world
-```
-
-**注意：如果Map类型的key包含非字母数字和`-`的字符，需要用`[]`括起来，比如：**
+如果Map类型的key包含非字母数字和`-`的字符，需要用`[]`括起来，比如：
 
 ```
 spring:
@@ -96,162 +72,15 @@ spring:
     '[foo.baz]': bar
 ```
 
-在Spring应用程序的environment中读取属性的时候，每个属性的唯一名称符合如下规则：
+> 另外, 属性文件中可通过`"@点分多级标签@"`获取pom文件内容
 
-- 通过`.`分离各个元素
-- 最后一个`.`将前缀与属性名称分开
-- 必须是字母（a-z）和数字(0-9)
-- 必须是小写字母
-- 用连字符`-`来分隔单词
-- 唯一允许的其他字符是`[`和`]`，用于List的索引
-- 不能以数字开头
+### @ConfigurationProperties
 
-所以，如果我们要读取配置文件中`spring.jpa.database-platform`的配置，可以这样写：
+模块属性配置:
 
-```
-context.getEnvironment().containsProperty("spring.jpa.database-platform")
-```
+1.使用@Component注入.
 
-而下面的方式是无法获取到`spring.jpa.database-platform`配置内容的：
-
-```
-context.getEnvironment().containsProperty("spring.jpa.databasePlatform")
-```
-
-**注意：使用`@Value`获取配置内容的时候也需要这样的特点**
-
-**全新绑定api**
-
-在Spring Boot 2.0中增加了新的绑定API来帮助我们更容易的获取配置信息
-
-```
-//配置文件
-com.didispace.foo=bar
-//指定前缀
-@Data
-@ConfigurationProperties(prefix = "com.didispace")
-public class FooProperties {
-    private String foo;
-}
-//通过Binder获取配置信息
-@SpringBootApplication
-public class Application {
-    public static void main(String[] args) {
-        ApplicationContext context = SpringApplication.run(Application.class, args);
-        Binder binder = Binder.get(context.getEnvironment());
-        // 绑定简单配置
-        FooProperties foo = binder.bind("com.didispace", Bindable.of(FooProperties.class)).get();
-        System.out.println(foo.getFoo());
-    }
-}
-//List类
-com.didispace.post[0]=Why Spring Boot
-com.didispace.post[1]=Why Spring Cloud
-
-com.didispace.posts[0].title=Why Spring Boot
-com.didispace.posts[0].content=It is perfect!
-com.didispace.posts[1].title=Why Spring Cloud
-com.didispace.posts[1].content=It is perfect too!
-//获取
-ApplicationContext context = SpringApplication.run(Application.class, args);
-
-Binder binder = Binder.get(context.getEnvironment());
-
-// 绑定List配置
-List<String> post = binder.bind("com.didispace.post",Bindable.listOf(String.class)).get();
-System.out.println(post);
-
-List<PostInfo> posts = binder.bind("com.didispace.posts",Bindable.listOf(PostInfo.class)).get();
-System.out.println(posts);
-```
-
-## 自定义属性警告问题
-
-下面内容都与该依赖有关
-
-```
-<dependency>
-    <groupId>org.springframework.boot</groupId>
-    <artifactId>spring-boot-configuration-processor</artifactId>
-</dependency>
-```
-
-除了再IDEA中手动取消警告,更合适的方式是配置元数据.
-
-在spring boot 项目autoconfigure依赖包下 ,可以看到一个名为additional-spring-configuration-metadata.json文件.
-
-里面指定了属性配置的元数据信息,它可以帮助IDE来完成配置联想和配置提示的展示。
-
-**配置元数据的自动生成**
-
-```
-@Data
-@Configuration
-@ConfigurationProperties(prefix = "com.didispace")
-public class DidiProperties {
-    private String from;
-}
-```
-
-mvn install
-
-查看target.classes.META-INF下的spring-configuration-metadata.json文件,
-
-并且再使用属性配置时,已经没有高亮警告了.
-
-## include
-
-一个springboot会有db、ftp、redis等的不同配置信息。我们可以使用spring.profiles.include来实现三种不同环境的一键切换。
-
-比如有application-redis.yml
-
-可以使用方式导入(多个以逗号分开):
-
-```
-spring.profiles.include: redis
-```
-
-## 获取pom文件属性
-
-```
-info: 
-  app:  
-    name: "@project.name@"
-    description: "@project.description@"  
-    version: "@project.version@"  
-    spring-boot-version: "@project.parent.version@" 
-```
-
-## @Value
-
-如果要初始化static成员,可加在settor方法上设置.
-
-```
-@Data
-@Component
-public class RsaProperties {
-    public static String privateKey;
-
-    @Value("${rsa.private_key}")
-    public void setPrivateKey(String privateKey) {
-        RsaProperties.privateKey = privateKey;
-    }
-}
-```
-
-## @ConfigurationProperties
-
-**模块装配技术**
-
-如果一个配置类只配置@ConfigurationProperties注解，而没有使用@Component，那么在IOC容器中是获取不到properties 配置文件转化的bean。 @EnableConfigurationProperties 相当于把使用  @ConfigurationProperties 的类进行了一次注入。
-
-bean的属性配置加载属性
-
-
-
-1.(使用(Component)).
-
-```
+```java
 @Data
 @Component
 @ConfigurationProperties(prefix = "yyzx.properties")
@@ -259,9 +88,9 @@ public class AnnotationDesc {
 }
 ```
 
-2.使用EnableConfigurationProperties
+2.使用@EnableConfigurationProperties注入.
 
-```
+```java
 @Data
 @ConfigurationProperties(prefix = "yyzx.properties")
 public class AnnotationDesc {
@@ -279,7 +108,7 @@ public class SpringBootPlusConfig {
 
 或者
 
-```
+```java
 @Data
 public class AnnotationDesc {
   // 该书写方式，属性值注入成功
@@ -298,101 +127,37 @@ public class SpringBootPlusConfig {
 
 @ConfigurationProperties 也可以加在AnnotationDesc类定义上
 
-3.或者在每个字段上通过@Value获取(冗余)
+3.或者在@Component类的每个字段上通过@Value获取(冗余)
 
-> 使用方式1和2会在classpath:/META-INF下生成spring-configuration-metadata.json记录所有配置元数据
+### PropertySource
 
-4.@Configuration+@Bean+@ConfigurationProperties
+引入配置文件方式:
 
-```
-@Configuration
-public class SpringBootPlusConfig {
-	@Bean   			
-	@ConfigurationProperties("my.prop")
-    public XXX xxx(MyProperties myProperties){
-        
-    }
-}
-```
-
-
-
-## @PropertySource
-
-springboot引入其他配置文件方式(与的区别)
+**1.@PropertySource**
 
 ```
 @PropertySource("classpath:your.properties")
 ```
 
-@PropertySource 中的属性解释 
-1.value：指明加载配置文件的路径。 
-2.ignoreResourceNotFound：指定的配置文件不存在是否报错，默认是false。当设置为 true 时，若该文件不存在，程序不会报错。实际项目开发中，最好设置 ignoreResourceNotFound 为 false。 
-3.encoding：指定读取属性文件所使用的编码，我们通常使用的是UTF-8。
+属性: 
+1.value：配置文件的路径 
+2.ignoreResourceNotFound：配置文件不存时在是否报错，默认是false
+3.encoding：读取属性文件所使用的编码，通常使用UTF-8。
 
-该注解可与配合上面的@Configuration等一起使用
+**2.EnvironmentPostProcessor**
 
-> 引入配置文件还可通过PropertySources或PropertySourceLocator或EnvironmentPostProcessor(本质也是通过PropertySources)完成
+在创建应用程序上下文之前，添加或者修改环境配置:
 
-## Binder
-
-springboot 1.x 获取属性必须通过Environment提供的接口:
-
-```
-  //判断是否包含键值
-  boolean containsProperty(String key);  
-  //获取属性值，如果获取不到返回null
-  String getProperty(String key);  
-  //获取属性值，如果获取不到返回缺省值
-  String getProperty(String key, String defaultValue); 
-  //获取属性对象；其转换和Converter有关，会根据sourceType和targetType查找转换器
-  <T> T getProperty(String key, Class<T> targetType);
-```
-
-springboot 2.x引入Binder用于对象与多个属性的绑定:
-
-```
-  //绑定对象
-  MailPropertiesC propertiesC = Binder.get(environment) //首先要绑定配置器
-      //再将属性绑定到对象上
-      .bind( "kaka.cream.mail-c", Bindable.of(MailPropertiesC.class) ).get(); //再获取实例
-      
-  //绑定Map
-  Map<String,Object> propMap = Binder.get(environment)
-      .bind( "fish.jdbc.datasource",Bindable.mapOf(String.class, Object.class) ).get();
-      
-  //绑定List
-  List<String> list = Binder.get(environment)
-      .bind( "kaka.cream.list",Bindable.listOf(String.class) ).get();	
-```
-
-## EnvironmentPostProcessor
-
-EnvironmentPostProcessor为环境后置处理器,可以在**创建应用程序上下文之前**，添加或者修改环境配置(通过PropertySources)。
-
-简单使用:
-
-1.编写自定义配置文件custom.propertis，并放到resource目录下:
-
-```
-file.size=1111
-```
-
-2.编写自定义的加载类CustomEnvironmentPostProcessor,实现EnvironmentPostProcessor接口,重写postProcessEnvironment方法
-
-```
+```java
 public class CustomEnvironmentPostProcessor implements EnvironmentPostProcessor {
     private final Properties properties = new Properties();
-    /**
-     * 用户自定义配置文件列表
-     */
+  
     private String[] profiles = {
             "custom.properties",
     };
 
     @Override
     public void postProcessEnvironment(ConfigurableEnvironment environment, SpringApplication application) {
-
         for (String profile : profiles) {
             Resource resource = new ClassPathResource(profile);
             //将自定义配置文件属性加入到环境
@@ -413,20 +178,14 @@ public class CustomEnvironmentPostProcessor implements EnvironmentPostProcessor 
 }
 ```
 
-3.在META-INF下创建spring.factories，并且引入CustomEnvironmentPostProcessor 类
+在META-INF下创建spring.factories，并且引入CustomEnvironmentPostProcessor 类
 
 ```
 org.springframework.boot.env.EnvironmentPostProcessor=\
-org.yujuan.springbootlearning.processor.CustomEnvironmentPostProcessor
+com.xxx.lzf.CustomEnvironmentPostProcessor
 ```
 
-4.验证
-
-通过@value 直接引入或者上下文调用
-
-通常在实际使用时,会根据需求给该自定义类加上@Order或实现Ordered接口(实现getOrder方法)来指定其在所有实现其接口的类中的执行顺序.
-
-## PropertySourceLocator
+**3.PropertySourceLocator**
 
 PropertySourceLocator接口支持扩展自定义配置加载到Environment中。
 
@@ -438,14 +197,13 @@ public class JsonPropertySourceLocator implements PropertySourceLocator {
 
     @Override
     public PropertySource<?> locate(Environment environment) {
-        // TODO 微服务配置中心实现形式即可在这里远程RPC加载配置到spring环境变量中
+        // TODO 微服务配置中心远程RPC加载配置到spring环境变量中
         // 读取classpath下的my.json解析
         ResourceLoader resourceLoader = new DefaultResourceLoader(getClass().getClassLoader());
         Resource resource = resourceLoader.getResource(DEFAULT_LOCATION);
         if (resource == null) {
             return null;
         }
-
         return new MapPropertySource("myJson", mapPropertySource(resource));
     }
 
@@ -461,84 +219,77 @@ public class JsonPropertySourceLocator implements PropertySourceLocator {
 }
 ```
 
-在classpath下META-INF/spring.factories文件定义 org.springframework.cloud.bootstrap.BootstrapConfiguration=JsonPropertySourceLocator
+在classpath下META-INF/spring.factories文件定义:
 
-使用这种方式非常灵活，只要在locate方法最后返回一个MapPropertySource对象即可，至于我们如何获取属性，这些我们都可以自己控制，例如我们实现从数据库读取配置来组装MapPropertySource，或者可以实现远程配置中心功能
+```
+org.springframework.cloud.bootstrap.BootstrapConfiguration=
+\com.xxx.lzf.JsonPropertySourceLocator
+```
 
-**工作项目:数据库获取多个属性源**
+使用这种方式非常灵活，只要在locate方法最后返回一个MapPropertySource对象即可，至于我们如何获取属性，这些都可以自己控制，例如我们实现从数据库读取配置来组装MapPropertySource，或者可以实现远程配置中心功能
+
+**工作实践:数据库获取多个属性源**
 
 如果要加载数据库中单个配置文件, 可在locate方法中创建一个实现自EnumerablePropertySource< JdbcTemplate>的类作为范围值, 通过传入jdbcTemplate给EnumerablePropertySource并通过其加载数据库中的配置文件.
 
 如果要加载数据库中多个配置文件, 可在locate方法中创建一个CompositePropertySource对象作为返回值, 该对象表示多个PropertySource的组合, 提供了addPropertySource方法, 可创建多个实现自EnumerablePropertySource< JdbcTemplate>的类加入CompositePropertySource.
 
-# 事件模型
+### Binder
 
-在Spring Boot 2.0中对事件模型做了一些增强，主要就是增加了`ApplicationStartedEvent`事件，所以在2.0版本中所有的事件按执行的先后顺序如下：
+springboot 1.x 获取属性必须通过Environment提供的接口:
 
-- `ApplicationStartingEvent`
-- `ApplicationEnvironmentPreparedEvent`
-- `ApplicationPreparedEvent`
-- `ApplicationStartedEvent` <= 新增的事件
-- `ApplicationReadyEvent`
-- `ApplicationFailedEvent`
-
-配置事件监听器
-
+```java
+//判断是否包含键值
+boolean containsProperty(String key);  
+//获取属性值，如果获取不到返回null
+String getProperty(String key);  
+//获取属性值，如果获取不到返回缺省值
+String getProperty(String key, String defaultValue); 
+//获取属性对象；其转换和Converter有关，会根据sourceType和targetType查找转换器
+<T> T getProperty(String key, Class<T> targetType);
 ```
-@Slf4j
+
+springboot 2.x引入Binder用于对象与多个属性的绑定:
+
+```java
+//绑定对象
+MailPropertiesC propertiesC = Binder.get(environment) //首先要绑定配置器
+    //再将属性绑定到对象上
+    .bind( "kaka.cream.mail-c", Bindable.of(MailPropertiesC.class) ).get(); //再获取实例
+    
+//绑定Map
+Map<String,Object> propMap = Binder.get(environment)
+    .bind( "fish.jdbc.datasource",Bindable.mapOf(String.class, Object.class) ).get();
+    
+//绑定List
+List<String> list = Binder.get(environment)
+    .bind( "kaka.cream.list",Bindable.listOf(String.class) ).get();	
+```
+
+## 事件模型
+
+配置事件监听器或注解方式
+
+```java
 public class ApplicationPreparedEventListener implements ApplicationListener<ApplicationPreparedEvent> {
     @Override
     public void onApplicationEvent(ApplicationPreparedEvent event) {
         log.info("......ApplicationPreparedEvent......");
     }
-
-}
-@Slf4j
-public class ApplicationStartedEventListener implements ApplicationListener<ApplicationStartedEvent> {
-    @Override
-    public void onApplicationEvent(ApplicationStartedEvent event) {
-        log.info("......ApplicationStartedEvent......");
-    }
-
-}
-@Slf4j
-public class ApplicationReadyEventListener implements ApplicationListener<ApplicationReadyEvent> {
-
-    @Override
-    public void onApplicationEvent(ApplicationReadyEvent event) {
-        log.info("......ApplicationReadyEvent......");
-    }
 }
 ```
 
-在`/src/main/resources/`目录下新建：`META-INF/spring.factories`配置文件，通过配置`org.springframework.context.ApplicationListener`来加载上面我们编写的监听器。
+在`/src/main/resources/META-INF/spring.factories`中添加:
 
 ```
-org.springframework.context.ApplicationListener=  com.didispace.ApplicationPreparedEventListener,\  com.didispace.ApplicationReadyEventListener,\  com.didispace.ApplicationStartedEventListener
-```
-
-## 发布与监听
-
-在使用Spring构建的应用程序中，适当使用事件发布与监听的机制可以使我们的代码灵活度更高，降低耦合度。Spring提供了完整的事件发布与监听模型，在该模型中，事件发布方只需将事件发布出去，无需关心有多少个对应的事件监听器；监听器无需关心是谁发布了事件，并且可以同时监听来自多个事件发布方发布的事件，通过这种机制，事件发布与监听是解耦的。
-
-
-
-```
-@Component
-public class MyEventListener implements ApplicationListener<MyEvent> {
-    private final Logger logger = LoggerFactory.getLogger(this.getClass());
-    @Override
-    public void onApplicationEvent(MyEvent event) {
-        logger.info("收到自定义事件MyEvent");
-    }
-}
+org.springframework.context.ApplicationListener=  com.xxx.ApplicationPreparedEventListener
 ```
 
 **将一个事件的结果作为另一个事件发布**
 
 如需发布多个事件 , 可以将返回格式改为集合或数组
 
-```
+```java
 @EventListener
 public ListUpdateEvent handleBlockedListEvent(BlockedListEvent event) {
     // notify appropriate parties via notificationAddress and
@@ -546,46 +297,10 @@ public ListUpdateEvent handleBlockedListEvent(BlockedListEvent event) {
 }
 ```
 
-> 可以根据需要注册任意数量的事件侦听器，但默认情况下，事件侦听器是同步接收事件的。这意味着 publishEvent（） 方法会阻塞，直到所有侦听器都完成对事件的处理。如果需要其他事件发布策略，ApplicationEventMulticaster 接口和 SimpleApplicationEventMulticaster 实现。
+注解方式配置监听多个事件:
 
-## 深入
-
-### 异步监听
-
-单个异步:
-
-首先需要在springboot入口类上通过`@EnableAsync`注解开启异步，然后在需要异步执行的监听器方法上使用`@Async`注解标注.(注解监听方式)
-
-整体异步:
-
-通过前面源码分析，我们知道多播器在广播事件时，会先判断是否有指定executor，有的话通过executor执行监听器逻辑。所以我们可以通过指定executor的方式来让所有的监听方法都异步执行,
-
-```
-@Configuration
-public class AsyncEventConfigure {
-
-    @Bean(name = AbstractApplicationContext.APPLICATION_EVENT_MULTICASTER_BEAN_NAME)
-    public ApplicationEventMulticaster simpleApplicationEventMulticaster() {
-        SimpleApplicationEventMulticaster eventMulticaster = new SimpleApplicationEventMulticaster();
-        eventMulticaster.setTaskExecutor(new SimpleAsyncTaskExecutor());
-        return eventMulticaster;
-    }
-}
-```
-
-在配置类中，我们注册了一个名称为AbstractApplicationContext.APPLICATION_EVENT_MULTICASTER_BEAN_NAME（即applicationEventMulticaster）的Bean，用于覆盖默认的事件多播器，然后指定了TaskExecutor，SimpleAsyncTaskExecutor为Spring提供的异步任务executor。
-
-异步化测试可通过查看输出日志的线程来测试.
-
-### **多事件监听器**
-
-@EventListener方式单个事件监听器除了可以监听多个事件.
-
-```
-@Component
-public class MyAnnotationEventListener {
-    private final Logger logger = LoggerFactory.getLogger(this.getClass());
-    @EventListener(classes = {MyEvent.class, ContextRefreshedEvent.class, ContextClosedEvent.class})
+```java
+@EventListener(classes = {MyEvent.class, ContextRefreshedEvent.class, ContextClosedEvent.class})
     public void onMyEventPublished(ApplicationEvent event) {
         if (event instanceof MyEvent) {
             logger.info("监听到MyEvent事件");
@@ -597,45 +312,42 @@ public class MyAnnotationEventListener {
             logger.info("监听到ContextClosedEvent事件");
         }
     }
-}
 ```
 
-ApplicationListener接口方式单个类型事件也可以有多个监听器同时监听,还可以**通过实现Ordered接口实现排序（或者@Order注解标注）。**
+ApplicationListener接口方式也可以监听多个事件, 并可通过Order接口或注解指定顺序.
 
-```
-@Component
-public class MyEventListener implements ApplicationListener<MyEvent>, Ordered {
-    private final Logger logger = LoggerFactory.getLogger(this.getClass());
-    @Override
-    public void onApplicationEvent(MyEvent event) {
-        logger.info("收到自定义事件MyEvent，我的优先级较高");
+### 异步监听
+
+可以根据需要注册任意数量的事件侦听器，但默认情况下，事件侦听器是同步接收事件的。即着 publishEvent方法会阻塞，直到所有侦听器都完成对事件的处理。
+
+如果需要其他事件发布策略，`ApplicationEventMulticaster` 接口和 `SimpleApplicationEventMulticaster `实现。
+
+1.单个异步:
+
+首先需要在springboot入口类上通过`@EnableAsync`注解开启异步，然后在需要异步执行的监听器方法上使用`@Async`注解标注.
+
+2.整体异步:
+
+多播器在广播事件时，会先判断是否有指定executor，有的话通过executor执行监听器逻辑。所以可以通过指定executor的方式来让所有的监听方法都异步执行,
+
+```java
+@Configuration
+public class AsyncEventConfigure { 
+    //beanName即applicationEventMulticaster 用于覆盖默认的事件多播器
+    @Bean(name = AbstractApplicationContext.APPLICATION_EVENT_MULTICASTER_BEAN_NAME)
+    public ApplicationEventMulticaster simpleApplicationEventMulticaster() {
+        SimpleApplicationEventMulticaster eventMulticaster = new SimpleApplicationEventMulticaster();
+        eventMulticaster.setTaskExecutor(new SimpleAsyncTaskExecutor());
+        return eventMulticaster;
     }
-    @Override
-    public int getOrder() {return 0;}
-}
-
-```
-
-```
-@Component
-public class MyAnnotationEventListener implements Ordered {
-    private final Logger logger = LoggerFactory.getLogger(this.getClass());
-    @EventListener(classes = {MyEvent.class})
-    public void onMyEventPublished(ApplicationEvent event) {
-        if (event instanceof MyEvent) {
-            logger.info("监听到MyEvent事件，我的优先级较低");
-        }
-    }
-    @Override
-    public int getOrder() {return 1;}
 }
 ```
 
-### 条件监听+SpEL
+### SpEL条件监听
 
 @EventListener注解还包含一个condition属性，可以配合SpEL表达式来条件化触发监听方法。修改MyEvent，添加一个boolean类型属性：
 
-```
+```java
 public class MyEvent extends ApplicationEvent {
     private boolean flag;
     public boolean isFlag() {
@@ -652,7 +364,7 @@ public class MyEvent extends ApplicationEvent {
 
 在发布事件时将该属性设置为false
 
-```
+```java
 public void publishEvent() {
         logger.info("开始发布自定义事件MyEvent");
         MyEvent myEvent = new MyEvent(applicationContext);
@@ -664,7 +376,7 @@ public void publishEvent() {
 
 条件监听实现:
 
-```
+```java
 @Component
 public class MyAnnotationEventListener implements Ordered {
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
@@ -682,191 +394,49 @@ public class MyAnnotationEventListener implements Ordered {
 }
 ```
 
-因此MyEvent发布的时候,上面监听器没有触发
-
-### 事务事件监听器
-
-Spring 4.2开始提供了一个@TransactionalEventListener注解用于监听数据库事务的各个阶段：
-
-1. AFTER_COMMIT - 事务成功提交；
-2. AFTER_ROLLBACK – 事务回滚后；
-3. AFTER_COMPLETION – 事务完成后（无论是提交还是回滚）；
-4. BEFORE_COMMIT - 事务提交前；
-
-例子：
-
-```
-@TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-public void onTransactionChange(ApplicationEvent event){
-    logger.info("监听到事务提交事件");
-}
-```
-
-# 启动后执行
-
-实现ApplicationRunner或CommandLineRunner接口. 方法在SpringApplication.run完成之前调用
-
-源码在`SpringApplication`的callRunners方法中执行;
-
-# Bean生命周期
+## Bean生命周期
 
 指定生命周期方法
 
-```
-@Bean(initMethod = "init", destroyMethod = "destory")
-```
+1.`@Bean(initMethod = "init", destroyMethod = "destory")`
 
-除了上面两种指定初始化和销毁方法的方式外，我们还可以使用`@PostConstruct`和`@PreDestroy`注解修饰方法来指定相应的初始化和销毁方法.
+2.`@PostConstruct`和`@PreDestroy`
 
-直接加到Bean所在类的方法上即可.
+3.`InitializingBean`和`DisposableBean`接口
 
-除了上面两种方式以外,Spring还为我们提供了和初始化，销毁相对应的接口：
+### BeanPostProcessor
 
-- `InitializingBean`接口包含一个`afterPropertiesSet`方法，我们可以通过实现该接口，然后在这个方法中编写初始化逻辑。
-- `DisposableBean`接口包含一个`destory`方法，我们可以通过实现该接口，然后再这个方法中编写销毁逻辑。
+默认是针对ioc容器中所有的Bean
 
-## BeanPostProcessor
+`postProcessBeforeInitialization(Object bean, String beanName)`在Bean的初始化方法调用之前执行;
 
-深入前,先了解实例化和初始化:
+`postProcessAfterInitialization(Object bean, String beanName)`在Bean的初始化方法调用之后执行.
 
-Initialization为初始化的意思，Instantiation为实例化的意思。在Spring Bean生命周期中，实例化指的是创建Bean的过程，初始化指的是Bean创建后，对其属性进行赋值（populate bean）、后置处理等操作的过程，所以Instantiation执行时机先于Initialization。
+**InstantiationAwareBeanPostProcessor** 是BeanPostProcessor子接口,增加了3个方法:
 
-Spring提供了一个`BeanPostProcessor`接口，俗称**Bean后置通知处理器**，它提供了两个方法`postProcessBeforeInitialization`和`postProcessAfterInitialization`。其中`postProcessBeforeInitialization`在组件的初始化方法调用之前执行，`postProcessAfterInitialization`在组件的初始化方法调用之后执行。它们都包含两个入参：
+`postProcessBeforeInstantiation(Class<?> beanClass, String beanName)`：在Bean实例化之前执行;
 
-1. bean：当前组件对象；
+> 注意: 该方法返回null表示按默认方式进行实例化初始化Bean, 否则表示提前创建了Bean, 接着只会执行postProcessAfterInitialization方法
 
-2. beanName：当前组件在容器中的名称(按名称注入的为名称,按类注入的为全类名).
+`postProcessAfterInstantiation(Object bean, String beanName)`：Bean实例化之后执行;
 
-   两个方法都返回一个Object类型，我们可以直接返回当前组件对象，或者包装(**增强,代理**等)后返回。
+> 注意: 该方法在实例化之后初始化之前调用, 此时属性还没有被赋值,  一般用于自定义属性赋值.  方法返回false表示跳过Bean属性赋值, 并且InstantiationAwareBeanPostProcessor的postProcessProperties方法不会被调用
 
-   注意:这个接口实现类默认是针对ioc容器中所有的bean.
+`postPorcessProperties(PropertiesValues values,Object bean,String beanName)`: Bean属性赋值后调用该方法;
 
-```
-public class MyBeanPostProcessor implements BeanPostProcessor {
-    @Override
-    public Object postProcessBeforeInitialization(Object bean, String beanName) throws BeansException {
-        System.out.println(beanName + " 初始化之前调用");
-        return bean;
-    }
-    @Override
-    public Object postProcessAfterInitialization(Object bean, String beanName) throws BeansException {
-        System.out.println(beanName + " 初始化之后调用");
-        return bean;
-    }
-}
-```
+> 注意: 该方法前提为postProcessAfterInstantiation返回true
 
-在配置类中注册该组件:
-
-```
-@Bean
-public MyBeanPostProcessor myBeanPostProcessor () {
-    return new MyBeanPostProcessor();
-}
-```
-
-**另外,如果由多个需要注入ioc容器的该Processor或者类似的Processor,可以使用@Order,Ordered接口来自定义执行顺序**
-
-**InstantiationAwareBeanPostProcessor**
-
-InstantiationAwareBeanPostProcessor是BeanPostProcessor子接口,增加了3个方法:
-
-- `postProcessBeforeInstantiation(Class<?> beanClass, String beanName)`：Bean实例化前执行该方法.	
-
-  beanClass：待实例化的Bean类型；
-
-  beanName：待实例化的Bean名称。
-
-  方法作用为：在Bean实例化前调用该方法，返回值可以为代理后的Bean，以此代替Bean默认的实例化过程。返回值不为null时，后续只会调用BeanPostProcessor的 postProcessAfterInitialization方法，而不会调用别的后续后置处理方法（如postProcessBeforeInitialization、postProcessBeforeInstantiation等方法）；返回值也可以为null，这时候Bean将按默认方式初始化。
-
-- `postProcessAfterInstantiation(Object bean, String beanName)`：Bean实例化之后执行该方法
-
-  bean：实例化后的Bean，此时属性还没有被赋值；
-
-  beanName：Bean名称。
-
-  方法作用为：当Bean通过构造器或者工厂方法被实例化后，当属性还未被赋值前，该方法会被调用，一般用于自定义属性赋值。方法返回值为布尔类型，返回true时，表示Bean属性需要被赋值；返回false表示跳过Bean属性赋值，并且InstantiationAwareBeanPostProcessor的postProcessProperties方法不会被调用。
-
-- `postPorcessProperties(PropertiesValues values,Object bean,String beanName)`: Bean属性赋值后调用该方法,并且postProcessorAfterInstantiation方法返回值必须为true
-
-  values: bean属性的值;
-
-  bean:  赋值后的bean;
-
-  beanName: Bean名称.
-
-
-
-综上,bean在整个生命周期中上面内容的执行顺序为:
+综上,Bean在整个生命周期中上面内容的执行顺序为:
 
 postProcessBeforeInstantiationfan方法 --> 调用无参构造函数 -->  postProcessAfterInstantiation方法  --> Bean属性赋值  -->  postProcessProperties  -->  postProcessBeforeInitialization方法  --> init方法  --> postProcessAfterInitialization方法 -->destory方法
 
-**源码**
+### BeanFactoryPostProcessor
 
-postProcessAfterInitialization和InstantiationAwareBeanPostProcessor的方法都和Bean生命周期有关，要分析它们的实现原理自然要从Bean的创建过程入手。Bean创建的入口为`AbstractAutowireCapableBeanFactory`的createBean方法
+该接口包含一个方法:postProcessBeanFactory. 在所有的Bean定义已经被加载，但Bean的实例还没被创建（不包括BeanFactoryPostProcessor之类的特殊Bean）时执行。该方法通常用于修改bean的定义，Bean的属性值等，甚至可以在此快速初始化Bean。
 
-注意:
+**BeanDefinitionRegistryPostProcessor**继承自BeanFactoryPostProcessor，新增了postProcessBeanDefinitionRegistry方法：
 
-1.如果在postProcessBeforeInstantiation方法中如果返回非null(如**使用CGLIB动态代理生成了一个对象并返**回),则接下来会跳过postProcessAfterInstantiation，postProcessPropertyValues以及自定义的初始化方法(start方法), 直接执行postProcessAfterInitialization方法,并且postProcessAfterInitialization如果返回不为null,则mbd.beforeInstantiationResolved被标注为true而直接返回给ioc容器了;否则才会按照原本的流程继续执行doCreateBean方法.
-
-2.如果postProcessAfterInstantiation方法返回值如果为false,则postProcessPropertyValues不会被执行.
-
-3.postProcessPropertyValues的执行条件是postProcessAfterInstantiation返回true且postProcessBeforeInstantiation返回null. 在该方法中可以修改属性的赋值:
-
-```
-@Override
-public PropertyValues postProcessPropertyValues(PropertyValues pvs, PropertyDescriptor[] pds, Object bean,
-		String beanName) throws BeansException {
-	System.out.println("<---postProcessPropertyValues--->");
-	if(bean instanceof User){
-		PropertyValue value = pvs.getPropertyValue("name");
-		System.out.println("修改前name的值是:"+value.getValue());
-		value.setConvertedValue("bobo");
-	}
-	return pvs;
-}
-```
-
-## BeanFactoryPostProcessor
-
-该接口包含一个方法:postProcessBeanFactory.
-
-方法注释说明了其执行时机:BeanFactory标准初始化之后，所有的Bean定义已经被加载，但Bean的实例还没被创建（不包括BeanFactoryPostProcessor类型）。**该方法通常用于修改bean的定义，Bean的属性值等，甚至可以在此快速初始化Bean。**
-
-**BeanDefinitionRegistryPostProcessor**
-
-BeanDefinitionRegistryPostProcessor继承自BeanFactoryPostProcessor，新增了一个postProcessBeanDefinitionRegistry方法：
-
-postProcessBeanDefinitionRegistry方法的执行时机为：所有的Bean定义即将被加载，但Bean的实例还没被创建时。也就是说，BeanDefinitionRegistryPostProcessor的postProcessBeanDefinitionRegistry方法执行时机先于BeanFactoryPostProcessor的postProcessBeanFactory方法。这个方法通常用于给IOC容器添加额外的组件。
-
-```
-@Component
-public class MyBeanFactoryPostProcessor implements BeanDefinitionRegistryPostProcessor {
-    private static final Logger logger = LoggerFactory.getLogger(MyBeanFactoryPostProcessor.class);
-    public MyBeanFactoryPostProcessor() {
-        logger.info("实例化MyBeanFactoryPostProcessor Bean");
-    }
-     @Override
-    public void postProcessBeanDefinitionRegistry(BeanDefinitionRegistry registry) throws BeansException {
-        int beanDefinitionCount = registry.getBeanDefinitionCount();
-        logger.info("Bean定义个数: " + beanDefinitionCount);
-        // 添加一个新的Bean定义
-        RootBeanDefinition definition = new RootBeanDefinition(Object.class);
-        registry.registerBeanDefinition("hello", definition);
-    }
-    @Override
-    public void postProcessBeanFactory(ConfigurableListableBeanFactory beanFactory) throws BeansException {
-        int beanDefinitionCount = beanFactory.getBeanDefinitionCount();
-        logger.info("Bean定义个数: " + beanDefinitionCount);
-    }
-    @Component
-    static class TestBean {
-        public TestBean() {
-            logger.info("实例化TestBean");
-        }
-    }
-}
-```
+执行在所有的Bean定义即将被加载，但Bean的实例还没被创建时。即postProcessBeanDefinitionRegistry方法先于postProcessBeanFactory方法。这个方法通常用于给IOC容器添加额外的组件。
 
 执行顺序为:
 
@@ -878,9 +448,7 @@ postProcessBeanFactory 方法 -->
 
 其他的bean的构造函数
 
-
-
-# Spring组件注册
+## Spring组件注册
 
 在传统spring的xml配置中,指定组件扫描的方式为
 
@@ -890,26 +458,23 @@ postProcessBeanFactory 方法 -->
 
 路径下所有被`@Controller`、`@Service`、`@Repository`和`@Component`注解标注的类都会被纳入IOC容器中。
 
-
-
-## @ComponentScan
+### @ComponentScan
 
 在springboot中 ,该注解默认扫描启动类所在的包下的类和子包下的类.
 
 允许我们指定扫描策略,即指定哪些被扫描，哪些不被扫描，查看其源码可发现这两个属性：
 
-```
+```java
 Filter[] includeFilters() default {};
 Filter[] excludeFilters() default {};
 ```
 
 其中Filter也是注解
 
-```
+```java
 @Retention(RetentionPolicy.RUNTIME)
 @Target({})
 @interface Filter {
-
     FilterType type() default FilterType.ANNOTATION;
 
     @AliasFor("classes")
@@ -921,11 +486,11 @@ Filter[] excludeFilters() default {};
 }
 ```
 
-例
+例如:
 
-```
+```java
 @Configuration
-@ComponentScan(value = "cc.mrbird.demo",
+@ComponentScan(value = "com.xxx.demo",
         excludeFilters = {
                 @Filter(type = FilterType.ANNOTATION,
                         classes = {Controller.class, Repository.class}),
@@ -936,109 +501,25 @@ public class WebConfig {
 }
 ```
 
-上面我们指定了两种排除扫描的规则：
+上面指定了两种排除扫描的规则：
 
 1. 根据注解来排除（`type = FilterType.ANNOTATION`）,这些注解的类型为`classes = {Controller.class, Repository.class}`。即`Controller`和`Repository`注解标注的类不再被纳入到IOC容器中。
 2. 根据指定类型类排除（`type = FilterType.ASSIGNABLE_TYPE`），排除类型为`User.class`，其子类，实现类都会被排除。
 
-可通过ApplicationContext实例的getBeanDefinitionNames方法获取所有bean来验证.
+还有其他规则可查看FilterType源码, 其中
 
-### @FilterType
+> 在Java 8之前,  可以使用`@ComponentScans`来配置多个`@ComponentScan`以实现多扫描规则配置; 
+>
+> 在Java 8开始后,  `@ComponentScan`被新增的`@Repeatable(ComponentScans.class)`注解标注, 表示`@ComponentScan`可重复利用.
 
-上面两种为常用的规则,还有的规则如下
+#### 自定义扫描策略
 
-```
-public enum FilterType {
-    /**
-     * Filter candidates marked with a given annotation.
-     * @see org.springframework.core.type.filter.AnnotationTypeFilter
-     */
-    ANNOTATION,
-    /**
-     * Filter candidates assignable to a given type.
-     *
-     * @see org.springframework.core.type.filter.AssignableTypeFilter
-     */
-    ASSIGNABLE_TYPE,
-    /**
-     * Filter candidates matching a given AspectJ type pattern expression.
-     * @see org.springframework.core.type.filter.AspectJTypeFilter
-     */
-    ASPECTJ,
-    /**
-     * Filter candidates matching a given regex pattern.
-     * @see org.springframework.core.type.filter.RegexPatternTypeFilter
-     */
-    REGEX,
-    /**
-     * Filter candidates using a given custom
-     * {@link org.springframework.core.type.filter.TypeFilter} implementation.
-     */
-    CUSTOM
-}
-```
-
-我们还可以通过`ASPECTJ`表达式，`REGEX`正则表达式和`CUSTOM`自定义规则（下面详细介绍）来指定扫描策略。
-
-```
-@Configuration
-@ComponentScan(value = "cc.mrbird.demo",
-        includeFilters = {
-                @Filter(type = FilterType.ANNOTATION, classes = Service.class)
-        }, useDefaultFilters = false)
-public class WebConfig {
-
-}
-```
-
-上面配置了只将`Service`纳入IOC容器，并且需要用`useDefaultFilters = false`来关闭Spring默认的扫描策略才能让我们的配置生效（,扫描带有@Component  @Repository  @Service  @Controller 的组件）。
-
-注意:有一些Processor和一个Factory是ioc容器启动必须需要的监听和处理类.
-
-## 多扫描策略
-
-在Java 8之前，我们可以使用`@ComponentScans`来配置多个`@ComponentScan`以实现多扫描规则配置：
-
-```
-@Retention(RetentionPolicy.RUNTIME)
-@Target(ElementType.TYPE)
-@Documented
-public @interface ComponentScans {    
-	ComponentScan[] values();
-}
-```
-
-而在Java 8中，新增了`@Repeatable`注解，使用该注解修饰的注解可以重复使用，查看`@ComponentScan`源码会发现其已经被该注解标注：
-
-```
-@Retention(RetentionPolicy.RUNTIME)
-@Target(ElementType.TYPE)
-@Documented
-@Repeatable(ComponentScans.class)
-public @interface ComponentScan {    
-	//...
-}
-```
-
-所以除了使用`@ComponentScans`来配置多扫描规则外，我们还可以通过多次使用`@ComponentScan`来指定多个不同的扫描规则。
-
-### 自定义扫描策略
-
-自定义扫描策略需要我们实现`org.springframework.core.type.filter.TypeFilter`接口
-
-```
-public class MyTypeFilter implements TypeFilter {
-    @Override
-    public boolean match(MetadataReader metadataReader, MetadataReaderFactory metadataReaderFactory) throws IOException {
-        return false;
-    }
-}
-```
+自定义扫描策略需要实现`org.springframework.core.type.filter.TypeFilter`接口, 包含两个参数:
 
 1. `MetadataReader`：当前正在扫描的类的信息；
 2. `MetadataReaderFactory`：可以通过它来获取其他类的信息。
 
-```
+```java
 public class MyTypeFilter implements TypeFilter {
     @Override
     public boolean match(MetadataReader metadataReader, MetadataReaderFactory metadataReaderFactory) {
@@ -1057,9 +538,9 @@ public class MyTypeFilter implements TypeFilter {
 
 上面指定了当被扫描的类名包含`er`时候，匹配成功.
 
-```
+```java
 @Configuration
-@ComponentScan(value = "cc.mrbird.demo",
+@ComponentScan(value = "com.xxx.demo",
         excludeFilters = {
             @Filter(type = FilterType.CUSTOM, classes = MyTypeFilter.class)
         })
@@ -1071,54 +552,17 @@ public class WebConfig {
 
 因为`User`，`UserMapper`，`UserService`和`UserController`等类的类名都包含`er`，所以它们都没有被纳入到IOC容器中。
 
-## 组件作用域
+### 条件注册组件
 
-默认情况下，在Spring的IOC容器中每个组件都是单例的，即无论在任何地方注入多少次，这些对象都是同一个.
+`@Conditional`指定组件注册的条件，即满足特定条件才将组件纳入到IOC容器中。
 
-通过@Scope的value或者scopeName指定
+创建一个类，实现`Condition`接口,  包含一个`matches`方法,  两个入参:
 
-1. `singleton`：单实例（默认）,在Spring IOC容器启动的时候会调用方法创建对象然后纳入到IOC容器中，以后每次获取都是直接从IOC容器中获取（`map.get()`）；
-2. `prototype`：多实例，IOC容器启动的时候并不会去创建对象，而是在每次获取的时候才会去调用方法创建对象；
-3. `request`：一个请求对应一个实例；
-4. `session`：同一个session对应一个实例。
+1. `ConditionContext`：上下文信息. 如conditionContext.getBeanFactory(), conditionContext.getClassLoader(), conditionContext.getEnvironment() conditionContext.getRegistry() ;
 
-> 若要为范围解析提供自定义策略，可以实现 ScopeMetadataResolver 接口。请务必包含默认的 no-arg 构造函数。
->
-> 在@ComponentScan的scope-resolver中指定
+1. `AnnotatedTypeMetadata`：注解信息.如((StandardMethodMetadata)metadata).getMethodName()可获取方法名.
 
-**懒加载**
-
-懒加载@Lazy是针对单例模式而言的，正如前面所说，IOC容器中的组件默认是单例的，容器启动的时候会调用方法创建对象然后纳入到IOC容器中。
-
-要测试可以在 Bean注册的地方加入一句话以观察：
-
-```
-@Configuration
-public class WebConfig {
-    @Bean
-    @Lazy
-    public User user() {
-        System.out.println("往IOC容器中注册user bean");
-        return new User("mrbird", 18);
-    }
-}
-```
-
-## 条件注册组件
-
-@**Conditional**
-
-使用`@Conditional`注解我们可以指定组件注册的条件，即满足特定条件才将组件纳入到IOC容器中。
-
-在使用该注解之前，我们需要创建一个类，实现`Condition`接口.
-
-该接口包含一个`matches`方法，包含两个入参:
-
-1. `ConditionContext`：上下文信息.如conditionContext.getBeanFactory(), conditionContext.getClassLoader(), conditionContext.getEnvironment() conditionContext.getRegistry()；
-
-1. `AnnotatedTypeMetadata`：注解信息.如((StandardMethodMetadata)metadata).getMethodName()可获取方法名,下面为user方法。
-
-```
+```java
 public class MyCondition implements Condition {
     @Override
     public boolean matches(ConditionContext context, AnnotatedTypeMetadata metadata) {
@@ -1126,9 +570,7 @@ public class MyCondition implements Condition {
         return osName != null && osName.contains("Windows");
     }
 }
-```
 
-```
 @Bean
 @Conditional(MyCondition.class)
 public User user() {
@@ -1142,10 +584,7 @@ public User user() {
 
 ```
 context.getRegistry().containsBeanDefinition("xxx")
-
 ```
-
-context.getRegistry()获取的是BeanDefinitionRegistry,包含一些和Bean有关的方法.在导入组件模块有更详细介绍
 
 其他由@Conditional衍生的条件注册注解:
 
@@ -1162,7 +601,7 @@ context.getRegistry()获取的是BeanDefinitionRegistry,包含一些和Bean有�
 
 当@ConditionalOnBean和@ConditionalOnMissingBean放置在@Bean方法上时，目标类型默认为该方法的返回类型，如下面的示例所示：
 
-```
+```java
 @Configuration(proxyBeanMethods = false)
 public class MyAutoConfiguration {
 
@@ -1174,11 +613,9 @@ public class MyAutoConfiguration {
 }
 ```
 
-@**Profile**
+`@Profile`可以根据不同的环境变量来注册不同的组件:
 
-可以根据不同的环境变量来注册不同的组件
-
-```
+```java
 public interface CalculateService {
     Integer sum(Integer... value);
 }
@@ -1205,9 +642,8 @@ public class Java8CalculateServiceImpl implements CalculateService {
         return Arrays.stream(value).reduce(0, Integer::sum);
     }
 }
-```
 
-```
+// 验证-------------
 ConfigurableApplicationContext context1 = new SpringApplicationBuilder(DemoApplication.class)
                 .web(WebApplicationType.NONE)
                 .profiles("java8")
@@ -1218,232 +654,50 @@ CalculateService service = context1.getBean(CalculateService.class);
 System.out.println("求合结果： " + service.sum(1, 2, 3, 4, 5, 6, 7, 8, 9, 10));
 ```
 
-### 配置文件切换缓存
+> 其中当前活动的profile还可以通过注解配置, 如@ActiveProfile("java8")
 
-用的多的有@ConditionalOnProperty, 比如通过配置文件实现缓存切换.
+### 导入组件(*)
 
-其中CacheService为统一接口
-
-```
-@ConditionalOnProperty(prefix = "cache", name = "type", havingValue = "redis")
-@RequiredArgsConstructor
-@Service
-public class RedisServiceImpl implements CacheService {
-	private final StringRedisTemplate stringRedisTemplate;
-	private final RedisTemplate<Object,  Object>  redisTemplate;
-	@Override
-	public String get(String key) {
-		return stringRedisTemplate.opsForValue().get(key);
-	}
-	@Override
-	public void set(String key, String value) {
-		stringRedisTemplate.opsForValue().set(key,value);
-	}
-	@Override
-	public void set(String key, String value, long timeout) {		stringRedisTemplate.opsForValue().set(key,value,timeout, TimeUnit.SECONDS);
-
-	}
-	@Override
-	public Object getObject(String key) {
-		return redisTemplate.opsForValue().get(key);
-	}
-	@Override
-	public void setObject(String key, Object value) {
-		redisTemplate.opsForValue().set(key,value);
-	}
-	@Override
-	public void setObject(String key, Object value, long timeout) {		redisTemplate.opsForValue().set(key,value,timeout, TimeUnit.SECONDS);
-	}
-	@Override
-	public void del(String key) {
-		redisTemplate.delete(key);
-		stringRedisTemplate.delete(key);
-	}
-	@Override
-	public boolean contains(String key) {
-		return redisTemplate.hasKey(key) || stringRedisTemplate.hasKey(key);
-	}
-	@Override
-	public void expire(String key, long timeout) {
-		redisTemplate.expire(key,timeout, TimeUnit.SECONDS);
-		stringRedisTemplate.expire(key,timeout, TimeUnit.SECONDS);
-	}
-}
-```
-
-```
-@ConditionalOnProperty(prefix = "cache", name = "type", havingValue = "ehcache")
-@RequiredArgsConstructor
-@Service
-public class EhCacheServiceImpl implements CacheService {
-    private final CacheManager cacheManager;
-    /**
-     * 获得一个Cache，没有则创建一个。
-     *
-     * @return
-     */
-    private Cache getCache() {
-
-        Cache cache = cacheManager.getCache("util_cache");
-        return cache;
-    }
-    @Override
-    public String get(String key) {
-        Element element = getCache().get(key);
-        return element == null ? null : (String) element.getObjectValue();
-    }
-    @Override
-    public void set(String key, String value) {
-        Element element = new Element(key, value);
-        Cache cache = getCache();
-        //不过期
-        cache.getCacheConfiguration().setEternal(true);
-        cache.put(element);
-
-    }
-    @Override
-    public void set(String key, String value, long timeout) {
-        Element element = new Element(key, value);
-        element.setTimeToLive((int) timeout);
-        Cache cache = getCache();
-        cache.put(element);
-
-    }
-    @Override
-    public void del(String key) {
-        getCache().remove(key);
-
-
-    }
-    @Override
-    public boolean contains(String key) {
-        return getCache().isKeyInCache(key);
-    }
-    @Override
-    public void expire(String key, long timeout) {
-        Element element = getCache().get(key);
-        if (element != null) {
-            Object value = element.getValue();
-            element = new Element(key, value);
-            element.setTimeToLive((int) timeout);
-            Cache cache = getCache();
-            cache.put(element);
-        }
-    }
-    /**
-     * 根据key获取缓存的Object类型数据
-     */
-    @Override
-    public Object getObject(String key) {
-        Element element = getCache().get(key);
-        return element == null ? null : element.getObjectValue();
-    }
-    /**
-     * 设置Object类型的缓存
-     */
-    @Override
-    public void setObject(String key, Object value) {
-        Element element = new Element(key, value);
-        Cache cache = getCache();
-        //不过期
-        cache.getCacheConfiguration().setEternal(true);
-        cache.put(element);
-
-    }
-    /**
-     * 设置一个有过期时间的Object类型的缓存,单位秒
-     */
-    @Override
-    public void setObject(String key, Object value, long timeout) {
-        Element element = new Element(key, value);
-        element.setTimeToLive((int) timeout);
-        Cache cache = getCache();
-        cache.put(element);
-
-    }
-}
-```
-
-
-
-## 导入组件
-
-@import
-
-示例:在配置类上添加:
+1.@import, 该导入方式默认以全类名方式导入
 
 ```
 @Import({Hello.class})
 ```
 
-该导入方式默认以全类名方式导入
+2.`ImportSelector`一次性导入多个组件, 包含`selectImports`方法，方法返回类的全类名数组（即需要导入到IOC容器中组件的全类名数组）:
 
-如果需要一次性导入较多组件，我们可以使用`ImportSelector`来实现。
-
-### **ImportSelector**
-
-`ImportSelector`是一个接口，包含一个`selectImports`方法，方法返回类的全类名数组（即需要导入到IOC容器中组件的全类名数组），包含一个`AnnotationMetadata`类型入参，通过这个参数我们可以获取到使用`ImportSelector`的类的全部注解信息。
-
-我们新建一个`ImportSelector`实现类`MyImportSelector`：
-
-```
+```java
 public class MyImportSelector implements ImportSelector {
     @Override
     public String[] selectImports(AnnotationMetadata importingClassMetadata) {
         return new String[]{
-                "cc.mrbird.demo.domain.Apple",
-                "cc.mrbird.demo.domain.Banana",
-                "cc.mrbird.demo.domain.Watermelon"
+                "com.xxx.demo.domain.Apple",
+                "com.xxx.demo.domain.Banana",
+                "com.xxx.demo.domain.Watermelon"
         };
     }
 }
 ```
 
+然后在配置类上加入注解
+
 ```
-//在配置类的@Import注解上使用MyImportSelector来把这三个组件快速地导入到IOC容器中：
 @Import({MyImportSelector.class})
 ```
 
-### ImportBeanDefinitionRegistrar
-
-手动往IOC容器导入组件.
-
-```
-public interface ImportBeanDefinitionRegistrar {
-    public void registerBeanDefinitions(AnnotationMetadata importingClassMetadata, BeanDefinitionRegistry registry);
-}
-```
+3.`ImportBeanDefinitionRegistrar`用于手动往IOC容器导入组件, 包含registerBeanDefinitions方法, 具有两个参数:
 
 1. `AnnotationMetadata`：可以通过它获取到类的注解信息；
-2. `BeanDefinitionRegistry`：Bean定义注册器，包含了一些和Bean有关的方法：
+2. `BeanDefinitionRegistry`：Bean定义注册器.
 
-```
- public interface BeanDefinitionRegistry extends AliasRegistry {
-    void registerBeanDefinition(String var1, BeanDefinition var2) throws BeanDefinitionStoreException;
-    void removeBeanDefinition(String var1) throws NoSuchBeanDefinitionException;
-    BeanDefinition getBeanDefinition(String var1) throws NoSuchBeanDefinitionException;
-    boolean containsBeanDefinition(String var1);
-    String[] getBeanDefinitionNames();
-    int getBeanDefinitionCount();
-    boolean isBeanNameInUse(String var1);
-}
-```
-
-**借助`BeanDefinitionRegistry`的`registerBeanDefinition`方法来往IOC容器中注册Bean。**
-
-该方法包含两个入参，第一个为需要注册的Bean名称（Id）,第二个参数为Bean的定义信息，它是一个接口，我们可以使用其实现类`RootBeanDefinition`来完成.
-
-为了演示`ImportBeanDefinitionRegistrar`的使用，我们先新增一个类，名称为`Strawberry`，代码略。
-
-然后新增一个`ImportBeanDefinitionRegistrar`实现类`MyImportBeanDefinitionRegistrar`：
-
-```
+```java
 public class MyImportBeanDefinitionRegistrar implements ImportBeanDefinitionRegistrar {
     @Override
     public void registerBeanDefinitions(AnnotationMetadata importingClassMetadata, BeanDefinitionRegistry registry) {
         final String beanName = "strawberry";
+        // 判断是否已存在
         boolean contain = registry.containsBeanDefinition(beanName);
-        if (!contain) {
+        if (!contain) {  //不存在则创建
             RootBeanDefinition rootBeanDefinition = new RootBeanDefinition(Strawberry.class);
             registry.registerBeanDefinition(beanName, rootBeanDefinition);
         }
@@ -1451,88 +705,15 @@ public class MyImportBeanDefinitionRegistrar implements ImportBeanDefinitionRegi
 }
 ```
 
-在上面的实现类中，我们先通过`BeanDefinitionRegistry`的`containsBeanDefinition`方法判断IOC容器中是否包含了名称为`strawberry`的组件，如果没有，则手动通过`BeanDefinitionRegistry`的`registerBeanDefinition`方法注册一个。
-
-定义好`MyImportBeanDefinitionRegistrar`后，我们同样地在配置类的`@Import`中使用它：
+然后在配置类上加入注解
 
 ```
 @Import({MyImportBeanDefinitionRegistrar.class})
 ```
 
-> 通常通过BeanDefinitionBuilder生成BeanDefinition , 可见[BeanDefinitionRegistry注册](#BeanDefinitionRegistry注册)
+4.因为`BeanDefinitionRegistry`实际上就是ioc容器对象`DefaultListableBeanFactory`, 所以也可以直接通过其进行注册:
 
-## FactoryBean注册组件
-
-Spring还提供了一个`FactoryBean`接口，我们可以通过实现该接口来注册组件，该接口包含了两个抽象方法和一个默认方法,创建一个类Cherry(随意)和FactoryBean实现类:
-
-```
-public class CherryFactoryBean implements FactoryBean<Cherry> {
-    @Override
-    public Cherry getObject() {
-        return new Cherry();
-    }
-    @Override
-    public Class<?> getObjectType() {
-        return Cherry.class;
-    }
-    @Override
-    public boolean isSingleton() {
-        return false;
-    }
-}
-```
-
-`getObject`返回需要注册的组件对象，`getObjectType`返回需要注册的组件类型，`isSingleton`指明该组件是否为单例。如果为多例的话，每次从容器中获取该组件都会调用其`getObject`方法。
-
-定义好`CherryFactoryBean`后，我们在配置类中注册这个类：
-
-```
-@Bean
-public CherryFactoryBean cherryFactoryBean() {
-    return new CherryFactoryBean();
-}
-```
-
-测试从容器中获取：
-
-```
-ApplicationContext context = new AnnotationConfigApplicationContext(WebConfig.class);
-Object cherry = context.getBean("cherryFactoryBean");
-System.out.println(cherry.getClass());
-```
-
-输出内容为Cherry对象的全类名.
-
-可看到，虽然我们获取的是Id为`cherryFactoryBean`的组件，但其获取到的实际是`getObject`方法里返回的对象。
-
-如果我们要获取`cherryFactoryBean`本身，则可以这样做：
-
-```
-Object cherryFactoryBean = context.getBean("&cherryFactoryBean");
-System.out.println(cherryFactoryBean.getClass());
-```
-
-为什么加上`&`前缀就可以获取到相应的工厂类了呢，查看`BeanFactory`的源码会发现原因:
-
-里面定义了字符串 FACTORY_BEAN_PREFIX = "&"
-
-## BeanDefinitionRegistry注册
-
-手动注册
-
-```
-@Data
-public class Person {
-    private String name;
-    private String age;
-}
-```
-
-方式一:
-
-实现`BeanFactoryAware`接口, 可获取到Spring工厂类，因`BeanFactory`是一个接口，通过调试可知，Spring窗口注入的工厂实现类是`DefaultListableBeanFactory`，通过其源码可以看到，这个Bean工厂类实现了`BeanDefinitionRegistry`接口，通过这个接口的`registerBeanDefinition`方法，就可以将bean注册到Spring容器了
-
-```
+```java
 @Component
 public class PersonBeanRegiser implements BeanFactoryAware {
     private BeanFactory beanFactory;
@@ -1547,35 +728,16 @@ public class PersonBeanRegiser implements BeanFactoryAware {
         BeanDefinitionBuilder builder = BeanDefinitionBuilder.genericBeanDefinition(Person.class);
         builder.addPropertyValue("name", "张三");
         builder.addPropertyValue("age", 20);
-        //重点
+		// ioc容器DefaultListableBeanFactory实际上就是BeanDefinitionRegistry
         BeanDefinitionRegistry registry = (BeanDefinitionRegistry) this.beanFactory;
         registry.registerBeanDefinition("person", builder.getBeanDefinition());
     }   
 }
 ```
 
-方式二(**导入组件常用方式**):
+#### BeanDefinitionBuilder
 
-```
-@Component
-public class PersonBeanRegiser implements ImportBeanDefinitionRegistrar {
-    @Override
-    public void registerBeanDefinitions(AnnotationMetadata importingClassMetadata, BeanDefinitionRegistry ){
-        BeanDefinitionBuilder builder = BeanDefinitionBuilder.genericBeanDefinition(Person.class);
-        builder.addPropertyValue("name", "张三");
-        builder.addPropertyValue("age", 20);
-        //重点
-        BeanDefinitionRegistry registry = (BeanDefinitionRegistry) this.beanFactory;
-        registry.registerBeanDefinition("person", builder.getBeanDefinition());
-    }   
-}
-```
-
-对于复杂的有依赖的BeanDefinition, 见下:
-
-### BeanDefinitionBuilder
-
-**以ElasticSearch通过一个工厂类RestClientBeanBuilder(自定义)来提供RestClient和RestHighLevelClient工厂方法为例**.
+以ElasticSearch通过一个工厂类RestClientBeanBuilder(自定义)来提供RestClient和RestHighLevelClient工厂方法为例.
 
 ```java
 //依赖非bean: 假如要注册的RestClientBeanBuilder构造函数需要传入一个Properties对象
@@ -1617,49 +779,65 @@ BeanDefinition beanDefinition3 = builder3.getBeanDefinition();
 registry.registryBeanBefinition("builder",beanDefinition3);
 ```
 
-> 这种方式适合当需要根据多个Property注册多套client方案.
+### FactoryBean
 
-# 自动装配
+创建FactoryBean:
 
-**模式注解**
+```java
+public class CherryFactoryBean implements FactoryBean<Cherry> {
+    @Override
+    public Cherry getObject() {
+        return new Cherry();
+    }
+    @Override
+    public Class<?> getObjectType() {
+        return Cherry.class;
+    }
+    @Override
+    public boolean isSingleton() {
+        return false;
+    }
+}
+```
 
-Stereotype Annotation俗称为模式注解，Spring中常见的模式注解有`@Service`，`@Repository`，`@Controller`等，它们都“派生”自`@Component`注解。
+`getObject`返回需要注册的组件对象，`getObjectType`返回需要注册的组件类型，`isSingleton`指明该组件是否为单例。如果为多例的话，每次从容器中获取该组件都会调用其`getObject`方法。
 
-凡是被`@Component`标注的类都会被Spring扫描并纳入到IOC容器中，那么由`@Component`派生的注解所标注的类也会被扫描到IOC容器中.
+在配置类中注册这个类：
 
-@component具有派生性和层次性:即如果自定义注解上标注了@Component或标注了Spring自带的模式注解,则标注了该自定义注解的类也会被注入到IOC容器中/
+```java
+@Bean
+public CherryFactoryBean cherryFactoryBean() {
+    return new CherryFactoryBean();
+}
+```
 
-## @Enable模块驱动
+从容器中获取：
+
+```
+ApplicationContext context = new AnnotationConfigApplicationContext(WebConfig.class);
+Object cherry = context.getBean("cherryFactoryBean");
+// 输出Cherry对象全类名
+System.out.println(cherry.getClass());
+Object cherryFactoryBean = context.getBean("&cherryFactoryBean");
+// 输出CherryFactoryBean全类名
+System.out.println(cherryFactoryBean.getClass());
+```
+
+## 自动装配
+
+### 模块驱动
 
 `@Enable`模块驱动在Spring Framework 3.1后开始支持。这里的模块通俗的来说就是一些为了实现某个功能的组件的集合。通过`@Enable`模块驱动，我们可以开启相应的模块功能。
 
 `@Enable`模块驱动可以分为“注解驱动”和“接口编程”两种实现方式.
 
-### 注解驱动
-
-基于注解驱动的示例可以查看`@EnableWebMvc`源码
-
-```
-@Retention(RetentionPolicy.RUNTIME)
-@Target({ElementType.TYPE})
-@Documented
-@Import({DelegatingWebMvcConfiguration.class})
-public @interface EnableWebMvc {
-}
-```
-
-该注解通过`@Import`导入一个配置类`DelegatingWebMvcConfiguration`,该配置类又继承自`WebMvcConfigurationSupport`，里面定义了一些Bean的声明(包括requestMappingHandlerMapping、mvcPathMatcher、mvcUrlPathHelper、mvcResourceUrlProvider等等)。
-
-所以，基于注解驱动的`@Enable`模块驱动其实就是通过`@Import`来导入一个配置类，以此实现相应模块的组件注册，当这些组件注册到IOC容器中，这个模块对应的功能也就可以使用了。
-
-**自定义基于注解驱动的`@Enable`模块驱动**
+**1.注解驱动**, 该方式实际就是就是利用@Import导入@Configuration配置类:
 
 配置类
 
 ```
 @Configuration
 public class HelloWorldConfiguration {
-
     @Bean
     public String hello() {
         return "hello world";
@@ -1678,27 +856,9 @@ public @interface EnableHelloWorld {
 }
 ```
 
-测试
+**2.接口编程**, 该方式实际就是利用@Import导入ImportSelecter注册组件([导入组件(*)](中介绍过了)), 可参考@EnableCaching 注解:
 
-```
-@EnableHelloWorld
-public class TestEnableBootstap {
-    public static void main(String[] args) {
-        ConfigurableApplicationContext context = new SpringApplicationBuilder(TestEnableBootstap.class)
-                .web(WebApplicationType.NONE)
-                .run(args);
-        String hello = context.getBean("hello", String.class);
-        System.out.println("hello Bean: " + hello);
-        context.close();
-    }
-}
-```
-
-### ImportSelecter接口编程
-
-通过接口编程的方式来实现`@Enable`模块驱动。Spring中，基于接口编程方式的有`@EnableCaching`注解，查看其源码：
-
-```
+```java
 @Target({ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
@@ -1712,282 +872,22 @@ public @interface EnableCaching {
 }
 ```
 
-`EnableCaching`注解通过`@Import`导入了`CachingConfigurationSelector`类，该类间接实现了`ImportSelector`接口，在Spring组件注册中，介绍了可以通过`ImportSelector`来实现组件注册。
+### 工厂加载
 
-**所以通过接口编程实现`@Enable`模块驱动的本质是：通过`@Import`来导入接口`ImportSelector`实现类，该实现类里可以定义需要注册到IOC容器中的组件，以此实现相应模块对应组件的注册。**
+Spring 工厂加载机制的实现类为`AutoConfigurationImportSelector`+`SpringFactoriesLoader`:
 
-**自定义基于接口编程实现@Enable模块驱动**
-
-```
-public class HelloWorldImportSelector implements ImportSelector {
-    @Override
-    public String[] selectImports(AnnotationMetadata importingClassMetadata) {
-    	//返回所有要导入的配置类的全类名
-        return new String[]{HelloWorldConfiguration.class.getName()};
-    }
-}
-```
-
-```
-@Target({ElementType.TYPE})
-@Retention(RetentionPolicy.RUNTIME)
-@Documented
-@Import(HelloWorldImportSelector.class)
-public @interface EnableHelloWorld {
-}
-```
-
-测试结果与注解驱动一致.
-
-## 工厂加载
-
-Spring 工厂加载机制的实现类为`AutoConfigurationImportSelector`+`SpringFactoriesLoader`,该类指定了
-
-**FACTORIES_RESOURCE_LOCATION = "META-INF/spring.factories"** 
-
-该类的方法会读取META-INFO目录下的spring.factories配置文件.
+`SpringFactoriesLoader`类指定了`FACTORIES_RESOURCE_LOCATION = "META-INF/spring.factories"`.  该类的方法会读取META-INFO目录下的spring.factories配置文件.
 
 查看sprinb-boot-autoconfigure-x.x.x.RELEASE.jar下的该文件可看到内容为:
 
 ```
 org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
-...很多配置类...
+...很多配置类
 ```
 
-当启动类被`@EnableAutoConfiguration`标注后(springboot 主启动类注解中有),看是否可以纳入到IOC容器中进行管理。
+当启动类被`@EnableAutoConfiguration`标注后(springboot主启动类注解自带),`AutoConfigurationImportSelector`会去尝试注册这些指定配置类的Bean, 这些Bean注册方法通常带有条件注解`@ComditionOnXXX`, 比如限制在包含某个类的时候才进行注册, 这也是为什么ioc实际注册的配置类并不是全部spring.factories下的内容, 这是SpringBoot实现自动装配的关键.
 
-可随便点击几个熟悉的配置类查看, 通常上面的配置类里面都包含了条件注册(ConditionOnXXX), 比如只有在包含某个类的时候才注册,这也是为什么ioc实际注册的配置类并不是全部spring.factories下的内容.
-
-具体可以debug查看`AutoConfigurationImportSelector&getAutoConfigurationEntry`方法
-
-**仿照上面方式自定义实现工厂加载模式**
-
-```
-@Configuration
-@EnableHelloWorld
-@ConditionalOnProperty(name = "helloworld", havingValue = "true")
-public class HelloWorldAutoConfiguration {
-}
-```
-
-在resources目录下新建META-INF目录，并创建spring.factories文件：
-
-```
-# Auto Configure
-org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
-com.example.demo.configuration.HelloWorldAutoConfiguration
-```
-
-在配置文件application.properties中添加`helloworld=true`配置
-
-```
-helloworld=true
-```
-
-测试
-
-```
-@EnableAutoConfiguration
-public class EnableAutoConfigurationBootstrap {
-    public static void main(String[] args) {
-        ConfigurableApplicationContext context = new SpringApplicationBuilder(EnableAutoConfigurationBootstrap.class)
-                .web(WebApplicationType.NONE)
-                .run(args);
-        String hello = context.getBean("hello", String.class);
-        System.out.println("hello Bean: " + hello);
-        context.close();
-    }
-}
-```
-
-# Map依赖注入
-
-多个同接口组件，除了使用ApplicationContext注入，还可以使用更便捷的Map方式，其中string代表bean的名称，如果没有指定名称，则为类名的驼峰命名
-
-```
-Map<String, [接口]>
-```
-
-如
-
-```
-@Service(value = "txt")
-public class FileBookContentServiceImpl implements BookContentService{
-//...
-}
-
-@Service(value = "db")
-public class DbBookContentServiceImpl implements BookContentService {
-//...
-}
-
-//注入
-@Autowire
-private final Map<String, BookContentService> bookContentServiceMap;
-
-//使用
-bookContentServiceMap.get("txt")
-```
-
-在实际中，map的String可以从配置文件获取来达到修改使用的service
-
-# aware回调接口
-
-**ApplicationContextAware**
-
-当一个`ApplicationContext`创建实现该`org.springframework.context.ApplicationContextAware`接口的对象实例时 ，会为该实例提供对该 的引用`ApplicationContext`.
-
-**BeanNameAware**
-
-当 `ApplicationContext` 创建一个实现`BeanNameAware` 接口的类时，将为该类提供对其关联对象定义中定义的名称的引用
-
-**其他aware接口**
-
-https://docs.spring.io/spring-framework/docs/current/reference/html/core.html#aware-list
-
-## SpringUtils
-
-```
-@Component
-public final class SpringUtils implements BeanFactoryPostProcessor, ApplicationContextAware 
-{
-    /** Spring应用上下文环境 */
-    private static ConfigurableListableBeanFactory beanFactory;
-
-    private static ApplicationContext applicationContext;
-
-    @Override
-    public void postProcessBeanFactory(ConfigurableListableBeanFactory beanFactory) throws BeansException 
-    {
-        SpringUtils.beanFactory = beanFactory;
-    }
-
-    @Override
-    public void setApplicationContext(ApplicationContext applicationContext) throws BeansException 
-    {
-        SpringUtils.applicationContext = applicationContext;
-    }
-
-    /**
-     * 获取对象
-     *
-     * @param name
-     * @return Object 一个以所给名字注册的bean的实例
-     * @throws org.springframework.beans.BeansException
-     *
-     */
-    @SuppressWarnings("unchecked")
-    public static <T> T getBean(String name) throws BeansException
-    {
-        return (T) beanFactory.getBean(name);
-    }
-
-    /**
-     * 获取类型为requiredType的对象
-     *
-     * @param clz
-     * @return
-     * @throws org.springframework.beans.BeansException
-     *
-     */
-    public static <T> T getBean(Class<T> clz) throws BeansException
-    {
-        T result = (T) beanFactory.getBean(clz);
-        return result;
-    }
-
-    /**
-     * 如果BeanFactory包含一个与所给名称匹配的bean定义，则返回true
-     *
-     * @param name
-     * @return boolean
-     */
-    public static boolean containsBean(String name)
-    {
-        return beanFactory.containsBean(name);
-    }
-
-    /**
-     * 判断以给定名字注册的bean定义是一个singleton还是一个prototype。 如果与给定名字相应的bean定义没有被找到，将会抛出一个异常（NoSuchBeanDefinitionException）
-     *
-     * @param name
-     * @return boolean
-     * @throws org.springframework.beans.factory.NoSuchBeanDefinitionException
-     *
-     */
-    public static boolean isSingleton(String name) throws NoSuchBeanDefinitionException
-    {
-        return beanFactory.isSingleton(name);
-    }
-
-    /**
-     * @param name
-     * @return Class 注册对象的类型
-     * @throws org.springframework.beans.factory.NoSuchBeanDefinitionException
-     *
-     */
-    public static Class<?> getType(String name) throws NoSuchBeanDefinitionException
-    {
-        return beanFactory.getType(name);
-    }
-
-    /**
-     * 如果给定的bean名字在bean定义中有别名，则返回这些别名
-     *
-     * @param name
-     * @return
-     * @throws org.springframework.beans.factory.NoSuchBeanDefinitionException
-     *
-     */
-    public static String[] getAliases(String name) throws NoSuchBeanDefinitionException
-    {
-        return beanFactory.getAliases(name);
-    }
-
-    /**
-     * 获取aop代理对象
-     * 
-     * @param invoker
-     * @return
-     */
-    @SuppressWarnings("unchecked")
-    public static <T> T getAopProxy(T invoker)
-    {
-        return (T) AopContext.currentProxy();
-    }
-
-    /**
-     * 获取当前的环境配置，无配置返回null
-     *
-     * @return 当前的环境配置
-     */
-    public static String[] getActiveProfiles()
-    {
-        return applicationContext.getEnvironment().getActiveProfiles();
-    }
-
-    /**
-     * 获取当前的环境配置，当有多个环境配置时，只获取第一个
-     *
-     * @return 当前的环境配置
-     */
-    public static String getActiveProfile()
-    {
-        final String[] activeProfiles = getActiveProfiles();
-        return StringUtils.isNotEmpty(activeProfiles) ? activeProfiles[0] : null;
-    }
-}
-```
-
-
-
-
-
-
-
-
-
-# AOP
+## AOP
 
 Spring 中的 AOP 模块中：如果目标对象实现了接口，则默认采用 JDK 动态代理，否则采用 CGLIB 动态代理。
 
@@ -2062,8 +962,6 @@ SampleClass sample = (SampleClass) enhancer.create();
    
    因为spring采用动态代理机制来实现事务控制，而动态代理(jdk代理,因为service实现了接口)最终都是要调用原始对象的，而原始对象在去调用方法时，是不会再触发代理了.
    
-   
-   
 
 > pointcut表达式支持更直观的操作, 如
 >
@@ -2104,88 +1002,9 @@ joinPoint.getArgs()
 joinPoint.getThis():
 ```
 
-## 日志AOP
+### 脚手架
 
-```
-@Aspect
-@Component
-public class LogAspect
-{
-    private static final Logger log = LoggerFactory.getLogger(LogAspect.class);
-    // 配置织入点
-    @Pointcut("@annotation(com.ruoyi.common.annotation.Log)")
-    public void logPointCut()
-    {
-    }
-    @AfterReturning(pointcut = "logPointCut()", returning = "jsonResult")
-    public void doAfterReturning(JoinPoint joinPoint, Object jsonResult)
-    {
-        handleLog(joinPoint, null, jsonResult);
-    }
-
-    @AfterThrowing(value = "logPointCut()", throwing = "e")
-    public void doAfterThrowing(JoinPoint joinPoint, Exception e)
-    {
-        handleLog(joinPoint, e, null);
-    }
-    //或者一次性使用环绕通知
-    @Around("logPointCut()")
-	public void around(ProceedingJoinPoint point) {
-		long beginTime = System.currentTimeMillis();
-		try {
-			// 执行方法
-			point.proceed();
-		} catch (Throwable e) {
-			e.printStackTrace();
-		}
-		// 执行时长(毫秒)
-		long time = System.currentTimeMillis() - beginTime;
-		// 保存日志
-		saveLog(point, time);
-	}
-	private void saveLog(ProceedingJoinPoint joinPoint, long time) {
-		MethodSignature signature = (MethodSignature) joinPoint.getSignature();
-		Method method = signature.getMethod();
-		SysLog sysLog = new SysLog();
-		Log logAnnotation = method.getAnnotation(Log.class);
-		if (logAnnotation != null) {
-			// 注解上的描述
-			sysLog.setOperation(logAnnotation.value());
-		}
-		// 请求的方法名
-		String className = joinPoint.getTarget().getClass().getName();
-		String methodName = signature.getName();
-		sysLog.setMethod(className + "." + methodName + "()");
-		// 请求的方法参数值
-		Object[] args = joinPoint.getArgs();
-		// 请求的方法参数名称
-		LocalVariableTableParameterNameDiscoverer u = new LocalVariableTableParameterNameDiscoverer();
-		String[] paramNames = u.getParameterNames(method);
-		if (args != null && paramNames != null) {
-			String params = "";
-			for (int i = 0; i < args.length; i++) {
-				params += "  " + paramNames[i] + ": " + args[i];
-			}
-			sysLog.setParams(params);
-		}
-		// 获取request
-		HttpServletRequest request = HttpContextUtils.getHttpServletRequest();
-		// 设置IP地址
-		sysLog.setIp(IPUtils.getIpAddr(request));
-		// 模拟一个用户名
-		sysLog.setUsername("mrbird");
-		sysLog.setTime((int) time);
-		Date date = new Date();
-		sysLog.setCreateTime(date);
-		// 保存系统日志
-		sysLogDao.saveSysLog(sysLog);
-	}
-}
-```
-
-## 脚手架
-
-注解+增强处理器
+> 摘自阿里技术微信公众号文章
 
 **定义方法增强处理器**
 
@@ -2616,13 +1435,13 @@ public class ProxyTestController {
 
 答： 首先定义好注解（注解可以包含单位时间、最大调用次数等参数），然后在方法切面处理器的 onBefore 方法里面，使用缓存记录下单位时间内用户的提交次数，如果超出最大调用次数，返回 false，那么目标方法就不被允许调用了；然后在 getOnForbid 的方法里面，返回这种情况下的响应。
 
-# @Async
+## @Async
 
 `@Async`注解就能将原来的同步函数变为异步函数,
 
 为了让@Async注解能够生效，还需要配置@EnableAsync
 
-```
+```java
 @Component
 public class Task {
     public static Random random =new Random();
@@ -2645,7 +1464,7 @@ public class Task {
 }
 ```
 
-```
+```java
 @SpringBootApplication
 @EnableAsync
 public class Application {
@@ -2675,13 +1494,13 @@ public class ApplicationTests {
 
 原因是主程序在异步调用三个函数之后并不会理会这三个函数是否执行完成了，由于没有其他需要执行的内容，所以程序就自动结束了，导致了不完整或是没有输出任务相关内容的情况。
 
-**注： @Async所修饰的函数不要定义为static类型，这样异步调用不会生效**
+> @Async所修饰的函数不要定义为static类型，这样异步调用不会生效
 
-## 异步回调
+### 异步回调
 
 为了让异步函数能正常结束，可使用`Future<T>`来返回异步调用的结果.
 
-```
+```java
 @Component
 public class Task {
     public static Random random =new Random();
@@ -2694,11 +1513,10 @@ public class Task {
         System.out.println("完成任务一，耗时：" + (end - start) + "毫秒");
         return new AsyncResult<>("任务一完成");
     }
-  	/
 }
 ```
 
-```
+```java
 @Test
 public void test() throws Exception {
 	long start = System.currentTimeMillis();
@@ -2718,49 +1536,11 @@ public void test() throws Exception {
 }
 ```
 
-### Future
-
-`Future`是对于具体的`Runnable`或者`Callable`任务的执行结果进行取消、查询是否完成、获取结果的接口。必要时可以通过get方法获取执行结果，该方法会阻塞直到任务返回结果。
-
-它声明这样的五个方法：
-
-- cancel方法用来取消任务，如果取消成功返回true，否则返回false。参数mayInterruptIfRunning表示是否允许取消正在执行却没有执行完毕的任务。
-
-> 两种特殊情况是: 
->
-> 如果任务已经完成，则无论mayInterruptIfRunning为true还是false，方法都会返回false，即如果取消已经完成的任务会返回false；
->
-> 如果任务还没有执行，则无论mayInterruptIfRunning为true还是false，方法都会返回true,  即如果取消还没执行的任务会返回true.
-
-- isCancelled方法表示任务是否被取消成功，如果在任务正常完成前被取消成功，则返回 true。
-- isDone方法表示任务是否已经完成，若任务完成，则返回true；
-- get()方法用来获取执行结果，这个方法会产生阻塞，会一直等到任务执行完毕才返回；
-- get(long timeout, TimeUnit unit)用来获取执行结果，如果在指定时间内，还没获取到结果，就直接返回null。
-
-```
-@Slf4j
-@RunWith(SpringJUnit4ClassRunner.class)
-@SpringBootTest
-public class ApplicationTests {
-    @Autowired
-    private Task task;
-
-    @Test
-    public void test() throws Exception {
-        Future<String> futureResult = task.run();
-        String result = futureResult.get(5, TimeUnit.SECONDS);
-        log.info(result);
-    }
-}
-```
-
-执行时间超过5秒的时候，这里会抛出超时异常，该执行线程就能够因执行超时而释放回线程池，不至于一直阻塞而占用资源。
-
 ### 配置默认线程池
 
 异步任务存在的问题
 
-```
+```java
 @RestController
 public class HelloController {
     @Autowired
@@ -2783,7 +1563,7 @@ public class HelloController {
 
 因为Spring Boot默认用于异步任务的线程池是这样配置的：
 
-```
+```java
 public static class Pool{
 	private int queueCapacity = Integer.MAX_VALUE; //缓冲队列的容量
 	private int maxSize = Integer.MAX_VALUE; //允许的最大线程数
@@ -2793,7 +1573,7 @@ public static class Pool{
 
 配置默认线程池:
 
-```
+```properties
 spring.task.execution.pool.core-size=2
 spring.task.execution.pool.max-size=5
 spring.task.execution.pool.queue-capacity=10
@@ -2813,11 +1593,11 @@ spring.task.execution.thread-name-prefix=task-
 - `spring.task.execution.shutdown.await-termination-period`：等待剩余任务完成的最大时间
 - `spring.task.execution.thread-name-prefix`：线程名的前缀，设置好了之后可以方便我们在日志中查看处理任务所在的线程池
 
-## 自定义线程池
+### 自定义线程池
 
 由于@Async默认每个任务创建一个线程, 造成资源浪费并可能OOM, 所以可通过自定义线程池的方式:
 
-```
+```java
 @SpringBootApplication
 public class Application {
     public static void main(String[] args) {
@@ -2862,7 +1642,7 @@ discardPolicy：当线程池中的数量等于最大线程数时，不做任何�
 
 在`@Async`注解中指定线程池名让异步调用的执行任务使用这个线程池中的资源来运行:
 
-```
+```java
 @Slf4j
 @Component
 public class Task {
@@ -2888,7 +1668,7 @@ public class Task {
 
 测试: 这里主线程使用join方法等待子线程执行完毕
 
-```
+```java
 @RunWith(SpringJUnit4ClassRunner.class)
 @SpringBootTest
 public class ApplicationTests {
@@ -2909,7 +1689,7 @@ public class ApplicationTests {
 
 以创建多个线程池,通过@Async指定线程池名称使得不同的任务使用不同的线程池.
 
-```
+```java
 @EnableAsync
 @Configuration
 public class TaskPoolConfig {
@@ -2940,7 +1720,7 @@ public class TaskPoolConfig {
 }
 ```
 
-```
+```java
 @Slf4j
 @Component
 public class AsyncTasks {
@@ -2969,7 +1749,7 @@ public class AsyncTasks {
 }
 ```
 
-```
+```java
 @Slf4j
 @SpringBootTest
 public class Chapter77ApplicationTests {
@@ -3001,15 +1781,13 @@ public class Chapter77ApplicationTests {
 }
 ```
 
-
-
-## 修改默认线程池
+### 修改默认线程池
 
 > Spring中使用的@Async注解，底层是基于SimpleAsyncTaskExecutor去执行任务，只不过它不是线程池，而是每次都新开一个线程。
 
 实现AsyncConfigurer,  只需要加`@Async`注解就可以，不用在注解属性指定线程池。
 
-```
+```java
 @Slf4j
 @Configuration
 public class NativeAsyncTaskExecutePool implements AsyncConfigurer{
@@ -3040,7 +1818,6 @@ public class NativeAsyncTaskExecutePool implements AsyncConfigurer{
         return executor;
     }
 
-
     /**
      *  异步任务中异常处理
      * @return
@@ -3058,4 +1835,3 @@ public class NativeAsyncTaskExecutePool implements AsyncConfigurer{
     }
 }
 ```
-
