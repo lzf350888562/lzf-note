@@ -9,7 +9,7 @@
 
 object header:
 
-![](/guide/objectheader.jpg)
+![](./picture/objectheader.jpg)
 
 > 第三方包 JOL  = Java Object Layout 可查看对象内存布局
 >
@@ -78,15 +78,9 @@ ThreadGroup管理着它下面的Thread，ThreadGroup是一个标准的**向下�
 - Thread.interrupted()：测试当前线程是否被中断。线程的中断状态受这个方法的影响，意思是调用一次使线程中断状态设置为true，连续调用两次会使得这个线程的中断状态重新转为false；
 - Thread.isInterrupted()：测试当前线程是否被中断。与上面方法不同的是调用这个方法并不会影响线程的中断状态。
 
-
-
-
-
-
-
 ## JMM
 
-![两种并发模型的比较](/guide/两种并发模型的比较.png)
+![两种并发模型的比较](./picture/两种并发模型的比较.png)
 
 java**使用的是共享内存并发模型**,java内存模型中堆中的变量就是共享变量.
 
@@ -131,9 +125,9 @@ Java中的volatile关键字可以保证多线程操作共享变量的可见性�
 
 所谓保存内存可见性,指的是:
 
-当一个线程对`volatile`修饰的变量进行**写操作**（比如step 2）时，JMM会立即把该线程对应的本地内存中的共享变量的值刷新到主内存；
+当一个线程对`volatile`修饰的变量进行**写操作**时，JMM会立即把该线程对应的本地内存中的共享变量的值刷新到主内存；
 
-当一个线程对`volatile`修饰的变量进行**读操作**（比如step 3）时，JMM会把立即该线程对应的本地内存置为无效，从主内存中读取共享变量的值。
+当一个线程对`volatile`修饰的变量进行**读操作**时，JMM会把立即该线程对应的本地内存置为无效，从主内存中读取共享变量的值。
 
 > volatile关键字能保证数据的可见性，但不能保证数据的原子性, `synchronized` 关键字两者都能保证。
 
@@ -159,7 +153,7 @@ volatile的内存语义:严格限制编译器和处理器对volatile变量与普
 - 在每个volatile读操作后插入一个LoadLoad屏障；
 - 在每个volatile读操作后再插入一个LoadStore屏障。
 
-![内存屏障](/guide/内存屏障.png)
+![内存屏障](./picture/内存屏障.png)
 
 再逐个解释一下这几个屏障。注：下述Load代表读操作，Store代表写操作
 
@@ -388,7 +382,7 @@ jdk8下
 
 对于代码:
 
-```
+```java
 public class JOLDemo {
     private static Object  o;
     public static void main(String[] args) {
@@ -409,7 +403,7 @@ public class JOLDemo {
 
 对于代码:
 
-```
+```java
 public class JOLDemo {
     private static Object  o;
     public static void main(String[] args) {
@@ -460,17 +454,11 @@ public class JOLDemo {
 
 > Synchronized底层通过一个monitor的对象来完成，wait/notify等方法其实也依赖于monitor对象，这就是为什么只有在同步的块或者方法中才能调用wait/notify等方法，否则会抛出java.lang.IllegalMonitorStateException的异常。
 
-
-
-
-
 ## ThreadLocal
-
-[超详细](https://javaguide.cn/java/concurrent/threadlocal/ )
 
 ThreadLocal初始化方式
 
-```
+```java
 private static final ThreadLocal<SimpleDateFormat> formatter = new ThreadLocal<SimpleDateFormat>(){
     @Override
     protected SimpleDateFormat initialValue(){
@@ -481,13 +469,13 @@ private static final ThreadLocal<SimpleDateFormat> formatter = new ThreadLocal<S
 
 可以转换为lambda形式
 
-```
+```java
 private static final ThreadLocal<SimpleDateFormat> formatter = ThreadLocal.withInitial(() -> new SimpleDateFormat("yyyyMMdd HHmm"));
 ```
 
 **原理**
 
-```
+```java
 public class Thread implements Runnable {
     //......
     //与此线程有关的ThreadLocal值。由ThreadLocal类维护
@@ -527,7 +515,7 @@ ThreadLocalMap getMap(Thread t) {
 
 `ThreadLocalMap` 中使用的 key 为 `ThreadLocal` 的弱引用,而 value 是强引用。所以，如果 `ThreadLocal` 没有被外部强引用的情况下，在垃圾回收的时候，key 会被清理掉，而 value 不会被清理掉。这样一来，`ThreadLocalMap` 中就会出现 key 为 null 的 Entry。假如我们不做任何措施的话，value 永远无法被 GC 回收，这个时候就可能会产生内存泄露。ThreadLocalMap 实现中已经考虑了这种情况，在调用 `set()`、`get()`、`remove()` 方法的时候，会清理掉 key 为 null 的记录。使用完 `ThreadLocal`方法后 最好手动调用`remove()`方法 .
 
-```
+```java
 static class Entry extends WeakReference<ThreadLocal<?>> {
     /** The value associated with this ThreadLocal. */
     Object value;
@@ -551,7 +539,7 @@ Java中的线程池顶层接口是`Executor`接口，`ThreadPoolExecutor`是这�
 
 **ThreadPoolExecutor** 
 
-```
+```java
 public ThreadPoolExecutor(int corePoolSize,
                       int maximumPoolSize,
                       long keepAliveTime,
@@ -642,6 +630,8 @@ private static final int TERMINATED =  3 << COUNT_BITS;
 
 ### ThreadPoolExecutor问题
 
+> 该部分内容摘自阿里技术微信公众号文章
+
 **1.corePoolSize=0时会怎么样?**
 
 在jdk6以前, ThreadPoolExecutor的流程是:
@@ -666,7 +656,7 @@ private static final int TERMINATED =  3 << COUNT_BITS;
 
 具体流程区别于代码
 
-```
+```java
 int c = ctl.get();
 if (workerCountOf(c) < corePoolSize) {
     if (addWorker(command, true))
@@ -707,7 +697,7 @@ if (workerCountOf(c) < corePoolSize) {
 
 每一个Worker在创建出来的时候，会调用它本身的run()方法，实现是runWorker(this)，这个实现的核心是一个**while循环**，这个循环不结束，Worker线程就不会终止:
 
-```
+```java
 final void runWorker(Worker w) {
         Thread wt = Thread.currentThread();
         Runnable task = w.firstTask;
@@ -756,7 +746,7 @@ final void runWorker(Worker w) {
 
 在该方法中 `getTask()` 就是从等待队列中取出任务来执行：
 
-```
+```java
   private Runnable getTask() {
         boolean timedOut = false; // Did the last poll() time out?
 
@@ -821,7 +811,7 @@ final void runWorker(Worker w) {
 
 submit实现在`ThreadPoolExecutor`的父类`AbstractExecutorService`中:
 
-```
+```java
   public Future<?> submit(Runnable task) {
         if (task == null) throw new NullPointerException();
         RunnableFuture<Void> ftask = newTaskFor(task, null);
@@ -846,7 +836,7 @@ submit实现在`ThreadPoolExecutor`的父类`AbstractExecutorService`中:
 
 FutureTask的核心代码就是实现了Future接口，也就是get方法的实现:
 
-```
+```java
     public V get() throws InterruptedException, ExecutionException {
         int s = state;
         if (s <= COMPLETING)
@@ -1016,7 +1006,7 @@ JAVA使用CAS三个方法来实现具体的原子操作为java.util.concurrent.a
 
 以`AtomicInteger`类的`getAndAdd(int delta)`方法为例
 
-```
+```java
 private static final jdk.internal.misc.Unsafe U = jdk.internal.misc.Unsafe.getUnsafe();
 
 private static final long VALUE = U.objectFieldOffset(AtomicInteger.class, "value");
@@ -1036,7 +1026,7 @@ public final int getAndAdd(int delta) {
 
 `delta` 为相加的参数
 
-```
+```java
 //Unsafe#getAndAddInt
 @HotSpotIntrinsicCandidate
 public final int getAndAddInt(Object o, long offset, int delta) {
@@ -1056,7 +1046,7 @@ CAS是“无锁”的基础，它允许更新失败。所以经常会与while循
 
 循环体的条件是一个CAS方法:
 
-```
+```java
 public final boolean weakCompareAndSetInt(Object o, long offset,
                                           int expected,
                                           int x) {
@@ -1082,7 +1072,7 @@ ABA问题的解决思路是在变量前面追加上**版本号或者时间戳**�
 
 这个类的`compareAndSet`方法的作用是首先检查当前引用是否等于预期引用，并且检查当前标志是否等于预期标志，如果二者都相等，才使用CAS设置为新的值和标志。
 
-```
+```java
 public boolean compareAndSet(V   expectedReference,
                              V   newReference,
                              int expectedStamp,
@@ -1168,19 +1158,7 @@ protected boolean tryAcquire(int arg) {
 
 ## JUC
 
-
-
-![img](/guide/并发容器.png)
-
-**注意**:
-
 JDK并没有提供线程安全的List类，因为对List来说，**很难去开发一个通用并且没有并发瓶颈的线程安全的List**。因为即使简单的读操作，拿contains() 这样一个操作来说，很难想到搜索的时候如何避免锁住整个list。
-
-所以退一步，JDK提供了对队列和双端队列的线程安全的类：ConcurrentLinkedQueue和ConcurrentLinkedDeque。因为队列相对于List来说，有更多的限制。这两个类是使用CAS来实现线程安全的(非阻塞队列)。
-
-
-
-
 
 ### Map
 
@@ -1239,7 +1217,7 @@ ConcurrentNavigableMap接口继承了NavigableMap接口，这个接口提供了�
 
 ConcurrentNavigableMap接口的主要实现类是ConcurrentSkipListMap类。从名字上来看，它的底层使用的是跳表（SkipList）的数据结构。关于跳表的数据结构这里不做太多介绍，它是一种”空间换时间“的数据结构，可以使用CAS来保证并发安全性。
 
-![2级索引跳表](/guide/93666217.jpg)
+![2级索引跳表](./picture/93666217.jpg)
 
 
 
@@ -1256,6 +1234,8 @@ Set<String> s = Sets.newConcurrentHashSet();
 ### Queue
 
 Java 提供的线程安全的 `Queue` 可以分为**阻塞队列**和**非阻塞队列**，其中阻塞队列的典型例子是 `BlockingQueue`，非阻塞队列的典型例子是 `ConcurrentLinkedQueue`，在实际应用中要根据实际需要选用阻塞队列或者非阻塞队列。 **阻塞队列可以通过加锁来实现，非阻塞队列可以通过 CAS 操作实现。** 
+
+
 
 **非阻塞队列**
 
@@ -1436,7 +1416,7 @@ public E get(int index) {
 
 **场景：**假如我们有一个搜索的网站需要屏蔽一些“关键字”，“黑名单”**每晚**定时更新，每当用户搜索的时候，“黑名单”中的关键字不会出现在搜索结果当中，并且提示用户敏感字。满足读多写少,且对一致性要求不高.
 
-```
+```java
 public class CopyOnWriteMap<K, V> implements Map<K, V>, Cloneable {
     private volatile Map<K, V> internalMap;
 
@@ -1502,7 +1482,7 @@ public Semaphore(int permits, boolean fair) {
 
 每次acquire，permits就会减少一个或者多个。如果减少到了0，再有其他线程来acquire，那就要阻塞这个线程直到有其它线程release permit为止。
 
-```
+```java
 public class SemaphoreExample1 {
   // 请求的数量
   private static final int threadCount = 550;
@@ -1739,7 +1719,7 @@ Phaser终止的两种途径，Phaser维护的线程执行完毕或者`onAdvance(
 
 场景:假设我们游戏有三个关卡，但只有第一个关卡有新手教程，需要加载新手教程模块。但后面的第二个关卡和第三个关卡都不需要。
 
-```
+```java
 public class PhaserDemo {
     static class PreTaskThread implements Runnable {
 
@@ -1975,7 +1955,7 @@ ForkJoinPool的运行状态。**SHUTDOWN**状态用负数表示，其他用2的�
 
 案例:计算斐波那契数列
 
-```
+```java
 public class FibonacciTest {
     class Fibonacci extends RecursiveTask<Integer> {
         int n;
@@ -2034,7 +2014,7 @@ CPU核数：4
 
 单线程的stream
 
-```
+```java
 public class StreamDemo {
     public static void main(String[] args) {
         Stream.of(1, 2, 3, 4, 5, 6, 7, 8, 9)
@@ -2277,11 +2257,11 @@ StampedLock用这个long类型的变量的前7位（LG_READERS）来表示读锁
 
 ## CompletableFuture
 
-jdk8引入 https://javaguide.cn/java/concurrent/completablefuture-intro/#
+jdk8引入 
 
 `CompletableFuture`可完成`CountDownLatch`相同功能
 
-```
+```java
 ompletableFuture<Void> task1 =
     CompletableFuture.supplyAsync(()->{
     //自定义业务操作

@@ -1,6 +1,6 @@
+# 大数据
 
-
-# 列式存储数据库
+## 列式存储数据库
 
 列式数据库应用在批量处理, 超大规模即使查询场景. 主要有两款产品:HBase和cassandra.
 
@@ -30,7 +30,7 @@
 
 
 
-## HBase
+### HBase
 
 HBase是建立在HDFS之上的分布式、面向列的数据库,
 
@@ -65,11 +65,11 @@ Region服务器负责存储和维护分配给自己的Region，处理来自客�
 
 客户端并不依赖Master，而是通过Zookeeper来Region位置信息，大多数客户端甚至从来不和Master通信，这种设计方式使得Master负载很小。
 
-# ElasticSearch
+## ElasticSearch
 
 Lucene穿了一件json的外套就是ElasticSearch, 相较于Solr, 内置了对分布式集群和分布式索引的管理
 
-## 分词与倒排索引
+### 分词与倒排索引
 
 英文分词容易.
 
@@ -89,9 +89,9 @@ es中的倒排索引不仅会记录出现的文本 , 还会记录出现的次数
 
 为了es存储分词的方式有 前缀+相差内容  , 对于数字 存储差值
 
-# 日志收集
+## 日志收集
 
-## 从ELK到KEFK过程
+### 从ELK到KEFK过程
 
 **EKL三剑客**
 
@@ -143,9 +143,9 @@ Kibana - 给人看的 : 可视化数据展示
 
 缺点：组件最多，维护成本大
 
-# Hadoop
+## Hadoop
 
-## MapReduce
+### MapReduce
 
 计算, 包括两个阶段:
 
@@ -153,7 +153,7 @@ Map:并行处理输入数据
 
 Reduce: 对Map结果汇总
 
-## HDFS
+### HDFS
 
 一种分布式文件管理系统, 通过目录树定位文件.
 
@@ -173,7 +173,7 @@ DataNode存储实际的数据块, 负责执行数据库的读写操作.
 
 
 
-# Hive
+## Hive
 
 基于Hadoop的一个数据仓库工具，可以将结构化的数据文件映射为一张表，并提供类SQL查询功能。
 
@@ -181,14 +181,14 @@ DataNode存储实际的数据块, 负责执行数据库的读写操作.
 
 ## Yarn
 
-# Flume
+## Flume
 
 一个高可用的，高可靠的，分布式的海量日志采集、聚合和传输的系统.
 
-# Sqoop
+## Sqoop
 
 主要用于在Hadoop、Hive与传统的数据库(MySql)间进行数据的传递，可以将一个关系型数据库（例如 ：MySQL，Oracle 等）中的数据导进到Hadoop的HDFS中，也可以将HDFS的数据导进到关系型数据库中。
 
-# Oozie
+## Oozie
 
-# azkaban
+## azkaban

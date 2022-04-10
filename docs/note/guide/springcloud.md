@@ -24,16 +24,6 @@
 
 4.微服务架构模式:将单个应用程序开发为一组小型服务的方法, 每个小服务运行在自己的进程中, 并以轻量级机制(HTTP REST API)通信
 
-## 设计原则
-
-单一职责 : 高内聚    每个服务只关注自己的业务, 独立 , 有界限;
-
-服务自治 : 低耦合    每个服务独立开发&测试&构建&部署&运行等
-
-轻量级通信 : 轻量级调用 , 跨平台, 跨语言   如Restful, 消息队列等
-
-粒度进化 : 根据把控每个服务的粒度
-
 ## 可靠性
 
 如果代码使用微服务与其他模块进行通信, 为了保障可靠性, 可使用的方案:
@@ -64,37 +54,11 @@ public boolean doRecover(Throwable e,int a)throws ArithmeticException{
 
 数据库等持久化方法的调用状态, 并通过定时任务定期检查数据库, 对未成功的任务进行重试
 
-# cloud
-
-## Ribbon与nginx的负载均衡
-
-`Ribbon` 是运行在消费者端的负载均衡器,工作原理就是 `Consumer` 端获取到了所有的服务列表之后，在其**内部**使用**负载均衡算法**，进行对多个系统的调用。
-
-![img](picture/nginx-vs-ribbon2.jpg)
-
-`nginx`是一种**集中式**的负载均衡器,**将所有请求都集中起来，然后再进行负载均衡**
-
-![img](picture/nginx-vs-ribbon1.jpg)
-
-## feign
-
-factoryBean实现
-
-## Gateway
+## SpringCloud Gateway
 
 网关是所有微服务的门户，路由转发仅仅是最基本的功能，除此之外还有其他的一些功能，比如：**认证**、**鉴权**、**熔断**、**限流**、**日志监控**等
 
-# alibaba
-
-## nacos
-
-https://blog.csdn.net/cold___play/article/details/108032204
-
-## sentinel
-
-> sentinel与微服务关系不大, 将其放在这是因为它属于springcloud子项目
-
-实现原理:
+## Alibaba Sentinel
 
 Sentinel Core为服务限流, 熔断提供了核心拦截器SentinelWebInterceptor , 这个拦截器默认对所有请求 /** 进行拦截 , 然后开始请求的链式处理流程, 在对于每一个处理请求的节点被称为slot (槽), 通过多个槽的连接形成处理链, 在请求的流转过程中, 如何有任何一个Slot验证未通过 , 都会产生BlockException ,请求处理链便会中断, 并返回"Blocked by sentinel"异常消息.
 
@@ -110,24 +74,73 @@ Sentinel Core为服务限流, 熔断提供了核心拦截器SentinelWebIntercept
 - FlowSlot根据预设的限流规则, 以及前面slot统计的状态, 来进行限流.
 - DegradeSlot通过统计信息, 以及限流的规则, 来做熔断降级.
 
-## Seata
+### 防止系统被瞬时流量击垮
 
-> sentinel与微服务关系不大, 将其放在这是因为它属于springcloud子项目
+可通过Alibaba Sentinel的流控规则Warm Up解决.
 
-seata主要三个角色:
+当遇到突发大流量时, Warm Up**根据预热时间缓慢拉升阈值限制**(期间可给缓存预热提供足够时间), 预防系统瞬时崩溃, 超出阈值的请求直接拒接.
 
-事务管理器（TM）：决定什么时候全局提交/回滚
+> Warm up冷加载因子为1/3, 即预热阈值从1/3开始上升
 
-事务协调者（TC）：负责通知命令的中间件Seata-Server
+## Alibaba Seata
 
-资源管理器（RM）：做具体事的工具人
+### AT
 
-**AC模式**
+seata的设计为分布式事务设计理念中的二阶段提交.
 
-AT 模式是 Seata 主推的分布式事务解决方案，对业务无侵入，真正做到了业务与事务分离，用户只需关注自己的“业务 SQL语句”。
+事务管理器（TM）：决定什么时候全局提交/回滚  --> @GlobalTransactionl
 
-AT模式使用起来非常简单，与完全没有使用分布式事务方案相比，业务逻辑不需要修改，只需要增加一个事务注解@GlobalTransactional即可
+事务协调者（TC）：负责通知命令的中间件            --> Seata-Server
 
-### TCC
+资源管理器（RM）：做具体事的工具人				  --> @Transactional
 
-TCC 模式需要用户根据自己的业务场景实现 try()、confirm() 和 cancel()
+1.通过添加seata核心注解@GlobalTransactional注解开启全局事务 , TM通知TC向下通达给RM开启本地事务
+
+![image-20211205170142581](picture/image-20211205170142581.png)
+
+![image-20211205170117506](picture/image-20211205170117506.png)
+
+2.待本地事务都**提交**完成后,TM通过TC向RM下达全局事务处理结果.
+
+![image-20211205170519113](picture/image-20211205170519113.png)
+
+![image-20211205170857133](picture/image-20211205170857133.png)
+
+
+
+Q:如果事务中间阶段出了问题, 而在RM处理本地子事务时,处理完成后是直接写表提交, 在TC下达分支结果时,是如何实现回滚的?
+
+以主流的AT模式为例 , Seata AT模式下如何实现数据自动提交、回滚?
+
+seata AT通过在所有数据库增加一张UNDO_LOG表.
+
+> seata AT通过sql parser第三方jar包生成逆向sql , 存储在UNDO_LOG表中.  如:
+>
+> insert into 订单表 values(1,...);   -->  delete from 订单表 where id = 1; 
+>
+> update 会员积分表 set point = 50 where pid=1   --> update 会员积分表 set point = 40 where pid=1 
+
+如果收到TC下达的分支提交, 则删掉UNDO_LOG中对于的记录即可;
+
+如果收到TC下达的分支回滚, 执行UNDO_LOG中的**逆向SQL**,还原年数据.
+
+Q: Seata如何避免并发场景的脏读与脏写?
+
+利用**TC**自带的**分布式锁**完成:
+
+![image-20211205172341582](picture/image-20211205172341582.png)
+
+Q: 怎么使用Seata框架，来保证事务的隔离性？
+
+因seata一阶段本地事务已提交，为防止其他事务脏读脏写需要加强隔离。
+
+1.脏读select语句加for update，代理方法增加@GlobalLock+@Transactional或@GlobalTransaction
+
+2.脏写 必须使用@GlobalTransaction
+
+注：如果你查询的业务的接口没有GlobalTransactional包裹，也就是这个方法上压根没有分布式事务的
+需求，这时你可以在方法上标注@GlobalLock+@Transactional 注解，并且在查询语句上加 for update。
+如果你查询的接口在事务链路上外层有GlobalTransactional注解，那么你查询的语句只要加for update就
+行。设计这个注解的原因是在没有这个注解之前，需要查询分布式事务读已提交的数据，但业务本身不
+需要分布式事务。若使用GlobalTransactional注解就会增加一些没用的额外的rpc开销比如begin返回
+xid，提交事务等。GlobalLock简化了rpc过程，使其做到更高的性能。

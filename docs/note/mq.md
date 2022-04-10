@@ -93,24 +93,6 @@ https://www.rabbitmq.com/getstarted.html
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ## 简单使用
 
 **Sender**

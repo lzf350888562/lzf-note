@@ -1649,7 +1649,7 @@ grant_type=authorization_code&code=xxx&client=test&redirect_id=http://www.xxx.co
 
 >  一个授权码只能请求一次令牌, 如多次请求, 将返回invalid_grant错误
 
-2.密码模式获取令牌(简单,不安全)
+2.密码模式获取令牌
 
 使用发送POST请求, 其中grant_type固定为password表示直接使用用户名和密码获取令牌：
 

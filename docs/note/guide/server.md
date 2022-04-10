@@ -1,4 +1,6 @@
-# 容器化
+# 服务器
+
+## 容器化
 
 物理机时代 --> 虚拟机时代  -->  容器化时代(轻量级VM, 灵活)
 
@@ -10,7 +12,7 @@
 
 容器: 镜像的运行环境,迷你的"linux操作系统",由Docker负责创建,容器之间彼此隔离
 
-## Docker
+### Docker
 
 ![img](picture/1624937894925-f437bd98-94e2-4334-9657-afa69bb52179.svg)
 
@@ -170,7 +172,7 @@ redis:latest  redis-server /etc/redis/redis.conf
 
 
 
-### 基于虚拟网段
+#### 基于虚拟网段
 
 使用Centos7下Docker发布Nginx+Tomcat+MySQL项目
 
@@ -416,7 +418,7 @@ docker network rm my‐bridge
 
 > 为了解决多机部署 ,可加入k8s进行分发部署
 
-### Macvlan
+#### Macvlan
 
 通常Docker使用桥接模式进行端口映射提供外部访问.
 
@@ -426,17 +428,9 @@ docker network rm my‐bridge
 
 Docker内置Macvlan驱动通过为容器提供独立MAC和IP地址, 让容器在物理网络上与真是主机平等(需要将主机网课设置为混杂模式)
 
-## 云平台
 
-不能通过外网访问的端口需要配置安全组端口放行
 
-**VPC**
-
-VPC虚拟专用网络类似docker虚拟网段, 在一个私有网络下又可以划分多个子网.
-
-云服务器通信可通过配置私有IP进行通信, 而免去公网的流量计费和带宽限制. 在创建实例的时候可以指定vpc与交换机
-
-## Kubernetes
+### Kubernetes
 
 [Kubernetes : 大规模容器编排系统 , 可以理解为docker的高阶产品](https://kubernetes.io/zh/)  其官方文档有中文版并且非常简洁, 以下介绍以及更多都可通过官方查看
 
@@ -538,7 +532,7 @@ kube-proxy 维护节点上的网络规则。这些网络规则允许从集群内
 
 如果操作系统提供了数据包过滤层并可用的话，kube-proxy 会通过它来实现网络规则。否则， kube-proxy 仅转发流量本身。
 
-### Kubeadm创建集群
+#### Kubeadm创建集群
 
 > 前置要求:  所有机器能相互通信, 不同主机名
 
@@ -786,7 +780,7 @@ kubectl -n kubernetes-dashboard get secret $(kubectl -n kubernetes-dashboard get
 
 复制生成的令牌, 输入到dashboard的token完成登录, 如果失效重复此步骤
 
-### Namespace
+#### Namespace
 
 名称空间 用来对集群资源进行隔离划分, 默认只隔离资源, 不隔离网络.
 
@@ -819,7 +813,7 @@ kubectl delete -f xxx.yml
 
 > k8s资源创建方式有命令行和yaml(创建文件然后应用)两种
 
-### Pod
+#### Pod
 
 k8s在容器外再封装了一层pod, pod是运行中的一组容器，**Pod是kubernetes中应用的最小单位**.
 
@@ -987,7 +981,7 @@ Address already in use
 >
 > 以yaml形式输出该pod或deploy的配置信息
 
-### Deployment
+#### Deployment
 
 **控制Pod，使Pod拥有多副本，自愈，扩缩容, 滚动更新, 版本回退等能力**
 
@@ -1149,7 +1143,7 @@ kubectl get deploy/my-dep -oyaml |grep image
 
 
 
-### Service
+#### Service
 
 **Pod的服务发现与负载均衡, 将一组Pods公开为网络服务的抽象方法。**
 
@@ -1236,7 +1230,7 @@ http://172.20.200.0:30088/
 
 > NodePort范围在 30000-32767 之间
 
-### Ingress
+#### Ingress
 
 service的统一网关入口[(底层nginx实现)](https://kubernetes.github.io/ingress-nginx/)
 
@@ -1503,7 +1497,7 @@ spec:
 
 重复快速访问http://haha.atguigu.com:32401, 默认返回503
 
-### 存储抽象
+#### 存储抽象
 
 在使用docker时,可以使用存储映射,将宿主机上的文件应用到容器.
 
@@ -1859,7 +1853,17 @@ spec:
   - name: leifengyang-docker
 ```
 
-# JVM
+### 云平台
+
+不能通过外网访问的端口需要配置安全组端口放行
+
+**VPC**
+
+VPC虚拟专用网络类似docker虚拟网段, 在一个私有网络下又可以划分多个子网.
+
+云服务器通信可通过配置私有IP进行通信, 而免去公网的流量计费和带宽限制, 在创建实例的时候可以指定vpc与交换机.
+
+## JVM
 
 jvm选项规则
 
@@ -1869,7 +1873,7 @@ jvm选项规则
 
 > PS: +代表开启/-代表关闭
 
-## 优先G1
+### 优先G1
 
 **调优建议**
 
@@ -1896,7 +1900,7 @@ Java -jar -XX:+UseG1GC -Xms2G -Xmx2G -Xss256k
 
 
 
-## 读写屏障
+### 读写屏障
 
 一.读写屏障在JVM中第一个应用为解决并发标记存在的问题:
 
@@ -1964,7 +1968,7 @@ write_barrier(obj, field, new_obj){
 
 如果满足以上三点，则本次新建的引用关系中，老年代的对象会被加入到记录集,  **新生代 GC 时将会把记录集视为 GC Roots 的一部分**。
 
-## 类加载隔离
+### 类加载隔离
 
 在实现类加载隔离的前提下, 注意两个JVM类加载器理论:
 
@@ -2150,15 +2154,23 @@ TestB: com.java.loader.MyClassLoaderCustom@1d44bcfa
 
 
 
-# Zookeeper
+## Zookeeper
 
-> 在读取多于写入的应用程序中具有特别高的性能，因为写入涉及同步所有服务器的状态。
+Zookeeper的数据存储结构就像一棵树，这棵树由节点组成，这种节点叫做Znode。至于这些节点具体干什么用, 是由开发人员自己定义的.
 
-> 临时节点只要创建 znode 的会话处于活动状态，这些 znode 就存在。当会话结束时，znode 被删除。临时 znode 不允许有子节点。
+**Znode**分为四种类型 :
 
-> 顺序节点在创建 znode 时，还可以请求 ZooKeeper 在路径末尾附加一个单调递增的计数器。此计数器对于父 znode 是唯一的。
+持久节点 （PERSISTENT） 默认的节点类型。创建节点的客户端与zookeeper断开连接后，该节点依旧存在 ;
 
-## Apache Curator
+持久节点顺序节点（PERSISTENT_SEQUENTIAL） 在持久节点特性上, 按照访问时间的先后顺序进行顺序存储;
+
+临时节点（EPHEMERAL） 和持久节点相反，当创建节点的客户端与zookeeper断开连接后，临时节点会被删除
+
+临时顺序节点（EPHEMERAL_SEQUENTIAL） 结合和临时节点和顺序节点的特点：在创建节点时，Zookeeper 根据创建的时间顺序给该节点名称进行编号；当创建节点的客户端与zookeeper断开连接(session)后，临时节点会被删除。
+
+> 在读取多于写入的应用程序中具有特别高的性能，因为写入涉及同步所有服务器的状态
+
+### Apache Curator
 
 Apache Curator(https://curator.apache.org/)是一个比较完善的ZooKeeper客户端框架，通 过封装的一套高级API 简化了ZooKeeper的操作。
 
@@ -2170,9 +2182,7 @@ Apache Curator(https://curator.apache.org/)是一个比较完善的ZooKeeper客�
 
 3.提供ZooKeeper各种应用场景(recipe， 比如：分布式锁服务、集群领导选举、共享 计数器、缓存机制、分布式队列等)的抽象封装
 
-
-
-## 安装
+### 安装
 
 **centos手动安装**
 
@@ -2218,57 +2228,13 @@ docker run ‐‐privileged=true ‐d ‐‐name zookeeper ‐p 2181:2181 ‐p 8
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# 发布部署
+## 发布部署
 
 应用发布与持续继承
 
 ![CI](picture/CI.png)
 
-## 全量发布
+### 全量发布
 
 全量发布分为蓝绿发布和红黑发布
 
@@ -2288,7 +2254,7 @@ docker run ‐‐privileged=true ‐d ‐‐name zookeeper ‐p 2181:2181 ‐p 8
 
 
 
-## 增量发布
+### 增量发布
 
 灰度发布属于增量发布 , 服务升级的过程中，新旧版本会同时为用户提供服务。
 
@@ -2334,7 +2300,7 @@ insert into t(a,b) values(‘a’,’b’);
 
 
 
-# VM
+## VM
 
 设置NAT网卡的网络,掩码,网关.
 
@@ -2395,7 +2361,7 @@ done
 
 
 
-# 硬件对性能的影响
+## 硬件
 
 **CPU**
 
@@ -2404,8 +2370,6 @@ done
 并发比较高的场景CPU的数量比频率重要;
 
 CPU密集性场景和复杂SQL则频率越高越好
-
-
 
 **内存**
 
@@ -2419,13 +2383,11 @@ CPU密集性场景和复杂SQL则频率越高越好
 
 内存对写操作也有重要的性能影响
 
-
-
 **硬盘**
 
 优先SSD(服务器专业SSD比机械硬盘贵好几倍)
 
-## RAID
+### RAID
 
 RAID是磁盘冗余队列的简称. 简单来说RAID的作用就是可以把多个容量较小的磁盘组成一组容量更大的磁盘, 并提供数据冗余来保证数据完整性的技术
 

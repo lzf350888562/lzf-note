@@ -1404,64 +1404,6 @@ InnoDB内存可用来保存更新的结果, 再配合redolog, 避免随机写盘
 
 当在关联查询中使用文件排序时,  如果order by中的所有列都来自关联的第一个表, 则会直接对第一个表进行文件排序后进行关联(Using filesort); 否则会将所有关联结果放到临时表中, 最后进行文件排序(Using temporary; Using filesort). 并且当查询中带有limit时, limit将在排序后执行, 当数据量大时效率差.
 
-
-
-## 慢查询日志
-
-为了定位sql的性能瓶颈, 我们需要开启mysql的慢查询日志, 把超过指定时间的sql语句, 单独记录下来, 方便以后分析和定位问题.
-
-sql中慢查询阈值为long_query_time=10s, 即当sql执行时间大于10s就会被记录到慢sql日志中, 一般建议缩小到1s.
-
-开启慢查询可通过 `set命令` 或 `my.cnf配置文件` 来设置下列属性:
-
-```
-show_query_log = ON
-show_query_log_file = /usr/local/mysql/log/show.log
-long_query_time = 2
-```
-
-## 客户端状态查询
-
-`show processlist`可查询所有客户端状态
-
-常见于查询相关的state有:
-
-sending to client:表示等待客户端接收结果, 如客户端接收处理速度慢, 服务端net_buffer已满, 若长时间处于该状态, 表示需要优化查询结果
-
-> 服务端将查询结果一行一行放到net_buffer, 写满再调用网络接口发送
-
-sending data: 表示查询语句执行阶段, 包括锁等待
-
-## ngram全文检索
-
-对于需要模糊查询的情况, 通常使用like查询会导致索引失效而全文检索, 进而可以加入ElasticSearch(Canal异构同步订阅binlog).
-
-但引入ES除了需要更高的成本外, 数据一致性需要保证, 高可用和维护工作需要保证.
-
-MySQL折中方案:从 MySQL 5.7.6 开始，MySQL内置了[ngram全文解析器](https://www.cnblogs.com/miracle-luna/p/11147859.html)
-
-允许对短文本进行全文检索查询，以替代like关键字 ( 分词效果不太行 )
-
->  对于复杂业务场景的全文检索查询，还是要用ES
-
-## visual explain
-
-MySQL Workbench:
-
-添加MySQL连接
-
-## 优化笔记
-
-> 来自个人实践与资料收集
-
-- 将一个多表关联查询通过应用程序分解成一个个单表查询(相当于手动NLJ), 可更方便利用缓存, 避免随机关联查询冗余记录, 并减少锁竞争;(《高性能MySQL》)
-- 使用UNION+LIMIT时在每个子局中使用LIMIT(UNION外还需要同样的LIMIT)减少临时表大小.
-- 全表扫描可能导致缓冲池LRU列表被污染, 导致热点数据被冲刷.
-
-# 高可用高性能
-
-![mysql集群图](picture/mysql集群图.png)
-
 ## 主从复制
 
 MySQL binlog主要记录了 MySQL 数据库中数据的所有变化(数据库执行的所有 DDL 和 DML 语句)。根据主库的 MySQL binlog 日志就能够将主库的数据同步到从库中。 
@@ -1740,7 +1682,7 @@ key为 字段名:字段值, value为 对应的数据库主键
 
 缺点:多一次redis查询,性能有所降低; 对redis内存需求大(如果SSD性能好, 可使用InnoDB表代替); 需要维护一致性.
 
-## 数据迁移和异构数据同步
+## 异构数据同步
 
 **数据迁移方式**
 
@@ -1870,7 +1812,7 @@ SnowFlake算法生成ID的结果是一个64bit大小的整数， 为一个Long�
 
 实现
 
-```
+```java
 /**
  * <p>名称：IdWorker.java</p>
  * <p>描述：分布式自增长ID</p>
@@ -2023,8 +1965,6 @@ public class IdWorker {
             System.out.println(" getDatacenterId: " + e.getMessage());
         }
         return id;
-    
-
 }
 ```
 
@@ -2052,7 +1992,51 @@ Tinyid(滴滴) https://github.com/didi/tinyid/wiki/tinyid%E5%8E%9F%E7%90%86%E4%B
 
 
 
+## 慢查询日志
 
+为了定位sql的性能瓶颈, 我们需要开启mysql的慢查询日志, 把超过指定时间的sql语句, 单独记录下来, 方便以后分析和定位问题.
+
+sql中慢查询阈值为long_query_time=10s, 即当sql执行时间大于10s就会被记录到慢sql日志中, 一般建议缩小到1s.
+
+开启慢查询可通过 `set命令` 或 `my.cnf配置文件` 来设置下列属性:
+
+```
+show_query_log = ON
+show_query_log_file = /usr/local/mysql/log/show.log
+long_query_time = 2
+```
+
+## 客户端状态查询
+
+`show processlist`可查询所有客户端状态
+
+常见于查询相关的state有:
+
+sending to client:表示等待客户端接收结果, 如客户端接收处理速度慢, 服务端net_buffer已满, 若长时间处于该状态, 表示需要优化查询结果
+
+> 服务端将查询结果一行一行放到net_buffer, 写满再调用网络接口发送
+
+sending data: 表示查询语句执行阶段, 包括锁等待
+
+## ngram全文检索
+
+对于需要模糊查询的情况, 通常使用like查询会导致索引失效而全文检索, 进而可以加入ElasticSearch(Canal异构同步订阅binlog).
+
+但引入ES除了需要更高的成本外, 数据一致性需要保证, 高可用和维护工作需要保证.
+
+MySQL折中方案:从 MySQL 5.7.6 开始，MySQL内置了[ngram全文解析器](https://www.cnblogs.com/miracle-luna/p/11147859.html)
+
+允许对短文本进行全文检索查询，以替代like关键字 ( 分词效果不太行 )
+
+>  对于复杂业务场景的全文检索查询，还是要用ES
+
+## 优化笔记
+
+> 来自个人实践与资料收集
+
+- 将一个多表关联查询通过应用程序分解成一个个单表查询(相当于手动NLJ), 可更方便利用缓存, 避免随机关联查询冗余记录, 并减少锁竞争;(《高性能MySQL》)
+- 使用UNION+LIMIT时在每个子局中使用LIMIT(UNION外还需要同样的LIMIT)减少临时表大小.
+- 全表扫描可能导致缓冲池LRU列表被污染, 导致热点数据被冲刷.
 
 
 

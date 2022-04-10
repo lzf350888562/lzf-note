@@ -1,24 +1,18 @@
-# 设计模式
+# Spring深入
 
-**工厂设计模式** : Spring 使用工厂模式通过 `BeanFactory`(懒注入)、`ApplicationContext`(一次性注入且功能更丰富) 创建 bean 对象。
+代理设计模式 : Spring AOP -> JDK/CGLIB.
 
-**代理设计模式** : Spring AOP -> JDK/CGLIB
+模板方法模式 : 大量应用. 如AbstractEnviroment提供的customizePropertySources方法让子类自定义添加PropertySource, 类似有许多以customize开头的方法, 以及refresh中的onRefresh方法, 还有xxxTemplate类也使用了该设计模式.
 
-**单例设计模式** : 默认Bean
+装饰者模式 : Spring 中用到的包装器模式在类名上含有 `Wrapper`或者 `Decorator`。如HttpServletRequestWrapper.
 
-**模板方法模式** : Spring中应用广泛, 如AbstractEnviroment提供的customizePropertySources方法让子类自定义添加PropertySource, 类似有许多以customize开头的方法, 以及refresh中的onRefresh方法, 还有xxxTemplate类也使用了该设计模式
+观察者模式: Spring 事件驱动模型.
 
-**装饰者模式** : 允许向一个现有的对象添加新的功能，同时又不改变其结构。比如 `InputStream`.
+适配器模式 : Spring AOP 的增强(AdvisorAdapter适配通知)和spring MVC 中的HanderMapping(HandlerAdapter适配控制器)。
 
-Spring 中用到的包装器模式在类名上含有 `Wrapper`或者 `Decorator`。如HttpServletRequestWrapper
+## IOC
 
-**观察者模式:** Spring 事件驱动模型
-
-**适配器模式** : Spring AOP 的增强(AdvisorAdapter适配通知)和spring MVC 中的HanderMapping(HandlerAdapter适配控制器)。
-
-# ioc
-
-## refresh
+### refresh
 
 > 为什么命名refresh而不叫init, 因为 ApplicationContext 建立起来以后，其实我们是可以通过调用 refresh() 这个方法重建的，refresh() 会将原来的 ApplicationContext 销毁，然后再重新执行一次初始化操作。
 
@@ -98,33 +92,7 @@ beanFactory的准备工作, 对其各种属性进行填充.
 
 然后设置一个StringValueResolver用于解析注解的值, 为函数式接口, 这里通过AbstractApplicationContext调用AbstractPropertyResolver的resolvePlaceholder实现(与refresh前解析配置文件名类似)
 
-以下流程不同版本的Spring可能代码变化较大, 但核心逻辑几乎没变:
-
-```
-beanFactory.preInstantiateSingletons() --> beanFactory.getBean(name)
---> doGetBean(...)  -->createBean(...)  -->createBeanInstance(...) --> instantiateBean(...) -->instantiate(...) 获取构造器  							   ->BeanUtils.instantiateClass(ctor,args) ctor.newInstance() 实例化
-```
-
-```
-populateBean(..)  bean属性填充,如果依赖于其他bean的属性,则会递归初始化依赖的bean
-```
-
-```
-initializeBean(...)  --> invokeAwareMethods(beanName,bean) 对特殊的bean处理Aware接口 (BeanNameAware . BeanClssLoaderAware , BeanFactoryAware) ,注意 其他bean的Aware接口方法并没有执行  如EnvironmentAware
-```
-
-```
-applyBeanPostProcessorsBeforeInitialization(existingBean ,beanName)   -->
-processor.postProcessBeforeInitialization(xx) 中执行其他Aware接口方法
-```
-
-```
-invokeInitMethods(xxx) 调用用户自定义init方法
-```
-
-```
-applyBeanPostProcessorsBeforeInitialization(existingBean ,beanName)  -->
-```
+最后就是调用getBean了
 
 12.finishRefresh
 
@@ -132,7 +100,7 @@ applyBeanPostProcessorsBeforeInitialization(existingBean ,beanName)  -->
 
 
 
-## 事件驱动
+### 事件驱动
 
 事件对象一般都是java.util.EventObject的子类; ApplicationEventPublisher(即ApplicationContext)将请求委托给ApplicationEventMulticaster来实现的; 监听器是EventListener(jdk)的子类, 在refresh在初始化多播器后注册监听器.
 
@@ -162,7 +130,7 @@ public void multicastEvent(final ApplicationEvent event, ResolvableType eventTyp
 
 在该方法中, 如果executor不为空，那么监听器的执行是异步的. 具体配置方式见#spring使用笔记
 
-## getBean
+### getBean
 
 > 下面bean工厂指DefaultListableBeanFactory
 
@@ -263,7 +231,7 @@ afterPrototypeCreation与beforePrototypeCreation对应
 
 2-8.其他scope: session,request处理.
 
-## BeanDefinitionParser
+### BeanDefinitionParser
 
 在refresh的obtainFreshBeanFactory方法中, 会对BeanDefine进行加载与定义, 经过层层调用最终到达BeanDefinitionParserDelegate.parseCustomElement方法, 其中参数Element为经过SAX解析得到的DOM标签元素;
 
@@ -351,14 +319,14 @@ beanDefinition方式与上类似
 
 解析LTW???
 
-# aop
+## AOP
 
 > 1. 定义在private方法上的切面不会被执行，因为子类不能覆盖父类的私有方法。
 > 2. 同一个代理子类内部的方法相互调用不会再次执行切面。(如@Trasaction)
 
 aop相关解析器由AopNamespaceHandler注册:
 
-```
+```java
 @Override
 public void init() {
     registerBeanDefinitionParser("config", new ConfigBeanDefinitionParser());
@@ -367,11 +335,11 @@ public void init() {
 }
 ```
 
-## ConfigBeanDefinitionParser
+### ConfigBeanDefinitionParser
 
 aop:config:配合事务使用, 其中advice-ref的advice必须实现org.aopalliance.aop.Advice的子接口.
 
-```
+```xml
 <tx:advice id="txAdvice" transaction-manager="transactionManager">
     <tx:attributes>
         <tx:method name="get*" read-only="true" propagation="NOT_SUPPORTED"/>
@@ -427,11 +395,9 @@ ConfigBeanDefinitionParser.parse:
  2-4.调用AbstractAdvisorAutoProxyCreator.sortAdvisors对实现了Ordered接口的Advisor进行排序;
 3.调用AbstractAutoProxyCreator.createProxy创建:
  在方法在创建一个ProxyFactory,执行ProxyFactory.getProxy,在方法中通过DefaultAopProxyFactory.createAopProxy根据proxy-target-classs以及是否实现了接口来决定jdk还是cglib,需要注意的是,它们都会对所有相关的Advisor进行链式调用.
- 
-
 ```
 
-## ScopedProxyBeanDefinitionDecorator
+### ScopedProxyBeanDefinitionDecorator
 
 aop:scoped-proxy(与@ScopedProxy注解相同):
 
@@ -439,7 +405,7 @@ aop:scoped-proxy(与@ScopedProxy注解相同):
 
 为了使每次调用这个Bean的时候都能够得到当前scope最新的值, 可给该引用的Bean添加scoped-proxy:
 
-```
+```xml
 <bean id="userPreferences" class="com.foo.UserPreferences" scope="session">
     <aop:scoped-proxy/>
 </bean>
@@ -454,7 +420,7 @@ aop:scoped-proxy(与@ScopedProxy注解相同):
 
 新的BeanDefintion的beanClass为ScopedProxyFactoryBean
 
-## AspectJAutoProxyBeanDefinitionParser
+### AspectJAutoProxyBeanDefinitionParser
 
 aop:aspectj-autoproxy用以开启对于@AspectJ注解风格AOP的支持, 即使用@Aspect 、@Pointcut("execution(void base.aop.AopDemo.send(..))") 、@Before("beforeSend()")等形式注解.
 
@@ -464,11 +430,11 @@ AspectJAutoProxyBeanDefinitionParser.parse:
 
 
 
-# task
+## Task
 
 task相关解析器由AopNamespaceHandler注册:
 
-```
+```java
 @Override
 public void init() {
     this.registerBeanDefinitionParser("annotation-driven", new AnnotationDrivenBeanDefinitionParser());
@@ -523,9 +489,9 @@ ScheduledTaskRegistrar.scheduleTasks:
 <task:annotation-driven executor="executor"/>
 ```
 
-# transaction
+## Transaction
 
-```
+```xml
 <bean id="dataSource" class="org.springframework.jdbc.datasource.DriverManagerDataSource">
     <property name="driverClassName" value="${jdbc.driverClassName}" />
     <property name="url" value="${jdbc.url}" />
@@ -540,12 +506,11 @@ ScheduledTaskRegistrar.scheduleTasks:
 
 task相关解析器由AopNamespaceHandler注册:
 
-```
+```java
 @Override
 public void init() {
     registerBeanDefinitionParser("advice", new TxAdviceBeanDefinitionParser());
-    registerBeanDefinitionParser("annotation-driven", 
-        new AnnotationDrivenBeanDefinitionParser());
+    registerBeanDefinitionParser("annotation-driven", new AnnotationDrivenBeanDefinitionParser());
     registerBeanDefinitionParser("jta-transaction-manager", new JtaTransactionManagerBeanDefinitionParser());
 }
 ```
@@ -556,17 +521,17 @@ AnnotationDrivenBeanDefinitionParser(注意时spring-tx包下的).parse:
 
 2.调用AnnotationDrivenBeanDefinitionParser.AopAutoProxyConfigurer.configureAutoProxyCreator, 应该是AnnotationTransactionAttributeSource用于解析@Transactional注解属性, 然后应该与aop类似: 寻找Advisor生成代理类.(看不懂了哈哈!)
 
-# mvc
+## MVC
 
 ![img](picture/de6d2b213f112297298f3e223bf08f28.png)
 
 
 
-## init
+### init
 
 Servlet标准定义了init方法是其生命周期的初始化方法, 具体初始化入口在DispatcherServlet的父类HttpServletBean.init执行:
 
-```
+```java
 // Set bean properties from init parameters.
 PropertyValues pvs = new ServletConfigPropertyValues(getServletConfig(), this.requiredProperties);
 //包装DispatcherServlet，准备放入容器
@@ -596,7 +561,7 @@ FrameworkServlet.initWebApplicationContext:
 >
 > web.xml中配置根容器的方式:
 >
-> ```
+> ```xml
 > <listener>
 >     <listener-class>org.springframework.web.context.ContextLoaderListener</listener-class>
 > </listener>
@@ -608,7 +573,7 @@ FrameworkServlet.initWebApplicationContext:
 
 > web.xml中配置容器类型:
 >
-> ```
+> ```xml
 > <servlet>
 >     <servlet-name>SpringMVC</servlet-name>
 >     <servlet-class>org.springframework.web.servlet.DispatcherServlet</servlet-class>
@@ -661,7 +626,7 @@ FrameworkServlet.initWebApplicationContext:
 
  2-3)调用DispatcherServlet.onRefresh(ApplicationContext), 再调用DispatcherServlet.initStrategies, 见下↓
 
-## initStrategies
+### initStrategies
 
 该方法初始化MVC(DispacherServlet):
 
@@ -685,7 +650,7 @@ FrameworkServlet.initWebApplicationContext:
 
 9)initFlashMapManager设置SessionFlashMapManager用于在请求重定向时保持/传递参数.
 
-## HandlerMapping
+### HandlerMapping
 
 经过Init, 容器中已存在三个HandlerMapping实现, 以RequestMappingHandlerMapping为例:
 
@@ -703,7 +668,7 @@ RequestMappingHandlerMapping根据@Controller和@RequestMapping注解进行解�
 
 从容器中获取所有MappedInterceptor并放到adaptedInterceptors中.
 
-## HandlerAdapter
+### HandlerAdapter
 
 以RequestMappingHandlerAdapter为例, 与HandlerMapping类似.
 
@@ -717,7 +682,7 @@ RequestMappingHandlerAdapter.afterPropertiesSet:
 
 4)调用getDefaultReturnValueHandlers设置一组HandlerMethodReturnValueHandler用以处理方法调用(Controller方法)的返回值.
 
-## 请求响应
+### 请求响应
 
 Servlet标准定义了所有请求先由service方法处理，如果是get或post方法，那么再交由doGet或是doPost方法处理. 
 
@@ -798,13 +763,13 @@ DispatcherServlet.processDispatchResult:
 
   如InternalResourceView.renderMergedOutputModel本质就是将Model中的属性设置到Request，再利用原生Servlet RequestDispatcher API进行转发的过程.
 
-## 参数与返回值
+### 参数与返回值
 
 当在Controller或方法上标注@ResponseBody时表示需要将对象转为JSON并返回给前端，HttpMessageConverter接口负责HTTP请求-Java对象与Java对象-响应之间的转换, 默认为MappingJacksonHttpMessageConverter (AnnotationDrivenBeanDefinitionParser中初始化?)
 
 还有HandlerMethodArgumentResolver和HandlerMethodReturnValueHandler.
 
-## URL中的Ant匹配
+### URL中的Ant匹配
 
 Ant风格在mvc和security常用, 是一种路径匹配表达式。主要用来对 uri 的匹配。其实跟正则表达式作用是一样的，只不过正则表达式适用面更加宽泛， Ant 仅仅用于路径匹配
 
@@ -833,5 +798,5 @@ Ant 中的通配符有三种：
 .antMatchers("/index.html","/static/**").permitAll()
 ```
 
-# boot
+## Boot
 

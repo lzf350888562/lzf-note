@@ -1,14 +1,14 @@
-# 集合
+# Java
 
-## ArrarList
+## 集合
 
-```
-toArray 返回的是新数组,通过Arrays.copyOf方法生成;
-大量调用native方法System.arraycopy,如指定插入位置的add方法,remove方法,Arrays.copyOf方法其实也是调用了arraycopy方法.类似C语言操作数组;
-ensureCapacity方法在ArrayList内部没有被调用过,是给用户使用的,最好在 add 大量元素之前用 ensureCapacity 方法，以减少增量重新分配的次数
-```
+### ArrarList
 
-## HashMap
+- toArray 返回的是新数组,通过Arrays.copyOf方法生成;
+- 大量调用native方法System.arraycopy,如指定插入位置的add方法,remove方法,Arrays.copyOf方法其实也是调用了arraycopy方法.类似C语言操作数组;
+- ensureCapacity方法在ArrayList内部没有被调用过,是给用户使用的,最好在 add 大量元素之前用 ensureCapacity 方法，以减少增量重新分配的次数
+
+### HashMap
 
  JDK1.8 以后的 `HashMap` 在解决哈希冲突时有了较大的变化，当链表长度大于阈值（默认为 8,这个阈值为表示链表或红黑树大小的阈值,是常量）（将链表转换成红黑树前会判断，如果当前数组的长度小于 64，那么会选择先进行数组扩容，而不是转换为红黑树）时，将链表转化为红黑树，以减少搜索时间.
 
@@ -167,7 +167,7 @@ i >>> 31  0000 0000 0000 0000 0000 0000 0000 0000   等于0
 
 计算过程中校验的位数依次为16、8、4、2、1，加起来刚好为31。为什么是31不是32呢？因为前置0的数量为32的情况下i只能为0，在前面的if条件中已经进行过滤。这样一来，非0值的情况下，前置0只能出现在高31位，因此只需要校验高31位即可。最终，用总位数减去计算出来的前导0的数量，即可得出二进制的最高有效位数。代码中使用的是31 - Integer.numberOfLeadingZeros(scale)，而不是总位数32，这是为了能够得到哈希桶数组中第i个元素的起始内存地址，方便进行CAS等操作。
 
-## BitSet(BitMap)
+### BitSet(BitMap)
 
 BitSet是JAVA中对BitMap的实现
 
@@ -186,15 +186,13 @@ BitMap通常用来去重 & 取两个集合的交集或并集等.
 要对43亿QQ号进行去重, 需要总共至少43位的多个结构类型标识每个QQ号:
 4300000000/8/1024/1024≈ 512MB .  即该大小足够标识所有QQ号存在与否.
 
+## 设计模式
 
-
-# 设计模式
-
-## 代理模式
+### 代理模式
 
 **静态代理**
 
-```
+```java
 public class SmsServiceImpl implements SmsService {
     public String send(String message) {
         System.out.println("send message:" + message);
@@ -233,7 +231,7 @@ public class Main {
 
 **JDK 动态代理最致命的问题是其只能代理实现了接口的类。**
 
-```
+```java
 public class DebugInvocationHandler implements InvocationHandler {
     private final Object target;
 
@@ -252,7 +250,7 @@ public class DebugInvocationHandler implements InvocationHandler {
 }
 ```
 
-```
+```java
 public class JdkProxyFactory {
     public static Object getProxy(Object target) {
         return Proxy.newProxyInstance(
@@ -264,14 +262,14 @@ public class JdkProxyFactory {
 }
 ```
 
-```
+```java
 SmsService smsService = (SmsService) JdkProxyFactory.getProxy(new SmsServiceImpl());
 smsService.send("java");
 ```
 
 jdk动态代理也可以不使用被代理对象, 直接对接口进行代理, 比如mybatis的dao接口
 
-```
+```java
 public class OnlyInterfaceProxyTest {
     public static void main(String[] args) {
         MyMapper mapper = (MyMapper)Proxy.newProxyInstance(MyMapper.class.getClassLoader(), new Class[]{MyMapper.class}, new InvocationHandler() {
@@ -296,7 +294,7 @@ interface MyMapper{
 
 **CGLIB**
 
-```
+```java
 public class AliSmsService {
     public String send(String message) {
         System.out.println("send message:" + message);
@@ -345,28 +343,28 @@ aliSmsService.send("java");
 
 就二者的效率来说，大部分情况都是 JDK 动态代理更优秀，随着 JDK 版本的升级，这个优势更加明显。
 
-## 单例模式
+### 单例模式
 
 **懒汉式**
 
 线程安全与线程不安全区别于synchironized锁 , 加锁导致很大的性能开销，并且加锁其实只需要在第一次初始化的时候用到，之后的调用都没必要再进行加锁。
 
-```
+```java
 public class Singleton {  
     private static Singleton instance;  
     private Singleton (){}  
     public static (synchronized) Singleton getInstance() {  
-    if (instance == null) {  
-        instance = new Singleton();  
-    }  
-    return instance;  
+    	if (instance == null) {  
+        	instance = new Singleton();  
+    	}  
+    	return instance;  
     }  
 }
 ```
 
 **饿汉式**
 
-```
+```java
 public class Singleton {  
     private static Singleton instance = new Singleton();  
     private Singleton (){}  
@@ -380,16 +378,16 @@ public class Singleton {
 
 对饿汉式的优化:先判断对象是否已经被初始化，再决定要不要加锁。
 
-```
+```java
 public class Singleton {  
     private volatile static Singleton singleton;  
     private Singleton (){}  
     public static Singleton getSingleton() {  
     if (singleton == null) {  
         synchronized (Singleton.class) {  
-        if (singleton == null) {  
-            singleton = new Singleton();  
-        }  
+        	if (singleton == null) {  
+           	 	singleton = new Singleton();  
+        	}  
         }  
     }  
     return singleton;  
@@ -403,14 +401,14 @@ public class Singleton {
 
 只有显式调用 getInstance 方法时，才会显式装载 SingletonHolder 类，从而实例化 instance
 
-```
+```java
 public class Singleton {  
     private static class SingletonHolder {  
-    private static final Singleton INSTANCE = new Singleton();  
+    	private static final Singleton INSTANCE = new Singleton();  
     }  
     private Singleton (){}  
     public static final Singleton getInstance() {  
-    return SingletonHolder.INSTANCE;  
+    	return SingletonHolder.INSTANCE;  
     }  
 }
 ```
@@ -419,7 +417,7 @@ public class Singleton {
 
 结合了以上所有方式的优点 ,并且防止反序列化生成对象.
 
-```
+```java
 public enum Singleton {  
     INSTANCE;  
     public void whateverMethod() {  
@@ -427,7 +425,7 @@ public enum Singleton {
 }
 ```
 
-### 为什么双检锁需要volatile
+**为什么双检锁需要volatile**
 
 问题出在` singleton = new Singleton(); `这一行, 其可以分为三个步骤:
 
@@ -456,7 +454,7 @@ public enum Singleton {
 
 在这种情况下，T7时刻线程B对`uniqueSingleton`的访问，访问的是一个**初始化未完成**的对象。
 
-## 工厂模式
+### 工厂模式
 
 角色
 
@@ -470,7 +468,7 @@ public enum Singleton {
 
 抽象产品
 
-```
+```java
 public interface Cpu {
     void calculate();
 }
@@ -478,7 +476,7 @@ public interface Cpu {
 
 具体产品
 
-```
+```java
 public class ACpu implements Cpu {
     @Override
     public void calculate() {
@@ -498,7 +496,7 @@ public class BCpu implements Cpu {
 
 > 创建哪种具体产品类型代码在工厂内部逻辑，如果需要新增具体产品，需要修改工厂类方法, 不符合开-闭原则    
 
-```
+```java
 public class CpuFactory {
     public static Cpu createCpu(Class classType) {
         if (classType.getName().equals(ACpu.class.getName())) {
@@ -517,7 +515,7 @@ public class CpuFactory {
 
 抽象产品
 
-```
+```java
 public interface Cpu {
     void calculate();
 }
@@ -525,7 +523,7 @@ public interface Cpu {
 
 具体产品
 
-```
+```java
 public class ACpu implements Cpu {
     @Override
     public void calculate() {
@@ -543,7 +541,7 @@ public class BCpu implements Cpu {
 
 抽象工厂
 
-```
+```java
 public interface CpuFactory {
     Cpu createCpu();
 }
@@ -551,7 +549,7 @@ public interface CpuFactory {
 
 具体工厂
 
-```
+```java
 public class ACpuFactory implements CpuFactory{
     @Override
     public  Cpu createCpu() {
@@ -569,13 +567,13 @@ public class BCpuFactory implements CpuFactory {
 
 常见的数据库连接工厂，SqlSessionFactory，抽象产品是一个数据库连接，具体产品至于是oracle提供的，还是mysql提供的，我并不需要关心，因为都能让我通过sql来操作数据。
 
-### 抽象工厂模式
+**抽象工厂模式**
 
 抽象工厂模式下，以产品族维度来建厂，一个厂里有多个创建方法，每个创建方法负责创建一个产品线(产品族)
 
 抽象产品
 
-```
+```java
 public interface Cpu {
     void calculate();
 }
@@ -587,7 +585,7 @@ public interface Mainboard {
 
 具体产品
 
-```
+```java
 public class ACpu implements Cpu {
     @Override
     public void calculate() {
@@ -619,7 +617,7 @@ public class BMainboard implements Mainboard {
 
 抽象工厂
 
-```
+```java
 public interface AbatractFactory {
     Cpu createCpu();
     Mainboard createMainboard();
@@ -628,7 +626,7 @@ public interface AbatractFactory {
 
 具体工厂
 
-```
+```java
 public class AFactory implements AbatractFactory {
     @Override
     public Cpu createCpu() {
@@ -656,7 +654,7 @@ public class BFactory implements AbatractFactory {
 >
 > 但缺点是不太容易扩展新的产品:  每给产品族添加新产品时，就要在抽象工厂中添加新产品创建方法，同时要给所有的具体工厂增加接口。
 
-## 装饰模式
+### 装饰模式
 
 ![](picture/decorator01.jpg)
 
@@ -681,7 +679,7 @@ public class BFactory implements AbatractFactory {
 
 抽象构件:
 
-```
+```java
 interface  Component{
     public void operation();
 }
@@ -689,7 +687,7 @@ interface  Component{
 
 具体构件:
 
-```
+```java
 class ConcreteComponent implements Component{
     public ConcreteComponent(){
         System.out.println("创建具体构件角色");       
@@ -702,7 +700,7 @@ class ConcreteComponent implements Component{
 
 抽象装饰(为抽象类, 需要通过构造函数传入被装饰类对象)
 
-```
+```java
 class Decorator implements Component{
     private Component component;   
     public Decorator(Component component){
@@ -716,7 +714,7 @@ class Decorator implements Component{
 
 具体装饰
 
-```
+```java
 class ConcreteDecorator extends Decorator{
     public ConcreteDecorator(Component component){
         super(component);
@@ -733,7 +731,7 @@ class ConcreteDecorator extends Decorator{
 
 使用
 
-```
+```java
 public static void main(String[] args){
     Component component = new ConcreteComponent();
     component.operation();
@@ -743,11 +741,11 @@ public static void main(String[] args){
 }
 ```
 
-> 个人觉得与JDK动态代理类似.
+> 与JDK动态代理类似.
 >
 > 区别: 代理模式的访问控制主要在于对目标可的透明访问, 而装饰模式由客户端对目标类对象进行增强.
 
-## 策略模式
+### 策略模式
 
 ![](picture/stragegy01.jpg)
 
@@ -765,7 +763,7 @@ public static void main(String[] args){
 
 抽象策略
 
-```
+```java
 interface Strategy{   
     public void algorithm();    //策略方法
 }
@@ -773,7 +771,7 @@ interface Strategy{
 
 具体策略
 
-```
+```java
 class ConcreteStrategyA implements Strategy{
     public void algorithm(){
         System.out.println("具体策略A的策略方法被访问！");
@@ -789,7 +787,7 @@ class ConcreteStrategyB implements Strategy{
 
 环境类
 
-```
+```java
 class Context{
     private Strategy strategy;
     public Strategy getStrategy(){
@@ -806,7 +804,7 @@ class Context{
 
 使用
 
-```
+```java
 public static void main(String[] args){
     Context context = new Context();
     Strategy strategyA = new ConcreteStrategyA();
@@ -819,7 +817,7 @@ public static void main(String[] args){
 }
 ```
 
-## 观察者模式
+### 观察者模式
 
 ![](picture/observe.jpg)
 
@@ -838,7 +836,7 @@ public static void main(String[] args){
 
 抽象目标
 
-```
+```java
 abstract class Subject{
     protected List<Observer> observerList = new ArrayList<Observer>();   
     public void add(Observer observer){  		//增加观察者方法
@@ -853,7 +851,7 @@ abstract class Subject{
 
 具体目标
 
-```
+```java
 class ConcreteSubject extends Subject{
    private Integer state;
    public void setState(Integer state){
@@ -880,7 +878,7 @@ interface Observer{
 
 具体观察者
 
-```
+```java
 class ConcreteObserverA implements Observer{
     public void process(){
         System.out.println("具体观察者A处理！");
@@ -896,7 +894,7 @@ class ConcreteObserverB implements Observer{
 
 使用
 
-```
+```java
 public static void main(String[] args){
     Subject subject = new ConcreteSubject();
     Observer obsA = new ConcreteObserverA();
@@ -907,7 +905,7 @@ public static void main(String[] args){
 }
 ```
 
-# IO
+## IO
 
 **io模型**
 
@@ -956,7 +954,7 @@ AIO 即 NIO 2。Java 7 中引入了 NIO 的改进版 NIO 2,它是异步 IO 模�
 
 
 
-## Java NIO
+### Java NIO
 
 Java NIO三大组件: Channel,Buffer,Selector
 
@@ -1053,11 +1051,11 @@ System.out.println("发送的总的字节数=" + transferCount + " 耗时：" + 
 fileChannel.close();
 ```
 
-## Netty
+### Netty
 
 Netty对Java NIO进行封装, 解决Java NIO存在的问题, 具有更好的性能和优化.
 
-### Reactor模式
+#### Reactor模式
 
 Reactor模式思想为结合 I/O多路复用模型 与 线程池.
 
@@ -1109,7 +1107,7 @@ Subreactor 将连接加入到连接队列进行监听,并创建handler进行后�
 
 
 
-### **Netty模型**
+#### **Netty模型**
 
 Netty主要对主从Reactor多线程模型进行了改造:
 
@@ -1124,7 +1122,7 @@ NioEventLoopGroup可以有多个线程,即可以含有多个NioEventLoop.
 
 Pipeline维护多个ChannelHandler处理I/O事件.
 
-### 组件
+#### 组件
 
 1.Bootstrap/ServerBootstrap
 
@@ -1205,7 +1203,7 @@ writerIndex -- capacity 				 可写区域
 
 > ByteBuf也支持零拷贝
 
-# 序列化
+## 序列化
 
 目前springboot , springcloud下 ,都是默认使用基于HTTP的json作为序列化的首选方案.
 
@@ -1233,7 +1231,7 @@ writerIndex -- capacity 				 可写区域
 
 > 目前流行http + json 或 tcp + protobuf 方案
 
-## Protobuf
+### Protobuf
 
 Netty自带的编码解码器底层使用JDK序列化实现, 效率低. 因此采用Google Prototol Buffers(简称Protobuf), 因为其高效的结构化数据存储格式, 适合数据存储与RPC数据交换.
 
@@ -1241,7 +1239,7 @@ Protobuf以message方式来管理数据, 具有高性能和高可靠性以及跨
 
 通过protobuf编译器编译类描述的.proto文件可以生成.java文件:
 
-```
+```protobuf
 syntax = "proto3"; 								//版本
 option java_outer_classname = "StudentPOJO"; 	//外部类名与文件名
 message Student { 								//内部类 为真正发送的对象
@@ -1252,9 +1250,9 @@ string name =2;
 
 最后通过protoc.exe --java_out=.Student.proto编译后便可直接使用.
 
-# javaagent
+## javaagent
 
-## Aspectj-LoadTimeWeaver
+### Aspectj-LoadTimeWeaver
 
 Java中存在三种织入切面方式：编译期织入、类加载期织入和运行期织入。编译期织入是指在Java编译期，采用特殊的编译器，将切面织入到Java类中；而类加载期织入则指通过特殊的类加载器，在类字节码加载到JVM时，织入切面；运行期织入则是采用CGLib工具或JDK动态代理进行切面的织入。 
 
