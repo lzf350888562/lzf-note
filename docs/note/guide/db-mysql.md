@@ -1188,23 +1188,43 @@ class ReadView {
 
 ## 日志
 
-日志类型
+日志文件记录了影响MySQL数据库的各种类型活动.
 
-物理日志:存储了数据被修改的值
+有`error log`、`binlog`、`slow query log`、`log`(查询日志)
 
-逻辑日志:存储了逻辑sql修改语句
+物理日志:存储了数据被修改的值, 如`redo log`
 
-`redo log` 它是物理日志，记录内容是“在某个数据页上做了什么修改”，属于 `InnoDB` 存储引擎，恢复速度远快于逻辑日志。让`InnoDB`存储引擎拥有了崩溃恢复能力。
+逻辑日志:存储了逻辑sql修改语句, 如`binlog`
 
-`binlog` 是逻辑日志，记录内容是语句的原始逻辑，类似于“给 ID=2 这一行的 c 字段加 1”，属于`MySQL Server` 层。不管用什么存储引擎，只要发生了表数据更新，都会产生 `binlog` 日志。保证了`MySQL`集群架构的数据一致性。
+### binlog
 
+> 查询最近记录binlog的内容:
+>
+> ```
+> mysql>show master status;
+> # 根据返回的第一行的File列的值,发起下一步查询
+> mysql>show binlog events in 'xxx';
+> ```
 
+`binlog`会记录所有涉及更新数据的逻辑操作，并且是顺序写
 
-### binlog(归档日志)
+用于恢复、复制与审计. 
 
-`MySQL`数据库的**数据备份、主备、主主、主从**都离不开`binlog`，需要依靠`binlog`来同步数据，保证数据一致性。![img](picture/01.png)
+binlog文件名由`log-bin`参数指定, 默认为主机名, 后缀为binlog的序列号, binlog路径为数据库所在目录(datadir参数控制). 另外, 还会存在一个同名但后缀为.index的文件, 用于存储binlog的序号.
 
-`binlog`会记录所有涉及更新数据的逻辑操作，并且是顺序写。
+`max_binlog_size`指定单个binlog文件最大大小, 若超过该值则生成新文件, 并且后缀名的序列号加一, 然后记录到.index文件. 默认1G.
+
+**日志写**
+
+在InnoDB中使用事务时, 未提交的binlog会被记录到binlog cache中, 当事务提交时将binlog cache中的日志写入binlog文件. binlog cache是**基于session**的( 也可认为是基于thread的 ), 如果一个事务的记录大于`binlog_cache_size`, 则会写入到一个临时文件.
+
+> binlog_cache_size默认32K, 其既不能太大也不能太小, 可通过
+>
+> `show global status`查看以下参数决定是否增加binlog_cache_size:
+>
+> binlog_cache_use: 记录使用binlog cache次数;
+>
+> binlog_cache_disk_use: 记录使用临时文件次数, 如果该值为0或很小, 表示当前binlog cache已经够用.][
 
 **记录格式**
 
@@ -1239,16 +1259,6 @@ class ReadView {
 `MySQL`会判断这条`SQL`语句是否可能引起数据不一致，如果是，就用`row`格式，否则就用`statement`格式。
 
 
-
-**写入机制**
-
-事务执行过程中，先把日志写到`binlog cache`，事务提交的时候，再把`binlog cache`写到`binlog`文件中。
-
-因为一个事务的`binlog`不能被拆开，无论这个事务多大，也要确保一次性写入，所以系统会给每个线程分配一个块内存作为`binlog cache`。
-
-我们可以通过`binlog_cache_size`参数控制单个线程 binlog cache 大小，如果存储内容超过了这个参数，就要暂存到磁盘（`Swap`）。
-
-![img](picture/04-16379865689264.png)
 
 - **上图的 write，是指把日志写入到文件系统的 page cache，并没有把数据持久化到磁盘，所以速度比较快**
 - **上图的 fsync，才是将数据持久化到磁盘的操作**
