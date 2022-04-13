@@ -114,10 +114,6 @@ dependency:list能列出项目所有已解析的依赖;
 
 POM全局配置方式可一次性配置之后所有基于该插件目标的任务都会使用该配置, 如可参考通过maven-compile-plugin插件指定编译的java版本
 
-# 测试
-
-在JUnit4标准下, 所有需要执行的测试方法都以test开头, 并以@Test标注
-
 # 问题
 
 ## 默认jar无法运行
@@ -126,7 +122,7 @@ POM全局配置方式可一次性配置之后所有基于该插件目标的任�
 
 解决方案: 通过配置maven-shade-plugin插件, mainClass标签设置为包含main方法的类, 接下来打包完就可以直接执行了
 
-```
+```java
 <plugin>
 	<groupId>org.apache.maven.plugins</groupId>
 	<artifactId>maven-shade-plugin</artifactId>
@@ -153,7 +149,7 @@ POM全局配置方式可一次性配置之后所有基于该插件目标的任�
 
 # maven私服
 
-### 私服说明 
+
 
 maven仓库分为本地仓库和远程仓库，而远程仓库又分为maven中央仓库、其他远程仓库和私服（私有服务器）。其中，中央仓库是由maven官方提供的，而私服就需要我们自己搭建了。
 

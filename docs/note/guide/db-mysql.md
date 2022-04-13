@@ -201,9 +201,15 @@ InnoDB内存区中独立与缓冲池之外, InnoDB先将重做日志信息放入
 
 ②每个事务提交时(默认);
 
-③当重做日志缓冲池剩余空闲小于1/2时.
+> 通过 `innodb_flush_log_at_trx_commit` 选择事务提交时的刷盘策略：
+>
+> 0：表示每次事务提交时不进行刷盘操作 (有丢失风险)
+>
+> 1：表示每次事务提交时都将进行刷盘操作（默认值, 包括写入文件系统page cache + fsync真正刷盘, 这也是为了保证事务的持久性必须的选项）
+>
+> 2：表示每次事务提交时都只把 redo log buffer 内容写入 page cache (有丢失风险, 仅MySQL宕机除外)
 
-> Write Ahead Log: 事务提交时, 先写重做日志, 再修改页. 当宕机时, 可通过重做日志完成数据恢复.
+③当重做日志缓冲池剩余空闲小于1/2时.
 
 4.额外的内存池
 
@@ -223,7 +229,7 @@ checkpoint技术主要解决以下问题:
 
 3.重做日志不可用时:
 
-重做日志的设计为固定大小循环使用, 对checkpoint之前的部分进行覆盖重用, 若无法覆盖时, 需要强制执行checkpoint将缓冲池中的页至少刷新到当前重做日志的位置, 将checkpoint位置后推.
+重做日志的设计为固定大小循环使用(重做日志文件组), 对checkpoint之前的部分进行覆盖重用, 若无法覆盖时, 需要强制执行checkpoint将缓冲池中的页至少刷新到当前重做日志的位置, 将checkpoint位置后推.
 
 InnoDB存在4种checkpoint情况:
 
@@ -285,7 +291,7 @@ B+树高度一般为3或4, 即需要3-4次查询, InnoDB会监控对表上各索
 
 用户在发出一个IO请求后立即再发出另一个IO请求, 当全部IO请求发送完毕后, 等待所有IO操作完成.
 
-AIO还可以进行IO Merge, 通过多个页的(space,offset)判断是否连续, 将多个IO合并为一个IO.
+AIO还可以进行IO Merge, 通过多个页的(space,page_no)判断是否连续, 将多个IO合并为一个IO.
 
 5.刷新临接页:
 
@@ -329,9 +335,9 @@ Insert Buffer的数据结构为一棵全局B+树(MySQL4.1之前每张表都有�
 
 > 不能通过独立表空间idb文件恢复表数据, 因为表的二级索引数据可能还在Insert Buffer中, 需要通过其来重建二级索引.
 
-B+树的非叶子节点为search key(9字节), 包含表示待插入记录所在表空间id(InnoDB中每个表都有一个唯一的表空间id)的space项, 用来兼容老版的marker项, 表示页所在偏移量的offset项. 根据(space,offset)可定位一个页.
+B+树的非叶子节点为search key(9字节), 包含表示待插入记录所在表空间id(InnoDB中每个表都有一个唯一的表空间id)的space项, 用来兼容老版的marker项, 表示页所在偏移量的page_no项. 根据(space,page_no)可定位一个页.
 
-当一个二级索引要插入到页(space,offset)时, 若页不存在与缓冲池, 则会创建一个search key, 然后将记录插入到叶子节点中.
+当一个二级索引要插入到页(space,page_no)时, 若页不存在与缓冲池, 则会创建一个search key, 然后将记录插入到叶子节点中.
 
 叶子节点除了包含非叶子节点的项之外, 还包含metadata项(4字节) 和 二级索引记录.
 
@@ -356,6 +362,130 @@ doublewrite由 内存中2MB的doublewrite buffer 和 磁盘上共享表空间(ib
 在对缓冲池脏页进行刷新时, 不直接写盘, 先通过memcpy函数将脏页复制到内存的doublewrite buffer中, 然后从doublewrite buffer中分两次**顺序写入**到磁盘共享表空间中连续的页, 每次1MB, 最后马上调用fsync函数同步磁盘各个表空间文件(.idb)(**离散写**).
 
 此时如果服务器在页写入磁盘时发生故障, 在恢复过程中, InnoDB可以从共享表空间中的doublewrite中找到该页的一个副本, 覆盖到表空间文件的失效页, 再应用重做日志.
+
+### 表空间文件
+
+InnoDB将**数据**按表空间进行存储,  默认将存在一个初始大小为10MB的idbata1的默认表空间文件, 可通过`innodb_data_file_path`进行设置, 并可通过该将多个文件组成一个表空间, 如下列配置表示两个2000MB的文件, 并且满了时允许自动扩展:
+
+```
+innodb_data_file_path = /db/ibdata1:2000M;/db/ibdata2:2000M;autoextend
+```
+
+> 可将多个表空间文件设置在不同的磁盘上, 以达到负载均衡的效果提高性能.
+
+若开启`innodb_file_per_table`, 则每个InnoDB表将产生一个独立的表空间, 文件名为 表名.idb; 否则将数据记录到`innodb_Data_file_path`指定的共享表空间中.
+
+## 日志
+
+日志文件记录了影响MySQL数据库的各种类型活动.
+
+有`error log`、`binlog`、`slow query log`、`log`(查询日志)
+
+物理日志:存储了数据被修改的值, 如`redo log`
+
+逻辑日志:存储了逻辑sql修改语句, 如`binlog`(statement)
+
+### binlog
+
+> 查询最近记录binlog的事件:
+>
+> ```
+> mysql>show master status;
+> # 根据返回的第一行的File列的值,发起下一步查询
+> mysql>show binlog events in 'xxx';
+> ```
+
+`binlog`会记录所有涉及更新数据的逻辑操作，用于恢复、复制与审计. 
+
+binlog文件名由`log-bin`参数指定, 默认为主机名, 后缀为binlog的序列号, binlog路径为数据库所在目录(datadir参数控制). 另外, 还会存在一个同名但后缀为.index的文件, 用于存储binlog的序号.
+
+`max_binlog_size`指定单个binlog文件最大大小, 若超过该值则生成新文件, 并且后缀名的序列号加一, 然后记录到.index文件. 默认1G.
+
+事务中所有未提交的binlog将写入binlog cache, binlog cache是基于session的( 也可认为是基于thread的 ), 如果一个事务的记录大于`binlog_cache_size`, 则会写入到一个临时文件.
+
+> binlog_cache_size默认32K, 其既不能太大也不能太小, 可通过
+>
+> `show global status`查看以下参数决定是否增加binlog_cache_size:
+>
+> binlog_cache_use: 记录使用binlog cache次数;
+>
+> binlog_cache_disk_use: 记录使用临时文件次数, 如果该值为0或很小, 表示当前binlog cache已经够用.
+
+`sync_binlog`参数可设置刷盘时机, 表示在多少次事务提交时写入到磁盘(write page cache + fsync), 当数据库宕机时将丢失最近N此事务的记录; 如果为0表示由操作系统负责刷盘.
+
+> `binlog_do-db`和`binlog_ignore-db`可用来控制写入或忽略哪些库的日志, 默认为空即全部写入.
+
+**二进制日志格式**
+
+- statement : 记录逻辑SQL语句, 即SQL原文
+- row : 记录行更改情况 ( 比statement大很多很多, 增加了磁盘和网络的要求, 但可为数据的恢复和复制带来更好的可靠性  )
+- mixed : 二者混合, 默认使用更小的statement, 但在使用了如UUID函数的情况下将使用row.
+
+> 因为binlog为二进制文件格式, 所以不能像其他如慢查询日志一样直接查看, 必须通过mysqlbinlog工具查看, 如`mysqlbinlog --start-position=<pos> <文件名>`, 两个参数都可通过`show master status获得`.  row格式需要加-v或-vv参数查看.
+
+### Redo log
+
+前提: 重做日志先写入redo log buffer , 可见InnoDB -> [内存](#内存).
+
+InnoDB数据目录下默认存在的的ib_logfile0和ib_logfile1即重做日志文件 ( 也叫InnoDB存储引擎的日志文件,  这点可从设置参数上看出 ),用于实例故障时数据的恢复, 保证数据完整性.
+
+> Write Ahead Log: 事务提交时, 先写重做日志, 再修改页. 当宕机时, 可通过重做日志完成数据恢复.
+
+InnoDB至少需要一个重做日志文件组, 每个文件组至少需要两个重做日志文件. 每个重做日志文件**大小一致, 循环写入**.
+
+> 重做日志文件组中会记录当前写入的位置和当前(与磁盘)同步的位置
+
+`innodb_log_file_size`指定每个重做日志文件大小, `innodb_log_file_in_group`指定日志文件组中重做日志文件的数量(默认2), `innodb_mirrored_log_groups`指定日志镜像文件组的数量(默认1), `innodb_log_group_home_dir`表示日志文件组所在路径(默认./)
+
+> `innodb_mirrored_log_groups`默认1表示只存在一个日志文件组, 没有镜像. 实际中可设置该值>1开启日志镜像, 提高重做日志的高可用. 若磁盘本身已经进行了高可用, 可不开启镜像
+
+若重做日志文件大小设置的太大, 则会导致恢复时间过长; 若重做日志大小设置的太小, 会因为文件很快就满了而频繁触发async checkpoint对脏页刷盘.
+
+不同的操作有不同的重做日志类型, 基本格式为:
+
+`redo_log_type(1B, 类型) +  space(表空间id) + page_no(页偏移量) + 内容 `
+
+### 二阶段提交
+
+在执行更新语句过程，会记录`redo log`与`binlog`两块日志，以基本的事务为单位，`redo log`在事务执行过程中可以不断写入，而`binlog`只有在提交事务时才写入，所以`redo log`与`binlog`的写入时机不一样。
+
+![img](picture/01-16379872985449.png)
+
+如果`redo log`与`binlog`两份日志之间的逻辑不一致，会出现什么问题？
+
+我们以`update`语句为例，假设`id=2`的记录，字段`c`值是`0`，把字段`c`值更新成`1`，`SQL`语句为`update T set c=1 where id=2`。
+
+**假设执行过程中写完`redo log`日志后，`binlog`日志写期间发生了异常**，会出现什么情况呢？
+
+![img](picture/02-163798743991011.png)
+
+由于`binlog`没写完就异常，这时候`binlog`里面没有对应的修改记录。因此，之后用`binlog`日志恢复数据时(从库同步)，就会少这一次更新，恢复出来的这一行`c`值是`0`，而原库因为`redo log`日志恢复，这一行`c`值是`1`，最终数据不一致。
+
+![img](picture/03-163798748831313.png)
+
+为了解决两份日志之间的逻辑一致问题，`InnoDB`存储引擎使用**两阶段提交**方案。
+
+原理很简单，将`redo log`的写入拆成了两个步骤`prepare`和`commit`，这就是**两阶段提交**。
+
+![img](picture/04-163798757064415.png)
+
+使用**两阶段提交**后，写入`binlog`时发生异常也不会有影响，因为`MySQL`根据`redo log`日志恢复数据时，发现`redo log`还处于`prepare`阶段，并且没有对应`binlog`日志，就会回滚该事务。![img](picture/05-163798761159717.png)
+
+**假如`redo log`设置`commit`阶段发生异常**，那会不会回滚事务呢？
+
+并不会回滚事务，它会执行上图框住的逻辑，虽然`redo log`是处于`prepare`阶段，但是能通过事务`id`找到对应的`binlog`日志，所以`MySQL`认为是完整的，就会提交事务恢复数据。
+
+
+
+### undolog(回滚日志)
+
+保证事务的**原子性**。
+
+对表进行修改时, 原先的行被标记为删除, 但一致性定读需要暴露这些行的版本信息.
+
+所有事务进行的修改都会先记录到**回滚日志**中，然后再执行相关的操作。如果执行过程中遇到异常的话，我们直接利用 **回滚日志** 中的信息将数据回滚到修改之前的样子即可！并且，回滚日志会先于数据持久化到磁盘上。这样就保证了即使遇到数据库突然宕机等情况，当用户再次启动数据库的时候，数据库还能够通过查询回滚日志来回滚将之前未完成的事务。
+
+另外，`MVCC` 的实现依赖于：**隐藏字段、Read View、undo log**。
 
 ## 索引
 
@@ -1186,210 +1316,6 @@ class ReadView {
 
 
 
-## 日志
-
-日志文件记录了影响MySQL数据库的各种类型活动.
-
-有`error log`、`binlog`、`slow query log`、`log`(查询日志)
-
-物理日志:存储了数据被修改的值, 如`redo log`
-
-逻辑日志:存储了逻辑sql修改语句, 如`binlog`
-
-### binlog
-
-> 查询最近记录binlog的内容:
->
-> ```
-> mysql>show master status;
-> # 根据返回的第一行的File列的值,发起下一步查询
-> mysql>show binlog events in 'xxx';
-> ```
-
-`binlog`会记录所有涉及更新数据的逻辑操作，并且是顺序写
-
-用于恢复、复制与审计. 
-
-binlog文件名由`log-bin`参数指定, 默认为主机名, 后缀为binlog的序列号, binlog路径为数据库所在目录(datadir参数控制). 另外, 还会存在一个同名但后缀为.index的文件, 用于存储binlog的序号.
-
-`max_binlog_size`指定单个binlog文件最大大小, 若超过该值则生成新文件, 并且后缀名的序列号加一, 然后记录到.index文件. 默认1G.
-
-**日志写**
-
-在InnoDB中使用事务时, 未提交的binlog会被记录到binlog cache中, 当事务提交时将binlog cache中的日志写入binlog文件. binlog cache是**基于session**的( 也可认为是基于thread的 ), 如果一个事务的记录大于`binlog_cache_size`, 则会写入到一个临时文件.
-
-> binlog_cache_size默认32K, 其既不能太大也不能太小, 可通过
->
-> `show global status`查看以下参数决定是否增加binlog_cache_size:
->
-> binlog_cache_use: 记录使用binlog cache次数;
->
-> binlog_cache_disk_use: 记录使用临时文件次数, 如果该值为0或很小, 表示当前binlog cache已经够用.][
-
-**记录格式**
-
-`binlog` 日志有三种格式，可以通过`binlog_format`参数指定。
-
-- **statement**
-
-记录的内容是`SQL`语句原文，比如执行一条`update T set update_time=now() where id=1`.
-
-![img](picture/02.png)
-
-同步数据时，会执行记录的`SQL`语句，但是有个问题，`update_time=now()`这里会获取当前系统时间，直接执行会导致与原库的数据不一致。
-
-- **row**
-
-为了解决`statement`存在的问题，我们需要指定为`row`，记录的内容不再是简单的`SQL`语句了，还包含操作的具体数据
-
-![img](picture/03-16379862797752.png)
-
-`row`格式记录的内容看不到详细信息，要通过`mysqlbinlog`工具解析出来。
-
-`update_time=now()`变成了具体的时间`update_time=1627112756247`，条件后面的@1、@2、@3 都是该行数据第 1 个~3 个字段的原始值（**假设这张表只有 3 个字段**）。
-
-这样就能保证同步数据的一致性，通常情况下都是指定为`row`，这样可以为数据库的恢复与同步带来更好的可靠性。
-
-但是这种格式，需要更大的容量来记录，比较占用空间，恢复与同步时会更消耗`IO`资源，影响执行速度。
-
-- **mixed**
-
-`statement`和`row`的折中方案,
-
-`MySQL`会判断这条`SQL`语句是否可能引起数据不一致，如果是，就用`row`格式，否则就用`statement`格式。
-
-
-
-- **上图的 write，是指把日志写入到文件系统的 page cache，并没有把数据持久化到磁盘，所以速度比较快**
-- **上图的 fsync，才是将数据持久化到磁盘的操作**
-
-`write`和`fsync`的时机，可以由参数`sync_binlog`控制，默认是`0`。表示每次提交事务都只`write`，由系统自行判断什么时候执行`fsync`。
-
-![img](picture/05-16379867069256.png)
-
-虽然性能得到提升，但是机器宕机，`page cache`里面的 binglog 会丢失。
-
-为了安全起见，可以设置为`1`，表示每次提交事务都会执行`fsync`，就如同**binlog 日志刷盘流程**一样。
-
-最后还有一种折中方式，可以设置为`N(N>1)`，表示每次提交事务都`write`，但累积`N`个事务后才`fsync`。
-
-![img](picture/06.png)
-
-在出现`IO`瓶颈的场景里，将`sync_binlog`设置成一个比较大的值，可以提升性能。
-
-同样的，如果机器宕机，会丢失最近`N`个事务的`binlog`日志。
-
-
-
-### redolog(重做日志)
-
- 保证事务的**持久性**
-
-InnoDB内存可用来保存更新的结果, 再配合redolog, 避免随机写盘. 其内存的数据页在Buffer Pool中进行管理. 如当我们想要修改DB上某一行数据的时候， InnoDB是把**数据页(16KB)从磁盘读取到内存的Buffer Pool**上进行修改。
-
-> Buffer Pool hit pool表示Buffer Pool命中率, 通常一个响应时间符合要求的服务端, 命中率要在99%以上. 可通过`show engine innodb status`查看.
->
-> Buffer Pool可通过innodb_buffer_pool_size修改大小.
-
-因为数据在内存中被修改，与磁盘中相比就存在 了差异，我们称这种有差异的数据为脏页。**InnoDB对脏页的处理不是每次生成脏页就将脏页刷新回磁盘，这样会产生海量的随机IO操作，严重影响InnoDB的处理性能**。
-
-既然脏页与磁盘中的数据存在差异，那么如果在这期间DB 出现故障就会造成数据的丢失。为了解决这个问题，redo log就应运而生了。innodb把每次更新的数据写入redo log buffer(还在innodb中,没有持久化到磁盘), 之后对该数据页的查询走内存即可.
-
-![img](picture/03.png)
-
->每条 redo 记录由“表空间号+数据页号+偏移量+修改数据长度+具体修改的数据”组成
-
-**刷盘时机**(避免随机写)
-
-`InnoDB` 存储引擎为 `redo log` 的刷盘策略提供了 `innodb_flush_log_at_trx_commit` 参数，它支持三种策略：
-
-- **0** ：设置为 0 的时候，表示每次事务提交时不进行刷盘操作
-- **1** ：设置为 1 的时候，表示每次事务提交时都将进行刷盘操作（默认值）
-- **2** ：设置为 2 的时候，表示每次事务提交时都只把 redo log buffer 内容写入 page cache
-
-`innodb_flush_log_at_trx_commit` 参数默认为 1 ，也就是说当事务提交时会调用 `fsync` 对 redo log 进行刷盘
-
-`InnoDB` 存储引擎有一个后台线程(master thread)，每隔`1` 秒，就会把 `redo log buffer` 中的内容写到文件系统缓存（`page cache`），然后调用 `fsync` 刷盘。(所以一个没有提交事务的`redo log`记录,也可能会刷盘)
-
-![img](picture/05.png)
-
-除了后台线程每秒`1`次的轮询操作，还有一种情况，当 `redo log buffer` 占用的空间即将达到 `innodb_log_buffer_size` 一半的时候，后台线程会主动刷盘。
-
-在第一种刷盘策略0下 : 因为仅通过后台线程1s刷盘一次,如果宕机或mysql挂了(因为`redo log buffer属于innodb`),可能会丢失1s内的数据;
-
-在第二种刷盘策略1下 :   只要事务提交成功，`redo log`记录就一定在硬盘里，不会有任何数据丢失。如果事务执行期间`MySQL`挂了或宕机，这部分日志丢了，但是事务并没有提交，所以日志丢了也不会有损失;
-
-在第三种刷盘策略2下 : 只要事务提交成功，`redo log buffer`中的内容只写入文件系统缓存（`page cache`）。如果仅仅只是`MySQL`挂了不会有任何数据丢失，但是宕机可能会有`1`秒数据的丢失。
-
-**日志文件组**
-
-硬盘上存储的 `redo log` 日志文件不只一个，而是以一个**日志文件组**的形式出现的，每个的`redo`日志文件大小都是一样的。
-
-比如可以配置为一组`4`个文件，每个文件的大小是 `1GB`，整个 `redo log` 日志文件组可以记录`4G`的内容。
-
-它采用的是环形数组形式，从头开始写，写到末尾又回到头循环写，如下图所示。
-
-![img](picture/10.png)
-
-在个**日志文件组**中还有两个重要的属性，分别是 `write pos、checkpoint`
-
-- **write pos** 是当前记录的位置，一边写一边后移
-- **checkpoint** 是当前要擦除的位置，也是往后推移
-
-每次刷盘 `redo log` 记录到**日志文件组**中，`write pos` 位置就会后移更新。
-
-每次 `MySQL` 加载**日志文件组**恢复数据时，会清空加载过的 `redo log` 记录，并把 `checkpoint` 后移更新。
-
-`write pos前` 和 `checkpoint后` 之间的还空着的部分可以用来写入新的 `redo log` 记录。
-
-![img](picture/11.png)
-
-如果 `write pos` 追上 `checkpoint` ，表示**日志文件组**满了，这时候不能再写入新的 `redo log` 记录，`MySQL` 得停下来，清空一些记录，把 `checkpoint` 推进一下。
-
-![img](picture/12.png)
-
-### 二阶段提交
-
-在执行更新语句过程，会记录`redo log`与`binlog`两块日志，以基本的事务为单位，`redo log`在事务执行过程中可以不断写入，而`binlog`只有在提交事务时才写入，所以`redo log`与`binlog`的写入时机不一样。
-
-![img](picture/01-16379872985449.png)
-
-如果`redo log`与`binlog`两份日志之间的逻辑不一致，会出现什么问题？
-
-我们以`update`语句为例，假设`id=2`的记录，字段`c`值是`0`，把字段`c`值更新成`1`，`SQL`语句为`update T set c=1 where id=2`。
-
-**假设执行过程中写完`redo log`日志后，`binlog`日志写期间发生了异常**，会出现什么情况呢？
-
-![img](picture/02-163798743991011.png)
-
-由于`binlog`没写完就异常，这时候`binlog`里面没有对应的修改记录。因此，之后用`binlog`日志恢复数据时(从库同步)，就会少这一次更新，恢复出来的这一行`c`值是`0`，而原库因为`redo log`日志恢复，这一行`c`值是`1`，最终数据不一致。
-
-![img](picture/03-163798748831313.png)
-
-为了解决两份日志之间的逻辑一致问题，`InnoDB`存储引擎使用**两阶段提交**方案。
-
-原理很简单，将`redo log`的写入拆成了两个步骤`prepare`和`commit`，这就是**两阶段提交**。
-
-![img](picture/04-163798757064415.png)
-
-使用**两阶段提交**后，写入`binlog`时发生异常也不会有影响，因为`MySQL`根据`redo log`日志恢复数据时，发现`redo log`还处于`prepare`阶段，并且没有对应`binlog`日志，就会回滚该事务。![img](picture/05-163798761159717.png)
-
-**假如`redo log`设置`commit`阶段发生异常**，那会不会回滚事务呢？
-
-并不会回滚事务，它会执行上图框住的逻辑，虽然`redo log`是处于`prepare`阶段，但是能通过事务`id`找到对应的`binlog`日志，所以`MySQL`认为是完整的，就会提交事务恢复数据。
-
-
-
-### undolog(回滚日志)
-
-保证事务的**原子性**。
-
-对表进行修改时, 原先的行被标记为删除, 但一致性定读需要暴露这些行的版本信息.
-
-所有事务进行的修改都会先记录到**回滚日志**中，然后再执行相关的操作。如果执行过程中遇到异常的话，我们直接利用 **回滚日志** 中的信息将数据回滚到修改之前的样子即可！并且，回滚日志会先于数据持久化到磁盘上。这样就保证了即使遇到数据库突然宕机等情况，当用户再次启动数据库的时候，数据库还能够通过查询回滚日志来回滚将之前未完成的事务。
-
-另外，`MVCC` 的实现依赖于：**隐藏字段、Read View、undo log**。
-
 ## 文件排序
 
 当无法利用索引进行排序或使用索引时回表数据量大时, MySQL需要进行文件排序: 
@@ -1447,6 +1373,8 @@ MySQL主从同步方案有异步复制, 半同步复制(保证一台从节点同
 
 这种方式目前在各种互联网公司中用的最多的，相关的实际的案例也非常多。比如 `sharding-jdbc` ，直接引入 jar 包即可使用，非常方便。
 
+> 主从复制中的slave默认不会进行写binlog, 但在master-slave-slave架构下, 需要设置`log-slave-update`参数开启slave的写binlog功能.
+
 ### 读写分离下的不一致
 
 问题:**主从同步延迟**, 如往主库写完立马在从库查询, 但从库并没有来得及同步.
@@ -1489,12 +1417,7 @@ MySQL 5.7.17插件, 支持故障检测以及多节点写入, 适用于金融交�
 MGR约束:
 
 ```
-1、仅支持InnoDB表，并且每张表一定要有一个主键，用于做write set的冲突检测;
-2、必须打开GTID特性，二进制日志格式必须设置为ROW，用于选主与writeset；主从状态信息存于表中（--master-info-repository=TABLE)、--relay-log-info-repository=TABLE），--log-slave-updates打开
-3、MGR不支持大事务，事务大小最好不超过143MB，当事务过大，无法在5秒的时间内通过网络在组成员之间复制消息，则可能会怀疑成员失败了，然后将其驱逐出局
-4、目前一个MGR集群最多支持9个节点
-5、不支持外键于save point特性，无法做全局间的约束检测与部分事务回滚
-6、二进制日志不支持Binlog Event Checksum
+1、仅支持InnoDB表，并且每张表一定要有一个主键，用于做write set的冲突检测;2、必须打开GTID特性，二进制日志格式必须设置为ROW，用于选主与writeset；主从状态信息存于表中（--master-info-repository=TABLE)、--relay-log-info-repository=TABLE），--log-slave-updates打开3、MGR不支持大事务，事务大小最好不超过143MB，当事务过大，无法在5秒的时间内通过网络在组成员之间复制消息，则可能会怀疑成员失败了，然后将其驱逐出局4、目前一个MGR集群最多支持9个节点5、不支持外键于save point特性，无法做全局间的约束检测与部分事务回滚6、二进制日志不支持Binlog Event Checksum
 ```
 
 
@@ -1806,177 +1729,7 @@ E：5, 10, 15, 20, 25
 
 **方案4:Twitter的分布式自增ID算法snowflake**
 
-Twitter的snowflake解决了这种需求，最初Twitter把存储系统从MySQL迁移到Cassandra（由Facebook开发一套开源分布式NoSQL数据库系统）。因为Cassandra没有顺序ID生成机制，所以开发了这样一套全局唯一生成服务。
-
-Twitter的分布式雪花算法SnowFlake ，经测试snowflake 每秒能够产生26万个自增可排序的ID
-
-Twitter的SnowFlake生成ID能够按照时间有序生成。
-SnowFlake算法生成ID的结果是一个64bit大小的整数， 为一个Long型（转换成字符串后长度最多19）。
-分布式系统内不会产生ID碰撞（由datacenter和workerld作区分）并且效率较高。
-
-雪花算法的几个核心组成部分：
-
-![slowflack](picture/slowflack-16376832580722.png)
-
-实现雪花算法时需要注意时间回拨带来的影响
-
-实现
-
-```java
-/**
- * <p>名称：IdWorker.java</p>
- * <p>描述：分布式自增长ID</p>
- * <pre>
- *     Twitter的 Snowflake　JAVA实现方案
- * </pre>
- * 核心代码为其IdWorker这个类实现，其原理结构如下，我分别用一个0表示一位，用—分割开部分的作用：
- * 1||0---0000000000 0000000000 0000000000 0000000000 0 --- 00000 ---00000 ---000000000000
- * 在上面的字符串中，第一位为未使用（实际上也可作为long的符号位），接下来的41位为毫秒级时间，
- * 然后5位datacenter标识位，5位机器ID（并不算标识符，实际是为线程标识），
- * 然后12位该毫秒内的当前毫秒内的计数，加起来刚好64位，为一个Long型。
- * 这样的好处是，整体上按照时间自增排序，并且整个分布式系统内不会产生ID碰撞（由datacenter和机器ID作区分），
- * 并且效率较高，经测试，snowflake每秒能够产生26万ID左右，完全满足需要。
- * <p>
- * 64位ID (42(毫秒)+5(机器ID)+5(业务编码)+12(重复累加))
- *
- */
-public class IdWorker {
-    // 时间起始标记点，作为基准，一般取系统的最近时间（一旦确定不能变动）
-    private final static long twepoch = 1288834974657L;
-    // 机器标识位数
-    private final static long workerIdBits = 5L;
-    // 数据中心标识位数
-    private final static long datacenterIdBits = 5L;
-    // 机器ID最大值
-    private final static long maxWorkerId = -1L ^ (-1L << workerIdBits);
-    // 数据中心ID最大值
-    private final static long maxDatacenterId = -1L ^ (-1L << datacenterIdBits);
-    // 毫秒内自增位
-    private final static long sequenceBits = 12L;
-    // 机器ID偏左移12位
-    private final static long workerIdShift = sequenceBits;
-    // 数据中心ID左移17位
-    private final static long datacenterIdShift = sequenceBits + workerIdBits;
-    // 时间毫秒左移22位
-    private final static long timestampLeftShift = sequenceBits + workerIdBits + datacenterIdBits;
-
-    private final static long sequenceMask = -1L ^ (-1L << sequenceBits);
-    /* 上次生产id时间戳 */
-    private static long lastTimestamp = -1L;
-    // 0，并发控制
-    private long sequence = 0L;
-
-    private final long workerId;
-    // 数据标识id部分
-    private final long datacenterId;
-
-    public IdWorker(){
-        this.datacenterId = getDatacenterId(maxDatacenterId);
-        this.workerId = getMaxWorkerId(datacenterId, maxWorkerId);
-    }
-    /**
-     * @param workerId
-     *            工作机器ID
-     * @param datacenterId
-     *            序列号
-     */
-    public IdWorker(long workerId, long datacenterId) {
-        if (workerId > maxWorkerId || workerId < 0) {
-            throw new IllegalArgumentException(String.format("worker Id can't be greater than %d or less than 0", maxWorkerId));
-        }
-        if (datacenterId > maxDatacenterId || datacenterId < 0) {
-            throw new IllegalArgumentException(String.format("datacenter Id can't be greater than %d or less than 0", maxDatacenterId));
-        }
-        this.workerId = workerId;
-        this.datacenterId = datacenterId;
-    }
-    /**
-     * 获取下一个ID
-     *
-     * @return
-     */
-    public synchronized long nextId() {
-        long timestamp = timeGen();
-        if (timestamp < lastTimestamp) {
-            throw new RuntimeException(String.format("Clock moved backwards.  Refusing to generate id for %d milliseconds", lastTimestamp - timestamp));
-        }
-
-        if (lastTimestamp == timestamp) {
-            // 当前毫秒内，则+1
-            sequence = (sequence + 1) & sequenceMask;
-            if (sequence == 0) {
-                // 当前毫秒内计数满了，则等待下一秒
-                timestamp = tilNextMillis(lastTimestamp);
-            }
-        } else {
-            sequence = 0L;
-        }
-        lastTimestamp = timestamp;
-        // ID偏移组合生成最终的ID，并返回ID
-        long nextId = ((timestamp - twepoch) << timestampLeftShift)
-                | (datacenterId << datacenterIdShift)
-                | (workerId << workerIdShift) | sequence;
-
-        return nextId;
-    }
-
-    private long tilNextMillis(final long lastTimestamp) {
-        long timestamp = this.timeGen();
-        while (timestamp <= lastTimestamp) {
-            timestamp = this.timeGen();
-        }
-        return timestamp;
-    }
-
-    private long timeGen() {
-        return System.currentTimeMillis();
-    }
-
-    /**
-     * <p>
-     * 获取 maxWorkerId
-     * </p>
-     */
-    protected static long getMaxWorkerId(long datacenterId, long maxWorkerId) {
-        StringBuffer mpid = new StringBuffer();
-        mpid.append(datacenterId);
-        String name = ManagementFactory.getRuntimeMXBean().getName();
-        if (!name.isEmpty()) {
-            /*
-             * GET jvmPid
-             */
-            mpid.append(name.split("@")[0]);
-        }
-        /*
-         * MAC + PID 的 hashcode 获取16个低位
-         */
-        return (mpid.toString().hashCode() & 0xffff) % (maxWorkerId + 1);
-    }
-
-    /**
-     * <p>
-     * 数据标识id部分
-     * </p>
-     */
-    protected static long getDatacenterId(long maxDatacenterId) {
-        long id = 0L;
-        try {
-            InetAddress ip = InetAddress.getLocalHost();
-            NetworkInterface network = NetworkInterface.getByInetAddress(ip);
-            if (network == null) {
-                id = 1L;
-            } else {
-                byte[] mac = network.getHardwareAddress();
-                id = ((0x000000FF & (long) mac[mac.length - 1])
-                        | (0x0000FF00 & (((long) mac[mac.length - 2]) << 8))) >> 6;
-                id = id % (maxDatacenterId + 1);
-            }
-        } catch (Exception e) {
-            System.out.println(" getDatacenterId: " + e.getMessage());
-        }
-        return id;
-}
-```
+百度一大把文档
 
 **方案5:框架**
 
@@ -1990,63 +1743,15 @@ Tinyid(滴滴) https://github.com/didi/tinyid/wiki/tinyid%E5%8E%9F%E7%90%86%E4%B
 
 比如zookeeper也可以生成唯一id
 
-
-
-### 自增主键下的尾部热点
-
-自增主键只能对应分布式集群下范围法的[分片策略](# 集群模式):
-
-因为自增主键必须连续 ,所以只能采取范围分片形式,会产生**尾部热点**效应.
-
-从第一个范围分片开始插入, 当前正在进行插入的分片压力大
-
-
-
-## 慢查询日志
-
-为了定位sql的性能瓶颈, 我们需要开启mysql的慢查询日志, 把超过指定时间的sql语句, 单独记录下来, 方便以后分析和定位问题.
-
-sql中慢查询阈值为long_query_time=10s, 即当sql执行时间大于10s就会被记录到慢sql日志中, 一般建议缩小到1s.
-
-开启慢查询可通过 `set命令` 或 `my.cnf配置文件` 来设置下列属性:
-
-```
-show_query_log = ON
-show_query_log_file = /usr/local/mysql/log/show.log
-long_query_time = 2
-```
-
-## 客户端状态查询
-
-`show processlist`可查询所有客户端状态
-
-常见于查询相关的state有:
-
-sending to client:表示等待客户端接收结果, 如客户端接收处理速度慢, 服务端net_buffer已满, 若长时间处于该状态, 表示需要优化查询结果
-
-> 服务端将查询结果一行一行放到net_buffer, 写满再调用网络接口发送
-
-sending data: 表示查询语句执行阶段, 包括锁等待
-
-## ngram全文检索
-
-对于需要模糊查询的情况, 通常使用like查询会导致索引失效而全文检索, 进而可以加入ElasticSearch(Canal异构同步订阅binlog).
-
-但引入ES除了需要更高的成本外, 数据一致性需要保证, 高可用和维护工作需要保证.
-
-MySQL折中方案:从 MySQL 5.7.6 开始，MySQL内置了[ngram全文解析器](https://www.cnblogs.com/miracle-luna/p/11147859.html)
-
-允许对短文本进行全文检索查询，以替代like关键字 ( 分词效果不太行 )
-
->  对于复杂业务场景的全文检索查询，还是要用ES
-
-## 优化笔记
+## 笔记
 
 > 来自个人实践与资料收集
 
 - 将一个多表关联查询通过应用程序分解成一个个单表查询(相当于手动NLJ), 可更方便利用缓存, 避免随机关联查询冗余记录, 并减少锁竞争;(《高性能MySQL》)
 - 使用UNION+LIMIT时在每个子局中使用LIMIT(UNION外还需要同样的LIMIT)减少临时表大小.
 - 全表扫描可能导致缓冲池LRU列表被污染, 导致热点数据被冲刷.
-
-
+- MySQL实例启动时, 会将自己进程ID写入到由`pid_file`指定的文件中, 默认为主机名.pid.
+- MySQL中, 每个表和视图都存在一个对应的.frm表结构定义文件, 可直接查看.
+- 通过`show processlist`可查询所有客户端状态, 常见的state字段有`sending to client`表示等待客户端接收结果, `sending data`表示查询语句执行阶段(包括锁等待).
+- 对于简单的模糊查询, 可使用MySQL 5.7.6内置的ngram全文解析器.
 
