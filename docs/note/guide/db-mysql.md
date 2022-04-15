@@ -1,4 +1,4 @@
-OLAP联机分析处理:
+OLAP在线分析处理:
 
 对海量的历史数据进行分析操作,要求产生决策性的影响,不要求在极短的时间内返回结果
 
@@ -6,7 +6,7 @@ OLAP联机分析处理:
 
 --> clickhouse/druid/kylin
 
-OLTP联机事务处理:
+OLTP在线事务处理:
 
 为了支撑业务系统的需要,必须在极短时间内返回对应的结果
 
@@ -523,6 +523,101 @@ InnoDB至少需要一个重做日志文件组, 每个文件组至少需要两个
 所有事务进行的修改都会先记录到**回滚日志**中，然后再执行相关的操作。如果执行过程中遇到异常的话，我们直接利用 **回滚日志** 中的信息将数据回滚到修改之前的样子即可！并且，回滚日志会先于数据持久化到磁盘上。这样就保证了即使遇到数据库突然宕机等情况，当用户再次启动数据库的时候，数据库还能够通过查询回滚日志来回滚将之前未完成的事务。
 
 另外，`MVCC` 的实现依赖于：**隐藏字段、Read View、undo log**。
+
+## 分区表
+
+> 提示: 分区表实用性较差, 通常也只用在OLAP下的亿行级别大表以及使用range分区以提高大数据量查询;  对于OLTP应用, 通常只需要通过B+树返回几条数据即可, 而分区与否B+树通常也就2~3层, 因此最多也只能减少一次IO.
+>
+> 并且**因为分区时如果存在非分区的索引列, 也会为每个分区数据创建单独的索引**. 如果要根据该列查询, 因为无法根据该列定位分区, 只能每个分区去查询, IO次数为partitions*IO次数, 相比单表性能差了很多. 因此, 分区表不推荐创建索引.
+
+分区功能非存储引擎层提供, MySQL 5.1提供了对分区的支持, 对一个表或索引进行分解, 逻辑上还是一个但物理上由多个分区组成. MySQL仅支持水平分区, 并且一个分区中即存放数据又存放索引(局部分区索引). 
+
+> 通过`show variables like '%partition%'`或`show plugins`可查看当前数据库是否开启分区功能
+
+分区需要指定分区列, **如果表中存在主键或唯一索引, 则分区列必须是他们的一个组成部分**; 如果没有, 则可以指定任一分区列. 分区有四种类型:
+
+> 可通过infomation_schema.PARTITIONS表查看分区信息
+
+1.range, 连续范围方式分区, 通常用于日期列的分区, 如下表示根据年进行范围分区:
+
+```sql
+partition by range (YEAR(date))(
+partition p08 values less than (2009),
+partition p09 values less than (2010));
+```
+
+范围分区的好处包括以分区为单位进行删除:`alter table sales drop partition p08`而不需要手动指定日期范围; 如果按分区列进行范围查询, **MySQL优化器会自动去搜索范围所在的分区而不会搜索所有分区**. 但主要注意的是优化器只能对YEAR、TO_DAYS、TO_SECONDS、UNIX_TIMESTAMP进行优化选择, 因此如要按月份进行分区且支持优化不能使用`partition by range (YEAR(date)*100+MOUTH(date))`, 而可以使用`partition by range(TO_DAYS(date))`.
+
+启用分区之后, 表空间文件将分为各个分区的表空间idb文件(根据分区名命名). 试图插入一个分区外的值将报错, 因此可以通过`less than maxvalue`指定最后一个分区.
+
+2.list, 离散值列表分区, 如:
+
+```sql
+partition by list (xxx)(
+partition p0 values in (1,3,5,7,9),
+partition p1 values in (0,2,4,6,8));
+```
+
+> 因为range和list为手动指定分区, 可能存在插入分区未定义的情况. 若批量插入多行时遇到分区未定义的情况, MyISAM在遇到出错行时开始停止插入, 但前面已插入的不会回滚; InnoDB则会将整个插入视为一个事务, 若遇出错全体回滚
+
+3.hash, 哈希分区, 需要为分区列指定一个列值或表达式(必须是整型)和分区数量, 由MySQL自动完成分区, 如下创建4个分区并根据年模除4进行分区:
+
+```sql
+partition by hash (YEAR(date))
+partitions 4;
+```
+
+4.key, 与hash类似, 但无需指定hash函数, 使用MySQL自带hash函数:
+
+```sql
+partition by key (xxx)
+partitions 4;
+```
+
+> 可在hash和key前添加linear关键字让以牺牲分区部分平衡性为代价让分区的动态变化更快捷.
+
+5.columns, list和range分区的优化版, 可对包括非整型的多种类型列进行分区而不需要手动转换为整型, 并支持使用多个列分区:
+
+```sql
+partition by range columns (date)(
+partition p0 values less than('2009-01-01'),
+partition p1 values less than('2010-01-01'));
+
+partition by range column (a,b)(
+partition p0 values less than(20,'a'),
+partition p0 values less than(50,'b')
+partition p0 values less than(maxvalue,maxvalue);
+```
+
+**子分区**: 允许在range和list分区上进行的再分区操作, 总分区数为分区数*子分区数:
+
+```sql
+partition by range (YEAR(date))
+subpartition by hash (TO_DAYS(date))
+subpartitions 2 (
+ partition p0 values less than (1999),
+ partition p1 values less than maxvalue
+);
+```
+
+也可以自己为每个分区的子分区指定名称:
+
+```sql
+partition p0 values less than (1999)(
+ subpartition s0,
+ subpartition s1
+),
+```
+
+但需要保证每个分区的子分区数量相同, 名称不能重复.
+
+> 另外, 其他某些存储引擎如MyISAM支持在每个子分区下分别指定其数据`data directory`和索引`index directory`存储的目录, 用于多磁盘的情况. 而InnoDB因为使用表空间自动管理数据和索引, 会忽略上述设置
+
+**NULL值分区**: MySQL对NULL值进行分区与对NULL值进行order by操作一样, 即视NULL值小于任何一个非NULL值.
+
+对于range分区, NULL值会放入最左边分区; 对于list分区, 如果要使用NULL值, 必须显式指定存放NULL的分区; hash和key分区时, 任何分区函数会将NULL值记录返回0.
+
+> 最后, MySQL5.6支持表与分区之间交换数据, 具体自行查阅.
 
 ## 索引
 
