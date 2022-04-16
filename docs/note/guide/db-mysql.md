@@ -677,48 +677,59 @@ InnoDB中的非聚簇索引, 叶子节点存储主键; MyISAM中堆表使用的�
 
 通过`show index from <表名>`可查看索引信息,  其中最重要的为**Cardinality**字段, 表示索引中唯一值的数目估计值, 该值越接近行数越好, 优化器也会根据该值决定是否使用索引(索引选择性). 如果该值较实际行数小很多, 可选择删除索引.
 
-> 因为获取Cardinality值代价较大, 所以该值并不一定是最新的, 可通过`analyze table <表名>`跟更新该值
-
-
+> 因为统计Cardinality值在数据量大时很耗时,  所以MySQL是通过**采样**的方式来完成统计, 因此该值并不一定是最新的, 可通过`analyze table <表名>`手动更新该值. 而对该值的统计是在存储引擎层完成, 因此不同存储引擎有不同其自己的更新策略.
+>
+> 关于InnoDB更新Cardinality策略可查阅《InnoDB技术内幕》相关章节
 
 ### 特性
 
-**索引覆盖**
+**索引覆盖** : 解决回表效率不高问题, 减少IO. MySQL 5.0支持.
 
-回表效率不高;
-
-在id为主键的情况下,对于
+在id为主键的情况下, 可对name建立索引:
 
 ```
 select id,name from table where name=zhangsan;
 ```
 
-可对name建立索引达到索引覆盖
-
-对于
+可对(name,age)作为复合索引:
 
 ```
 select id,name,age from table where name=zhangsan;
 ```
 
-可对(name,age)作为复合索引
+利用索引覆盖进行统计: 如果要统计的表上存在辅助索引, InnoDB不会选择通过查询聚簇索引进行统计, 而是会走辅助索引. 
 
-因为索引是顺序存储的, 结合索引覆盖可达到排序效果而不需要orderby, 如:
+并且在某些情况下, 如果直接使用复合索引右侧条件查询进行统计, 优化器可能会跳过最左匹配前缀原则使用索引覆盖统计:
 
 ```
-# ag
-select id,age FROM table WHERE age >10;
+select count(*) from table where age>10 and age <20
 ```
 
+还可以利用索引覆盖排序:
 
+```
+select id,age FROM table WHERE name=zhangsan order by age;
+```
+
+**索引失效**
+
+1.OR  (可使用union all 或 union 代替);
+
+2.复合索引不符合最左匹配;
+
+3.like以%开头;
+
+4.索引列上做计算,函数,类型转换;
+
+5.如果优化器觉得全表扫描更快时, 如表数据较少优化器觉得没必要走辅助索引, 或者辅助索引条件数据量太多(超过20%)导致大量回表离散读而直接全表扫描(回表起码是顺序读);
+
+> 如果是SSD, 因为其随机读较快, 可通过FORCE INDEX强制走索引
 
 **最左匹配原则**
 
-需要先匹配左边,再匹配右边,直到遇到范围查询(>、<、between、 like)就停止匹配.
+复合索引遇到>、<、between、 like就停止匹配.
 
-如果我们创建了(area, age, salary)的复合索引，那么其实相当于创建了(area,age,salary)、(area,age)、(area)三个索引.  因此我们在创建复合索引时应该将最常用作限制条件的列放在最左边，依次递减。
-
-对于复合索引(name,age)
+对于复合索引(name,age):
 
 ```
 select * from table where name=?   √
@@ -729,7 +740,7 @@ select * from table where age=?  ×
 
 对于第三种情况, 在优化器组件的作用下通过调整顺序来匹配索引.
 
-最左匹配原则在mysql优化下可能不会生效
+**最左匹配原则在MySQL索引覆盖优化下可能不会生效**
 
 对于字段id,a,b,c ,主键索引id和复合索引(a,b,c);
 
@@ -749,45 +760,41 @@ select * from table where b=2 and c=3;
 >
 > where sex in ('男','女') and ...
 >
-> 但是当in中的条件过多时且多处使用in消除前缀, mysql相当于进行了所有条件个数相乘此查询, 影响效率
+> 但是当in中的条件过多时且多处使用in消除前缀, mysql相当于进行了所有IN条件个数相乘次查询, 影响效率
 
-**索引下推**
+### Multi-Range Read
 
-- 索引条件下推(Index Condition Pushdown),简称ICP。MySQL5.6新添加，用于优化数据的查询。
-- 当你不使用ICP,通过使用非主键索引（普通索引or二级索引）进行查询，存储引擎通过索引检索数据，然后返回给MySQL服务器，服务器再判断是否符合条件。
-- 使用ICP，当存在索引的列做为判断条件时，MySQL服务器将这一部分判断条件传递给存储引擎，然后存储引擎通过判断索引是否符合MySQL服务器传递的条件，只有当索引符合条件时才会将数据检索出来返回给MySQL服务器。
+**Multi-Range Read 优化**(MySQL 5.7): 减少随机访问, 将随机访问转化为较为顺序的数据访问, 以减少缓冲池中页被替换的次数(实测效果显著)
+
+MRR优化通过`optimizer_switch`参数中的标记开启, mrr标记是否启用MRR, mrr_cost_based标记是否通过cost based方式来选择是否启用mrr.
+
+MRR优化针对range、ref、eq_ref类型的查询, 支持InnoDB和MyISAM.
+
+先将根据辅助索引查询到的值存放到缓冲中, 然后对缓冲中的值进行排序(如果是InnoDB 则根据主键排序;如果是MyISAM则根据行标识符); 最后根据排序后的主键或行标识符访问数据.
+
+MRR还能在复合索引下对范围查询进行拆分, 拆分成一个个固定组合条件避免最左匹配失效, 如对于索引(a,b):
 
 ```
-select * from table where name like '%aa' and age=?
+select * from table where a>1000 and a<2000 and b=10
 ```
 
-在没有索引下推之前,因为索引失效先根据name去存储引擎中拉取复合结果的数据,返回到server层,在server层中对age的条件进行过滤;
+在不使用MRR下, 因为最左匹配前缀原因(不会去匹配b), 优化器会将a条件范围内的数据全部取出, 如果有大量不满足b条件的数据, 将导致缓冲池页被大量替换.
 
-有了索引下推之后,根据name,age两个条件直接从存储引擎中拉去结果,不需要在server层做条件过滤;
+若使用MRR, 优化器会将查询条件拆分为(1001,10),(1002,10)......这样将走索引查询到所有主键或行标识符, 存入缓冲排序完再访问真实数据.
 
-在mysql5.7以后默认开启.
+> MRR中使用的暂存缓冲大小可通过read_rnd_buffer_size控制
 
-> mysql server端由连接器,分析器,优化器,执行器组成
+### Index Condition Pushdown
 
-查看 show variables like '%switch%'
+**索引下推优化**(MySQL 5.7): 将where的部分条件过滤操作放在存储引擎层, 减少服务层对记录的索取(fetch), 以提高数据库整体性能
 
-index_condition_push=on
+> 当不使用ICP时,存储引擎通过(辅助)索引查询数据返回给服务器，服务器再进行where过滤
 
-当使用explan进行分析时，如果使用了索引条件下推，Extra会显示**Using index condition**。
+ICP优化针对range、ref、eq_ref、ref_of_null类型的查询, 支持InnoDB和MyISAM.
 
-**索引失效**
+**注意**: 索引下推的前提条件为where可以过滤的条件是当前走的所有能够覆盖到的范围, 这隐含的前提就是必须在使用复合索引下发生了最左匹配前缀失效!!! ( 不知道为什么所有资料都不说清楚 )
 
-1.OR  (可使用union all 或 union 代替);
-
-2.复合索引不符合最左匹配;
-
-3.like以%开头;
-
-4.索引列上做计算,函数,类型转换;
-
-5.如果mysql觉得全表扫描更快时（数据少）;
-
-
+> 在MySQL 5.7以后默认开启, 配合MRR, 查询效率能得到极大提升
 
 ## 执行计划explain
 
@@ -880,7 +887,7 @@ Extra: NULL
 8.Select tables optimized away
 	explain select * from emp ,dept where emp.empno = dept.ceo ;
 	explain select min(id) from subject;
-9.using MMR : MMR(Multi Range Read), 当查询通过二级索引得到的主键值进行回表时,如果回表的主键值为二级索引的顺序,对应的主键就是乱序的, 回表的时候就需要进行大量随机IO; MRR则在内存中将二级索引中命中的主键值进行根据主键列进行排序后才进行回表,这样回表则是顺序IO,极大提高了性能.
+9.using MMR : 使用到了MMR,关于MMR见B+树索引-特性
 ```
 
 ### NLJ
