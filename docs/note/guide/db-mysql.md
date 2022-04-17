@@ -798,206 +798,6 @@ ICP优化针对range、ref、eq_ref、ref_of_null类型的查询, 支持InnoDB�
 
 > 在MySQL 5.7以后默认开启, 配合MRR, 查询效率能得到极大提升
 
-## 执行计划explain
-
-explain关键字可以模拟MySQL优化器执行SQL语句，可以很好的分析SQL语句或表结构的性能 瓶颈。
-
-> explain extended 可查看相关警告信息
-
-```
-mysql> explain select * from subject where id = 1
-******************************************************
-id: 1
-select_type: SIMPLE
-table: subject
-partitions: NULL
-type: const
-possible_keys: PRIMARY
-key: PRIMARY
-key_len: 4
-ref: const
-rows: 1
-filtered: 100.00
-Extra: NULL
-```
-
-```
-1. id 				//select查询的序列号，包含一组数字，表示查询中执行select子句或操作表的顺序
-2. select_type 		//查询类型 主要用于区别普通查询、联合查询、子查询等的复杂查询
-3. table 			//这个数据是基于哪张表的
-4. partitions 		//匹配的分区
-5. type 			//访问的类型
-6. possible_keys 	//与当前查询相关备选的索引有哪些, PRIMARY代表主键
-7. key 				//代表当前实际使用的索引是哪个
-8. key_len 			//代表单个索引值的长度
-9. ref 				//显示使用哪个列或常数与key一起从表中选择行
-10. rows 			//本次查询所扫描的行数, 不一定一致, 扫描行数越少越好
-11. filtered 		//查询的表行占表的百分比
-12. Extra 			//包含不适合在其它列中显示但十分重要的额外信息
-```
-
-**id字段**
-
-```
-1.id相同 : 执行顺序从上至下  (最上方的为驱动)
-2.id不同 : 如果是子查询，id的序号会递增，id的值越大优先级越高，越先被执行
-3.id相同又不同 : id如果相同，可以认为是一组，从上往下顺序执行 在所有组中，id值越大，优先级越高，越先执行
-```
-
-**select_type字段**(关键)
-
-```
-1.SIMPLE : 简单查询，不包含子查询或Union查询
-2.PRIMARY : 查询中若包含任何复杂的子部分，最外层查询则被标记为主查询
-3.SUBQUERY : 在select或where中包含子查询
-4.DERIVED : 在FROM列表中包含的子查询被标记为DERIVED（衍生），MySQL 会递归执行这些子查询，把结果放在临时表中
-			MySQL5.7+ 进行优化了，增加了derived_merge（派生合并），默认开启，可加快查询效率
-5.UNION : 若第二个select出现在union之后，则被标记为UNION
-6.UNION RESULT : 从UNION表获取结果的select (去重)
-```
-
-**type字段**(关键): 访问类型
-
-```
-1.NULL : 优化阶段分解查询语句，执行阶段不用再访问表或索引.
-2.system : 表只有一行记录（等于系统表），const类型特列，
-3.const : 常数引用访问
-4.eq_ref :唯一性索引扫描
-5.ref : 非唯一性索引扫描
-6.ref_or_null : 类似ref, 但是可以搜索值为null的行
-7.index_merge : 索引合并扫描
-8.range : 范围扫描
-9.index : Full index Scan
-10.ALL : 全表扫描
-```
-
-**Extra字段**(关键)
-
-```
-1.Using filesort : 说明MySQL会对数据使用一个外部的索引排序，而不是按照表内的索引顺序进行读取 
-	MySQL中无法利用索引完成的排序操作称为“文件排序”
-	优化方式,给排序字段建索引，并使用where或limit激活
-2.Using temporary : 使用了临时表保存中间结果，MySQL在对结果排序时使用临时表，常见于排序order by 和分组查询group by
-	优化方式,给分组字段建索引
-3.Using index : 使用了覆盖索引,不必回表
-4.Using where : 从数据表中返回数据再过过滤
-5.Using join buffer :使用了连接缓存 
-	explain select student.*,teacher.*,subject.* from student,teacher,subject;
-	explain select * from emp ,dept where emp.empno = dept.ceo ;
-6.impossible where : where子句的值总是false，不能用来获取任何元组
-7.distinct : 一旦mysql找到了与行相联合匹配的行，就不再搜索了, 如左连接里的右表
-8.Select tables optimized away
-	explain select * from emp ,dept where emp.empno = dept.ceo ;
-	explain select min(id) from subject;
-9.using MMR : 使用到了MMR,关于MMR见B+树索引-特性
-```
-
-### NLJ
-
- NLJ(Nested Loop Join 嵌套循环关联)
-
-与编程中的二层嵌套类似,  驱动表中的每一条记录与被驱动表总的记录进行比较, 驱动表的选择决定了查询性能的高低.
-
-> mysql会自动选择最优驱动表, 但是在多级关联情况下有可能会出现选择问题;
->
-> 可以使用STRAIGHT_JOIN让优化器按照指定的关联顺序查询, 通常不建议使用.
-
-案例:
-
-在mysql8多表关联查询语句下:
-
-![image-20211211180444460](picture/image-20211211180444460.png)
-
-执行计划为:
-
-![image-20211211180520940](picture/image-20211211180520940.png)
-
-按上下顺序, 最顶端的是驱动表, 此时未加索引, h表不幸被选中作为驱动表 , 进行全表关联, 效率极差.
-
-此过程先对h表全表扫描576931行, 然后根据ref的关联在被驱动表中查询.
-
-此时, 如果只给筛选条件的字段m.role和c.series_id加索引(小白做法):
-
-```
-create index idx_series_id on blog_chapter(series_id);
-create index idx_role on blog_menber(role);
-```
-
-再查看执行计划, 会发现与没加索引结果一样.
-
-> 结论:如果在多表关联时只在筛选条件上加字段索引, 没卵用.
-
-此时, 再给关联条件的外键增加索引:
-
-```
-create index idx_chapter_id on blog_browse_history(chapter_id);  	#新增
-create index idx_menber_id on blog_browse_history(menber_id);		#新增
-create index idx_series_id on blog_chapter(series_id);
-create index idx_role on blog_menber(role);
-```
-
-再查看执行计划:
-
-![image-20211211182325320](picture/image-20211211182325320.png)
-
-此时的驱动顺序为: c -> h -> m
-
-先在驱动表c中通过对series_id进行const筛选(103),  这里的Using index表示通过series_id二级索引查询到主键chapter_id后并未回表, 直接使用主键与被驱动表关联.
-
-然后h表根据c表查询出来的主键(chapter_id)通过外键关联进行查询(由于h表对外键chapter_id已建立索引, 所以查询效率高) , 这里的Using where表示通过二级索引chapter_id查询到h表的主键后进行回表.
-
-再然后m表根据h表查询出来的外键(menber_id)直接进行主键查询. (但是不懂这里为什么Using where)
-
-> 结论:只有正确的在外键上建立索引(关联的主键自带索引), 在关联表的索引才能生效, 查询优化器才能正确决定用哪个表作为驱动表是最优解
-
-
-
-另外
-
-1.在索引正确的情况下, 如果将多表关联改为where in 子查询,  在查询优化器的驱使执行计划不会改变, 仍然使用NLJ高效查询.
-
-![image-20211211185611638](picture/image-20211211185611638.png)
-
-查看查询计划与上面结果一样.
-
-2.在索引正确的情况下, 如果将多表关联改为from子句筛选, 在查询优化器的驱使执行计划不会改变, 仍然使用NLJ高效查询.
-
-![image-20211211185819137](picture/image-20211211185819137.png)
-
-查看查询计划与上面结果一样.
-
-
-
-3.例外:如果select包含子查询, 会出现DEPENDENT SUBQUERY, 代表依赖子查询, 也属于NLJ范畴
-
-![image-20211211190254986](picture/image-20211211190254986.png)
-
-该方式在每查询出一条记录后,就将这条记录的某个属性拿去进行子查询.
-
-### 其他执行计划
-
-- DERIVED 子查询中出现多结果集运算![image-20211211191021781](picture/image-20211211191021781.png)
-
-id越大的子查询越先执行:
-
-id=4和id=3时: 通过两个根据series_id查询形成一个结果集
-
-id相同时从上往下执行:
-
-< derived3 >表示指向id为3的执行计划以及向后的延伸. 这里为id=4和id=3的结果集,
-
-id=1的执行计划先以derived3为驱动表c,通过c表的chapter_id查询h表二级索引,然后回表获取h表数据,然后再根据h表的menber_id查询blog_menber表数据(没有走二级索引)
-
-- UNION RESULT 少用UNION, 多用UNION ALL.
-
-
-
-![image-20211211193250977](picture/image-20211211193250977.png)
-
-这里的UNION RESULT执行计划表示对union3和4进行去重, 通过类型可以看到这个操作为全表扫描 , 关键的是Using temporary
-
-> UNION去重基于临时表, 临时表特性时如果缓存够使用内容, 缓存不够自动创建MyISAM引擎表(磁盘), IO效率变差.
-
 ## 锁
 
 不同的存储引擎支持不同的锁机制。 InnoDB支持行锁(与Oracle实现类似, 且支持一致性的非锁定读), 但不需要锁升级, 可能死锁; MyISAM只支持表锁, 并发写下性能较差.
@@ -1006,6 +806,8 @@ InnoDB实现了共享锁(s锁,读锁)和排他锁(x锁,写锁)两种行级锁:
 
 - 共享锁允许事务读一行数据;
 - 排他锁允许事务删除或更新一行数据.
+
+> InnoDB锁与其他数据库不同的是不存在锁升级, 这是因为大多数数据库根据每个记录产生行锁, 行锁较多时将产生巨大开销, 因此需要升级为页锁甚至表锁; 而InnoDB根据每个页采用位图的方式对锁进行管理, 无论一个页中存在多少行锁, 其开销都是一样且占用空间很小
 
 InnoDB通过意向锁(Intention Lock)来支持多粒度锁定, 允许事务的行锁和表锁同时存在. InnoDB中的意向锁为表锁, 分为意向共享锁(IS锁)和意向排他锁(IX锁):
 
@@ -1054,7 +856,9 @@ INNODB_LOCKS表可查看所有锁信息, 如锁的事务id, 锁的类型, 锁的
 
 INNODB_LOCK_WAIT表可查看事务阻塞信息, 每一行记录哪一个事务阻塞了另一个事务, 里面只存了事务id和锁id, 有了id再去上面的表获取事务和锁信息即可.
 
-> InnoDB可以自动检测死锁并回滚该事务, 通过innodb_lock_wait_timeout参数可控制锁等待时间
+> InnoDB通过各事务的互斥锁构造一个`wait-for graph`(等待图)并判断是否存在回路(深度优先)来自动检测死锁并回滚undo量最小的事务.
+>
+> 也可以通过innodb_lock_wait_timeout参数设置超时时间来解决死锁问题
 
 **其他锁**
 
@@ -1064,7 +868,7 @@ InnoDB的行锁是通过对**索引项加锁**实现的，这表示只有通过�
 
 2.间隙锁(Gap Locks)
 
-间隙锁是一种区间锁。锁加在不存在的空闲空间上，或者两个索引记录之间，或者第一个索引记录之前，或者最后一个索引之后的空间，用来表示只锁住一段范围(一般在进行范围查询时且隔离级别在RR或Serializable隔时).
+间隙锁是一种区间锁。锁加在不存在的空闲空间上，或者两个索引记录之间，或者第一个索引记录之前，或者最后一个索引之后的空间，用来表示只锁住一段范围(一般在进行范围查询时且隔离级别在RR或Serializable时).
 
 3.Next-key Locks
 
@@ -1097,15 +901,15 @@ consistent nonlocking read指InnoDB存储引擎通过行多版本控制（multi 
 
 > 多版本控制可通过加一个版本号或者时间戳字段实现: 在更新数据的同时版本号 + 1 或者更新时间戳. 查询时, 将当前可见的版本号与对应记录的版本号进行比对, 如果记录的版本小于可见版本, 则表示该记录可见
 
-默认情况下, InnoDB的SELECT操作使用一致性非锁定读, 但不同事务隔离级别对快照数据的定义是不同的:
+默认情况下, InnoDB的SELECT操作使用一致性**非锁定读**, 但不同事务隔离级别对快照数据的定义是不同的:
 
 在 `Read Committed` 下, 对于快照数据, CNR总是读取被锁定行的最新版本快照数据;
 
-> 如果有中间有update, 存在不可重复读问题; 如果中间有insert或delete, 存在幻读问题
+> 如果有中间有其他事务执行DML操作, 则会存在不可重复读问题(包括幻读:insert/delete)
 
 在 `Repeatable Read` 下, 对于快照数据, CNR总是读取事务开始时的行数据版本.
 
-> 解决了不可重复读和幻读问题
+> 解决了不可重复读和部分幻读问题
 
 但在 `Repeatable Read` 下, 若事务中使用了多次**锁定读**(当前读), 且在中间有其他事务插入/删除记录, 将导致幻读产生, 即多次锁定读的数据并不相同. **InnoDB采用Next-Key Lock解决锁定读下的幻读问题**.
 
@@ -1117,9 +921,13 @@ consistent nonlocking read指InnoDB存储引擎通过行多版本控制（multi 
 >
 > `insert`、`update`、`delete` 操作, x锁
 
-因此MVCC+Next-Key Lock下, 可解决非锁定读和锁定读下的幻读问题.
+因此MVCC+Next-Key Lock下, 可解决**部分**非锁定读和锁定读下的幻读问题.
 
-特例: 如果事务中两次快照读中出现了修改其他事务新增的当前读,  会重新生成ReadView ,  导致出现幻读.
+> 实验特例: 如果在事务1(先begin)的两次快照读中, 修改(当前读)了事务2(后begin)insert(当前读)的记录(这里事务1会阻塞直到事务2提交, 因为insert为x锁),  会重新生成ReadView ,  导致出现幻读. 
+>
+> 结论: 当前读会重置Read View的生成, 尽管隔离级别为RR. 如果事务在两个快照读中的当前读覆盖了其他事务新增的数据, 将会产生幻读
+>
+> 文章https://blog.csdn.net/rsjssc/article/details/123465816对RR级别下幻读情况进行了列举
 
 #### MVCC实现
 
@@ -1338,8 +1146,6 @@ MySQL 5.1.22时InnoDB提供了`innodb_autoinc_lock_mode`根据不同自增长插
 
 ## 事务
 
-ACID特性
-
 **原子性**（`Atomicity`） ： 事务是最小的执行单位，不允许分割。事务的原子性确保动作要么全部完成，要么完全不起作用；
 
 **一致性**（`Consistency`）： 执行事务前后，数据保持一致，例如转账业务中，无论事务是否成功，转账者和收款人的总额应该是不变的；
@@ -1348,51 +1154,233 @@ ACID特性
 
 **持久性**（`Durability`）： 一个事务被提交之后。它对数据库中数据的改变是持久的，即使数据库发生故障也不应该对其有任何影响。
 
-
-
 并发事务问题:
 
-**脏读（Dirty read）:** 脏读是指事务读取到其他事务没提交的数据
+**脏读**（`Dirty read`）: 脏读是指事务读取到其他事务没提交的数据
 
-![image-20211207194859328](picture/image-20211207194859328.png)
+**丢失修改**（`Lost to modify`）: 指在一个事务读取一个数据时, 另外一个事务也访问了该数据, 那么在第一个事务中修改了这个数据后, 第二个事务也修改了这个数据. 这样第一个事务内的修改结果就被丢失因此称为丢失修改. 
 
-**丢失修改（Lost to modify）:** 指在一个事务读取一个数据时，另外一个事务也访问了该数据，那么在第一个事务中修改了这个数据后，第二个事务也修改了这个数据。这样第一个事务内的修改结果就被丢失，因此称为丢失修改。 例如：事务 1 读取某表中的数据 A=20，事务 2 也读取 A=20，事务 1 修改 A=A-1，事务 2 也修改 A=A-1，最终结果 A=19，事务 1 的修改被丢失。
+> InnoDB RR级别会对DML操作上x锁, 不允许多个事务同时修改, 因此能防止丢失修改问题.
+>
+> 注意: 通常业务代码是先查询到保存为内存vo, 在内存中更新然后更新到数据库, 如果同时存在多个事务执行此操作同样会导致丢失更新, 对于该情况只能对查询语句加x锁(for update). 
 
-**不可重复读（Unrepeatable read）:** 不可重复读是指在同一次事务中前后查询不一致的问题
+**不可重复读**（`Unrepeatable read`）: 不可重复读是指在同一次事务中前后查询不一致的问题
 
-![image-20211207195037888](picture/image-20211207195037888.png)
-
-**幻读（Phantom read）:** 幻读是一次事务中前后数据量发生变化用户产生不可预料的问题
-
-![image-20211207195053772](picture/image-20211207195053772.png)
+**幻读**（`Phantom read`）: 幻读是一次事务中前后数据量发生变化用户产生不可预料的问题
 
 **不可重复读和幻读区别：**
 
-不可重复读的重点是修改比如多次读取一条记录发现其中某些列的值被修改，幻读的重点在于新增或者删除比如多次读取一条记录发现记录增多或减少了(伤害不大)。
-
-
+不可重复读的重点是修改比如多次读取一条记录发现其中某些列的值被修改,幻读的重点在于新增或者删除比如多次读取一条记录发现记录增多或减少了(伤害不大).
 
 **隔离级别**
 
-**READ-UNCOMMITTED(读取未提交)：** 最低的隔离级别，允许读取其他事务尚未提交的数据变更，**可能会导致脏读、幻读或不可重复读**。
+**READ-UNCOMMITTED**:  最低的隔离级别, 允许读取其他事务尚未提交的数据变更, 可能会导致脏读、幻读或不可重复读.
 
-**READ-COMMITTED(读取已提交)：** 允许读取并发事务已经提交的数据，**可以阻止脏读，但是幻读或不可重复读仍有可能发生**。
+**READ-COMMITTED**: 允许读取并发事务已经提交的数据, 可以阻止脏读，但是幻读或不可重复读仍有可能发生.
 
-**REPEATABLE-READ(可重复读)：** 对同一字段的多次读取结果都是一致的，除非数据是被本身事务自己所修改，**可以阻止脏读和不可重复读，但幻读仍有可能发生**。
+**REPEATABLE-READ**: 对同一字段的多次读取结果都是一致的，除非数据是被本身事务自己所修改，可以阻止脏读和不可重复读**，**但幻读仍有可能发生。
 
-**SERIALIZABLE(可串行化)：** 最高的隔离级别，完全服从 ACID 的隔离级别。所有的事务依次逐个执行，这样事务之间就完全不可能产生干扰，也就是说，**该级别可以防止脏读、不可重复读以及幻读**。**此隔离级别是唯一使用加锁读的方式的隔离级别.**
+**SERIALIZABLE**: 最高的隔离级别，完全服从 ACID 的隔离级别。所有的事务依次逐个执行，这样事务之间就完全不可能产生干扰，也就是说，该级别可以防止脏读、不可重复读以及幻读。此隔离级别是唯一使用加锁读的方式的隔离级别.
 
-> MySQL InnoDB 的 REPEATABLE-READ（可重读）可避免幻读，需要应用使用加锁读来保证。而这个加锁度使用到的机制就是 Next-Key Locks(MVCC)。
+## 执行计划explain
 
-> 因为隔离级别越低，事务请求的锁越少，所以大部分数据库系统的隔离级别都是 **READ-COMMITTED(读取提交内容)** ，但是InnoDB 存储引擎默认使用 **REPEATABLE-READ（可重读）** 并不会有任何性能损失。
+explain关键字可以模拟MySQL优化器执行SQL语句，可以很好的分析SQL语句或表结构的性能 瓶颈。
 
- InnoDB 存储引擎的默认支持的隔离级别是 **REPEATABLE-READ（可重读）**。
+> explain extended 可查看相关警告信息
 
-我们可以通过`SELECT @@tx_isolation;` 或者 `SHOW VARIABLES LIKE 'transaction_isolation';`查看
+```
+mysql> explain select * from subject where id = 1
+******************************************************
+id: 1
+select_type: SIMPLE
+table: subject
+partitions: NULL
+type: const
+possible_keys: PRIMARY
+key: PRIMARY
+key_len: 4
+ref: const
+rows: 1
+filtered: 100.00
+Extra: NULL
+```
 
-通过 `SET SESSION TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;` 设置当前会话的隔离级别.
+```
+1. id 				//select查询的序列号，包含一组数字，表示查询中执行select子句或操作表的顺序
+2. select_type 		//查询类型 主要用于区别普通查询、联合查询、子查询等的复杂查询
+3. table 			//这个数据是基于哪张表的
+4. partitions 		//匹配的分区
+5. type 			//访问的类型
+6. possible_keys 	//与当前查询相关备选的索引有哪些, PRIMARY代表主键
+7. key 				//代表当前实际使用的索引是哪个
+8. key_len 			//代表单个索引值的长度
+9. ref 				//显示使用哪个列或常数与key一起从表中选择行
+10. rows 			//本次查询所扫描的行数, 不一定一致, 扫描行数越少越好
+11. filtered 		//查询的表行占表的百分比
+12. Extra 			//包含不适合在其它列中显示但十分重要的额外信息
+```
 
-> 通常我们不需要修改mysql隔离级别
+**id字段**
+
+```
+1.id相同 : 执行顺序从上至下  (最上方的为驱动)
+2.id不同 : 如果是子查询，id的序号会递增，id的值越大优先级越高，越先被执行
+3.id相同又不同 : id如果相同，可以认为是一组，从上往下顺序执行 在所有组中，id值越大，优先级越高，越先执行
+```
+
+**select_type字段**(关键)
+
+```
+1.SIMPLE : 简单查询，不包含子查询或Union查询
+2.PRIMARY : 查询中若包含任何复杂的子部分，最外层查询则被标记为主查询
+3.SUBQUERY : 在select或where中包含子查询
+4.DERIVED : 在FROM列表中包含的子查询被标记为DERIVED（衍生），MySQL 会递归执行这些子查询，把结果放在临时表中
+			MySQL5.7+ 进行优化了，增加了derived_merge（派生合并），默认开启，可加快查询效率
+5.UNION : 若第二个select出现在union之后，则被标记为UNION
+6.UNION RESULT : 从UNION表获取结果的select (去重)
+```
+
+**type字段**(关键): 访问类型
+
+```
+1.NULL : 优化阶段分解查询语句，执行阶段不用再访问表或索引.
+2.system : 表只有一行记录（等于系统表），const类型特列，
+3.const : 常数引用访问
+4.eq_ref :唯一性索引扫描
+5.ref : 非唯一性索引扫描
+6.ref_or_null : 类似ref, 但是可以搜索值为null的行
+7.index_merge : 索引合并扫描
+8.range : 范围扫描
+9.index : Full index Scan
+10.ALL : 全表扫描
+```
+
+**Extra字段**(关键)
+
+```
+1.Using filesort : 说明MySQL会对数据使用一个外部的索引排序，而不是按照表内的索引顺序进行读取 
+	MySQL中无法利用索引完成的排序操作称为“文件排序”
+	优化方式,给排序字段建索引，并使用where或limit激活
+2.Using temporary : 使用了临时表保存中间结果，MySQL在对结果排序时使用临时表，常见于排序order by 和分组查询group by
+	优化方式,给分组字段建索引
+3.Using index : 使用了覆盖索引,不必回表
+4.Using where : 从数据表中返回数据再过过滤
+5.Using join buffer :使用了连接缓存 
+	explain select student.*,teacher.*,subject.* from student,teacher,subject;
+	explain select * from emp ,dept where emp.empno = dept.ceo ;
+6.impossible where : where子句的值总是false，不能用来获取任何元组
+7.distinct : 一旦mysql找到了与行相联合匹配的行，就不再搜索了, 如左连接里的右表
+8.Select tables optimized away
+	explain select * from emp ,dept where emp.empno = dept.ceo ;
+	explain select min(id) from subject;
+9.using MMR : 使用到了MMR,关于MMR见B+树索引-特性
+```
+
+### NLJ
+
+ NLJ(Nested Loop Join 嵌套循环关联)
+
+与编程中的二层嵌套类似,  驱动表中的每一条记录与被驱动表总的记录进行比较, 驱动表的选择决定了查询性能的高低.
+
+> mysql会自动选择最优驱动表, 但是在多级关联情况下有可能会出现选择问题;
+>
+> 可以使用STRAIGHT_JOIN让优化器按照指定的关联顺序查询, 通常不建议使用.
+
+案例:
+
+在mysql8多表关联查询语句下:
+
+![image-20211211180444460](picture/image-20211211180444460.png)
+
+执行计划为:
+
+![image-20211211180520940](picture/image-20211211180520940.png)
+
+按上下顺序, 最顶端的是驱动表, 此时未加索引, h表不幸被选中作为驱动表 , 进行全表关联, 效率极差.
+
+此过程先对h表全表扫描576931行, 然后根据ref的关联在被驱动表中查询.
+
+此时, 如果只给筛选条件的字段m.role和c.series_id加索引(小白做法):
+
+```
+create index idx_series_id on blog_chapter(series_id);
+create index idx_role on blog_menber(role);
+```
+
+再查看执行计划, 会发现与没加索引结果一样.
+
+> 结论:如果在多表关联时只在筛选条件上加字段索引, 没卵用.
+
+此时, 再给关联条件的外键增加索引:
+
+```
+create index idx_chapter_id on blog_browse_history(chapter_id);  	#新增
+create index idx_menber_id on blog_browse_history(menber_id);		#新增
+create index idx_series_id on blog_chapter(series_id);
+create index idx_role on blog_menber(role);
+```
+
+再查看执行计划:
+
+![image-20211211182325320](picture/image-20211211182325320.png)
+
+此时的驱动顺序为: c -> h -> m
+
+先在驱动表c中通过对series_id进行const筛选(103),  这里的Using index表示通过series_id二级索引查询到主键chapter_id后并未回表, 直接使用主键与被驱动表关联.
+
+然后h表根据c表查询出来的主键(chapter_id)通过外键关联进行查询(由于h表对外键chapter_id已建立索引, 所以查询效率高) , 这里的Using where表示通过二级索引chapter_id查询到h表的主键后进行回表.
+
+再然后m表根据h表查询出来的外键(menber_id)直接进行主键查询. (但是不懂这里为什么Using where)
+
+> 结论:只有正确的在外键上建立索引(关联的主键自带索引), 在关联表的索引才能生效, 查询优化器才能正确决定用哪个表作为驱动表是最优解
+
+
+
+另外
+
+1.在索引正确的情况下, 如果将多表关联改为where in 子查询,  在查询优化器的驱使执行计划不会改变, 仍然使用NLJ高效查询.
+
+![image-20211211185611638](picture/image-20211211185611638.png)
+
+查看查询计划与上面结果一样.
+
+2.在索引正确的情况下, 如果将多表关联改为from子句筛选, 在查询优化器的驱使执行计划不会改变, 仍然使用NLJ高效查询.
+
+![image-20211211185819137](picture/image-20211211185819137.png)
+
+查看查询计划与上面结果一样.
+
+
+
+3.例外:如果select包含子查询, 会出现DEPENDENT SUBQUERY, 代表依赖子查询, 也属于NLJ范畴
+
+![image-20211211190254986](picture/image-20211211190254986.png)
+
+该方式在每查询出一条记录后,就将这条记录的某个属性拿去进行子查询.
+
+### 其他执行计划
+
+- DERIVED 子查询中出现多结果集运算![image-20211211191021781](picture/image-20211211191021781.png)
+
+id越大的子查询越先执行:
+
+id=4和id=3时: 通过两个根据series_id查询形成一个结果集
+
+id相同时从上往下执行:
+
+< derived3 >表示指向id为3的执行计划以及向后的延伸. 这里为id=4和id=3的结果集,
+
+id=1的执行计划先以derived3为驱动表c,通过c表的chapter_id查询h表二级索引,然后回表获取h表数据,然后再根据h表的menber_id查询blog_menber表数据(没有走二级索引)
+
+- UNION RESULT 少用UNION, 多用UNION ALL.
+
+
+
+![image-20211211193250977](picture/image-20211211193250977.png)
+
+这里的UNION RESULT执行计划表示对union3和4进行去重, 通过类型可以看到这个操作为全表扫描 , 关键的是Using temporary
+
+> UNION去重基于临时表, 临时表特性时如果缓存够使用内容, 缓存不够自动创建MyISAM引擎表(磁盘), IO效率变差
 
 ## 文件排序
 
