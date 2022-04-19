@@ -770,7 +770,7 @@ return nil;
 
 #### Redlock
 
-为了解决Redis(或配合Lua)只能作用在一个Redis节点上, 即使通过sentinel保证高可用, 主从切换时也会出现锁丢失的情况,  Redis作者antirez基于分布式环境下提出了一种更高级的分布式锁的实现方式：Redlock
+为了解决Redis(或配合Lua)只能作用在一个Redis节点上, 即使通过sentinel保证高可用, 主从切换时也会出现锁丢失的情况(因为其异步复制),  Redis作者antirez基于分布式环境下提出了一种更高级的分布式锁的实现方式：Redlock
 
 **该锁由Client实现而非Redis实现**.
 
@@ -876,6 +876,14 @@ protected RFuture<Boolean> renewExpirationAsync(long threadId) {
                           internalLockLeaseTime, getLockName(threadId));
 }
 ```
+
+**底层原理**
+
+![image-20220419231900723](picture/image-20220419231900723.png)
+
+若未超过半数节点获取到锁, 则删除已有锁.
+
+手动释放锁时, 执行hincrby -1即可, 若计数器归零, 则删除key.
 
 #### zookeeper
 
