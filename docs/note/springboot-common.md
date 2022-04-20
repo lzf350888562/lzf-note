@@ -813,7 +813,7 @@ public CherryFactoryBean cherryFactoryBean() {
 
 从容器中获取：
 
-```
+```Java
 ApplicationContext context = new AnnotationConfigApplicationContext(WebConfig.class);
 Object cherry = context.getBean("cherryFactoryBean");
 // 输出Cherry对象全类名
@@ -835,7 +835,7 @@ System.out.println(cherryFactoryBean.getClass());
 
 配置类
 
-```
+```java
 @Configuration
 public class HelloWorldConfiguration {
     @Bean
@@ -847,7 +847,7 @@ public class HelloWorldConfiguration {
 
 @Enable注解,在该注解类上通过`@Import`导入了刚刚创建的配置类。
 
-```
+```java
 @Target({ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
@@ -900,7 +900,7 @@ Spring 中的 AOP 模块中：如果目标对象实现了接口，则默认采�
 
 1.java proxy
 
-```
+```java
 Proxy.newProxyInstance(ClassLoader loader, Class<?>[] interfaces, InvocationHandler h)
 
 loader :类加载器，用于加载代理对象。
@@ -910,7 +910,7 @@ h : 实现了 InvocationHandler 接口的对象；
 
 2.cglib(多种拦截器接口自查资料)
 
-```
+```java
 Enhancer enhancer = new Enhancer();
 enhancer.setClassLoader(SampleClass.class.getClassLoader())
 enhancer.setSuperclass(SampleClass.class);
@@ -951,7 +951,7 @@ SampleClass sample = (SampleClass) enhancer.create();
 
    基于注解的方式实现AOP需要在配置类中添加注解@EnableAspectJAutoProxy
 
-   ```
+   ```java
    // exposeProxy = true表示通过aop框架暴露该代理对象到AOP上下文(Thr中,AopContext能够访问
    //(通过AopContext的ThreadLocal实现)
    @EnableAspectJAutoProxy(exposeProxy = true)
@@ -962,6 +962,9 @@ SampleClass sample = (SampleClass) enhancer.create();
    
    因为spring采用动态代理机制来实现事务控制，而动态代理(jdk代理,因为service实现了接口)最终都是要调用原始对象的，而原始对象在去调用方法时，是不会再触发代理了.
    
+   可通过注解的proxyTargetClass=true指定使用cglib代理方式.
+   
+   >注意: SpringBoot2.x开始为了避免使用JDK代理出现的各种问题, 如在非@Transaction方法中调用@Transaction方法事务不会生效、只能通过接口自动注入等问题, 默认使用的AOP实现为CGLIB!!!
 
 > pointcut表达式支持更直观的操作, 如
 >
@@ -989,7 +992,7 @@ SampleClass sample = (SampleClass) enhancer.create();
 
 JointPoint使用
 
-```
+```java
 //通过joinPoint获取方法
 Signature signature = joinPoint.getSignature();
 MethodSignature methodSignature = (MethodSignature) signature;
