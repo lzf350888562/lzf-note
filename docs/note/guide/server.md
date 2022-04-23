@@ -1,5 +1,348 @@
 # 服务器
 
+## 高可用
+
+高可用描述的是一个系统在大部分时间都是可用的，可以为我们提供服务的。高可用代表系统即使在发生硬件故障或者系统升级的时候，服务仍然是可用的。
+
+提高办法:
+
+- 注重代码质量,测试严格把关
+
+- 使用集群,减少单点故障
+- 限流
+- 超时和重试机制设置
+
+- 熔断降级
+
+- 异步调用
+
+- 使用缓存
+- 容灾备份
+
+规避单点是高可用架构设计最基本的考量.(实际上总是无法避免)
+
+### Keepalived+VIP
+
+**Keepalive**是Linux轻量级别的高可用解决方案,  是基于VRRP（Virtual Router Redundancy Protocol，虚拟路由器冗余协议）协议的一款高可用软件。Keepailived有一台主服务器（master）和多台备份服务器（backup），在主服务器和备份服务器上面部署相同的服务配置，使用一个虚拟IP地址对外提供服务，当主服务器出现故障时，虚拟IP地址会自动漂移到备份服务器。
+
+虚拟路由冗余协议(VRRP)是由IETF提出的解决局域网中配置静态网关出现单点失效现象的路由协议.
+
+**VIP(虚拟IP)**与实际网卡绑定的ip地址不同, VIP在内网中被动态的映射到不同的MAC地址上, 也就是映射到不同的机器设备上 ,keepalive通过"心跳机制"检测服务器状态, Master主节点宕机则自动将"IP漂移"到Backup备用机上实现高可用.
+
+在两台linux上配置keepalived.conf , 主备配置只有state和priority不同.
+
+```
+vrrp_instance VI_1 {
+	state MASTER			#主服务器
+	interface ens33			#绑定的网卡
+	virtual_router_id 51	#虚拟路由编号 (用于分组)
+	priority 100			#优先级，高优先级竞选为master
+	advert_int 2			#每2秒发送一次心跳包
+	authentication {		#设置认证
+		auth_type PASS		#认证方式，类型主要有PASS、AH 两种
+		auth_pass 123456	#认证密码
+	}
+	virtual_ipaddress {		#设置vip
+		192.168.237.5/24
+	}
+}
+# ---------------------
+vrrp_instance VI_1 {
+	state BACKUP			#备服务器
+	interface ens33			#绑定的网卡
+	virtual_router_id 51	#虚拟路由编号 (用于分组)
+	priority 99			    #优先级，高优先级竞选为master
+	advert_int 2			#每2秒发送一次心跳包
+	authentication {		#设置认证
+		auth_type PASS		#认证方式，类型主要有PASS、AH 两种
+		auth_pass 123456	#认证密码
+	}
+	virtual_ipaddress {		#设置vip
+		192.168.237.5/24
+	}
+}
+```
+
+设置完后master设置vip为237.5,  master的keepalived每两秒发送一次VRRP心跳包给backup, 让backup知道其还在工作 ,如果超时未接收到, 则需要keepalived进行vip漂移.
+
+> 因为设置了优先级 , 所以即使master中途宕机,vip漂移到backup后,master恢复时, vip会自动漂移回原master, 新master自动降级回backup
+
+
+
+**Nginx故障切换场景**
+
+在通常的一nginx多web服务器的架构下(反向代理+负载均衡) ,
+
+为了实现nginx高可用, 可以再配置一台nginx , 并通过配置keepalived+VIP实现高可用.
+
+当主服务器宕机, vip即可漂移到备服务器.
+
+但是如果当主服务器未宕机, 但其运行的nginx挂了,此时keepalived还是能发送心跳包所以不会发送漂移.
+
+所以**keepalived如何观测nginx是否有效是故障切换的重点**.
+
+通过给keepalived指定脚本观测nginx.
+
+```conf
+vrrp_script check_nginx{
+	script "/etc/keepalived/nginx_check.sh"		#nginx服务器检查脚本
+	interval 2 									#触发间隔
+	weight 1									#权重
+}
+```
+
+nginx_check.sh (手写脚本 , 有更好的方案 , pid文件不一定会消失)
+
+```sh
+#!/bin/bash
+#检查nginx的pid文件是否存在 不存在时 killall keepalived VIP漂移
+NGINXPID="/usr/install/nginx/logs/nginx.pid"
+if [ ! -f $NGINXPID ];then
+	killall keepalived
+fi
+```
+
+效果就是如果发现nginx挂掉, 就kill keepalived进程, 自然不会发送心跳包了
+
+**互为主备+DNS轮询场景**
+
+上述情况下 , 在第一台nginx没挂之前, 第二台nginx都是闲置状态.
+
+为了让另外一台nginx也投入使用,  可对两台nginx设置互为主备: 通过再加入一组VIP配置, vip为237.6
+
+```
+vrrp_instance VI_2 {  		#修改处1
+	state BACKUP			#修改处2
+	interface ens33			
+	virtual_router_id 52	#修改处3
+	priority 199			#修改处4
+	advert_int 2			
+	authentication {		
+		auth_type PASS		
+		auth_pass 123456	
+	}
+	virtual_ipaddress {		
+		192.168.237.6/24	#修改处5
+	}
+}
+//-------------------
+vrrp_instance VI_2 {  		#修改处1
+	state MASTER			#修改处2
+	interface ens33			
+	virtual_router_id 52	#修改处3
+	priority 200			#修改处4
+	advert_int 2			
+	authentication {		
+		auth_type PASS		
+		auth_pass 123456	
+	}
+	virtual_ipaddress {		
+		192.168.237.6/24	#修改处5
+	}
+}
+```
+
+Q:如何让两个vip都能被访问且负载均衡呢?
+
+A:利用DNS轮询机制给一个域名绑定这两个VIP , 而任一nginx挂掉, 另一个nginx服务器都同时持有237.5和237.6的VIP , 都不影响使用.
+
+DNS轮询缺点:
+
+1.只负责IP轮询获取,不保证节点可用;
+
+2.DNS IP列表更新有延迟;
+
+3.外网IP占用严重(所以中间通过nginx转发);
+
+4.安全性降低
+
+**其他问题**
+
+1. 每次在原master挂掉又恢复后, 都要进行来回两次VIP漂移, 节点会出现短暂不可提供.
+
+Q:如何让原backup称为主以后干脆一直使用原backup作为主?
+
+A:设置nopreempt非抢占模式 , 只需要加入一个配置即可
+
+```
+vrrp_instance VI_1 {
+	state BACKUP			
+	interface ens33			
+	virtual_router_id 51	
+	nopreempt			#非抢占模式
+	priority 99			    
+	advert_int 2			
+	authentication {		
+		auth_type PASS		
+		auth_pass 123456	
+	}
+	virtual_ipaddress {		
+		192.168.237.5/24
+	}
+}
+```
+
+2. 如果两台服务器中发送心跳的网络出现问题, 这种情况下backup因为接收不到master的心跳而提升为主, 从而出现两个相同的IP(脑裂)?
+
+因为问题发生在网络, 所以首先需要提高局域网可用性.
+
+禁止pkill -9 keepalived (强制关闭, keepalive不会回收VIP) ,使用pkill keepalived正常结束.
+
+解决网络问题后, 在备机上需要 systemctl restart network 重启网络对ip重置 去掉VIP.
+
+### 限流
+
+**限流算法**
+
+1. 固定窗口计数器算法;
+
+ 固定窗口计数器算法规定了我们单位时间处理的请求数量
+
+![固定窗口计数器算法](picture/8ded7a2b90e1482093f92fff555b3615.png)
+
+这种限流算法无法保证限流速率(临界问题, 比如前一个时间窗格的最后和后一个时间窗格的开始都处理了大量请求,虽然都没有超过阈值, 但在这两个时间点内请求数量却超过了阈值)，因而无法保证突然激增的流量。
+
+> 可通过redis的incr原子增加简单实现
+
+2.滑动窗口计数器算法;
+
+为了解决固定窗口计数器算法的临界值问题, TCP网络通信协议中就是采用该算法来解决网络拥堵问题。
+
+滑动窗口计数器算法相比于固定窗口计数器算法的优化在于：**它把时间以一定比例分片** 。
+
+滑动时间窗口将计数器中的实际周期切分为多个小的时间窗口, 分别在每个小时间窗口中记录访问次数, 然后根据时间将窗口往前滑动并删除过期的小时间窗口, 最终只需要统计滑动窗口范围内的小时间窗口的总的请求次数即可.
+
+**当滑动窗口的小窗口划分的越多，滑动窗口的滚动就越平滑，限流的统计就会越精确。**
+
+> 可通过前后指针算法实现
+>
+> ```c++
+> int left = 0, right = 0;
+> while (right < s.size()) {`
+> 	// 增⼤窗⼝
+> 	window.add(s[right]);
+> 	right++;
+> 	while (window needs shrink) {
+> 		// 缩⼩窗⼝
+> 		window.remove(s[left]);
+> 		left++;
+> 	}
+> }
+> ```
+
+> redis的zset也可以实现滑动窗口, 通过scope配合圈出时间窗口, value为请求的唯一标识,  窗口外的记录全部删除.
+
+3.漏桶算法
+
+可以把发请求的动作比作成注水到桶中，处理请求的过程可以比喻为漏桶漏水。往桶中以任意速率流入水，以一定速率流出水。当水超过桶流量则丢弃，因为桶容量是不变的，保证了整体的速率。
+
+如果想要实现这个算法的话也很简单，准备一个队列用来保存请求，然后定期从队列中拿请求来执行就好了（和消息队列削峰/限流的思想是一样的）。![漏桶算法](picture/75938d1010138ce66e38c6ed0392f103.png)
+
+漏桶算法能强行限制数据的传输速率(漏水速度) , 所以**当系统在短时间内有突发的大流量时, 漏桶算法处理不了**
+
+> 可通过redis-cell模块插件实现, 仅一条命令: 
+>
+> ```
+> > cl.throttle key 15 30 60  #表示漏斗初始容量为15, 每60s频率为30
+> 1) (integer) 0 # 0 表示允许，1 表示拒绝
+> 2) (integer) 15 # 漏斗容量 capacity
+> 3) (integer) 14 # 漏斗剩余空间 left_quota
+> 4) (integer) -1 # 如果拒绝了，需要多长时间后再试(漏斗有空间了，单位秒)
+> 5) (integer) 2 # 多长时间后，漏斗完全空出来(left_quota==capacity，单位秒)
+> ```
+
+4.令牌桶算法
+
+和漏桶算法一样，主角还是桶。不过现在桶里装的是令牌了，请求在被处理之前需要拿到一个令牌，请求处理完毕之后将这个令牌丢弃（删除）。我们**根据限流大小，按照一定的速率往桶里添加令牌**。如果桶装满了，就不能继续往里面继续添加令牌了(丢弃)。 
+
+![令牌桶算法](picture/eca0e5eaa35dac938c673fecf2ec9a93.png)
+
+由于桶的作用, 该算法**可以处理短时间大流量的场景, 但不能超过桶的大小**.
+
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+**单机限流工具**
+
+单机限流可以直接使用 Google Guava 自带的限流工具类 `RateLimiter` 。 `RateLimiter` 基于令牌桶算法，可以应对突发流量。
+
+除了最基本的令牌桶算法(平滑突发限流)实现之外，Guava 的`RateLimiter`还提供了 **平滑预热限流** 的算法实现。
+
+平滑突发限流就是按照指定的速率放令牌到桶里，而平滑预热限流会有一段预热时间，预热时间之内，速率会逐渐提升到配置的速率。
+
+```xml
+<dependency>
+    <groupId>com.google.guava</groupId>
+    <artifactId>guava</artifactId>
+    <version>31.0.1-jre</version>
+</dependency>
+```
+
+```
+ // 1s 放 5 个令牌到桶里也就是 0.2s 放 1个令牌到桶里
+ RateLimiter rateLimiter = RateLimiter.create(5);
+ for (int i = 0; i < 10; i++) {
+     double sleepingTime = rateLimiter.acquire(1);
+     System.out.printf("get 1 tokens: %ss%n", sleepingTime);
+ }
+ 
+//输出
+get 1 tokens: 0.0s
+get 1 tokens: 0.188413s
+get 1 tokens: 0.197811s
+get 1 tokens: 0.198316s
+get 1 tokens: 0.19864s
+get 1 tokens: 0.199363s
+get 1 tokens: 0.193997s
+get 1 tokens: 0.199623s
+get 1 tokens: 0.199357s
+get 1 tokens: 0.195676s
+```
+
+平滑预热限流
+
+```
+// 1s 放 5 个令牌到桶里也就是 0.2s 放 1个令牌到桶里
+// 预热时间为3s,也就说刚开始的 3s 内发牌速率会逐渐提升到 0.2s 放 1 个令牌到桶里
+RateLimiter rateLimiter = RateLimiter.create(5, 3, TimeUnit.SECONDS);
+for (int i = 0; i < 20; i++) {
+    double sleepingTime = rateLimiter.acquire(1);
+    System.out.printf("get 1 tokens: %sds%n", sleepingTime);
+}
+
+//输出
+get 1 tokens: 0.0s
+get 1 tokens: 0.561919s
+get 1 tokens: 0.516931s
+get 1 tokens: 0.463798s
+get 1 tokens: 0.41286s
+get 1 tokens: 0.356172s
+get 1 tokens: 0.300489s
+get 1 tokens: 0.252545s
+get 1 tokens: 0.203996s
+get 1 tokens: 0.198359s
+```
+
+单机限流工具还有Bucket4j和Resilience4j
+
+Spring Cloud Gateway 中自带的单机限流的早期版本就是基于 Bucket4j 实现的。后来，替换成了Resilience4j .
+
+Resilience4j 不仅提供限流，还提供了熔断、负载保护、自动重试等保障系统高可用开箱即用的功能。并且，Resilience4j 的生态也更好，很多网关都使用 Resilience4j 来做限流熔断的。
+
+**分布式限流工具**
+
+- 借助中间件限流: 如sentinel, 或使用redis手动实现(可配合lua脚本)限流逻辑
+- 网关限流
+
+netflix zuul
+
+spring cloud gateway
+
+kong
+
+apisix
+
+shenyu
+
 ## 容器化
 
 物理机时代 --> 虚拟机时代  -->  容器化时代(轻量级VM, 灵活)
