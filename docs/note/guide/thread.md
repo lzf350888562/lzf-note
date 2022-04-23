@@ -9,7 +9,7 @@
 
 object header:
 
-![](./picture/objectheader.jpg)
+![](picture/objectheader.jpg)
 
 > 第三方包 JOL  = Java Object Layout 可查看对象内存布局
 >
@@ -80,7 +80,7 @@ ThreadGroup管理着它下面的Thread，ThreadGroup是一个标准的**向下�
 
 ## JMM
 
-![两种并发模型的比较](./picture/两种并发模型的比较.png)
+![两种并发模型的比较](picture/两种并发模型的比较.png)
 
 java**使用的是共享内存并发模型**,java内存模型中堆中的变量就是共享变量.
 
@@ -153,7 +153,7 @@ volatile的内存语义:严格限制编译器和处理器对volatile变量与普
 - 在每个volatile读操作后插入一个LoadLoad屏障；
 - 在每个volatile读操作后再插入一个LoadStore屏障。
 
-![内存屏障](./picture/内存屏障.png)
+![内存屏障](picture/内存屏障.png)
 
 再逐个解释一下这几个屏障。注：下述Load代表读操作，Store代表写操作
 
@@ -1217,7 +1217,7 @@ ConcurrentNavigableMap接口继承了NavigableMap接口，这个接口提供了�
 
 ConcurrentNavigableMap接口的主要实现类是ConcurrentSkipListMap类。从名字上来看，它的底层使用的是跳表（SkipList）的数据结构。关于跳表的数据结构这里不做太多介绍，它是一种”空间换时间“的数据结构，可以使用CAS来保证并发安全性。
 
-![2级索引跳表](./picture/93666217.jpg)
+![2级索引跳表](picture/93666217.jpg)
 
 
 
@@ -2257,12 +2257,12 @@ StampedLock用这个long类型的变量的前7位（LG_READERS）来表示读锁
 
 ## CompletableFuture
 
-jdk8引入 
+jdk8引入,  用于非阻塞的异步的多线程的回调处理
 
 `CompletableFuture`可完成`CountDownLatch`相同功能
 
 ```java
-ompletableFuture<Void> task1 =
+CompletableFuture<Void> task1 =
     CompletableFuture.supplyAsync(()->{
     //自定义业务操作
     });

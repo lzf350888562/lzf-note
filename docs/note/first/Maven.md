@@ -116,7 +116,7 @@ POM全局配置方式可一次性配置之后所有基于该插件目标的任�
 
 # 问题
 
-## 默认jar无法运行
+## 指定main方法启动
 
 因为带有main方法的类信息不会添加到manifest中, 可打开jar文件中的META-INF/MANIFEST.MF文件查看.
 
@@ -145,11 +145,18 @@ POM全局配置方式可一次性配置之后所有基于该插件目标的任�
 </plugin>
 ```
 
+## 设置字符集
 
+```xml
+<properties>
+	<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+	<project.reporting.outputEncoding>UTF- 8</project.reporting.outputEncoding>
+</properties>
+```
 
-# maven私服
+将源代码和输出编码都设置为UTF-8, 保证中文环境中源代码编辑和日志输出不乱码
 
-
+# Maven私服
 
 maven仓库分为本地仓库和远程仓库，而远程仓库又分为maven中央仓库、其他远程仓库和私服（私有服务器）。其中，中央仓库是由maven官方提供的，而私服就需要我们自己搭建了。
 
@@ -157,7 +164,7 @@ maven私服就是公司局域网内的maven远程仓库，每个员工的电脑�
 
 nexus 是一个maven仓库管理器（其实就是一个软件），nexus可以充当maven私服，同时nexus还提供强大的仓库管理、构件搜索等功能。
 
-### 搭建maven私服
+### 搭建私服
 
 ①下载nexus
 
