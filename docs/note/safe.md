@@ -2948,7 +2948,7 @@ public boolean forceLogout(String sessionId) {
 
 RedisManager
 
-```
+```java
 public class RedisManager {
     @Value("${spring.redis.host}")
     private String host = "127.0.0.1";

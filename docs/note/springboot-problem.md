@@ -449,7 +449,6 @@ public CorsFilter corsFilter(){
     source.registerCorsConfiguration("/**", config);
     return new CorsFilter(source);
     }
-	
 ```
 
 > 若CorsFilter与SpringSecurity的Fillter冲突, 在springSecurity中将corsFilter注册到所有security的功能Filter之前
