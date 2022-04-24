@@ -1,13 +1,33 @@
-前提知识:
+# 多线程
 
-- markword这部分其实就是加锁的核心，同时还包含的对象的一些生命信息，例如是否GC,经过了几次Young GC还存活,锁信息。64bit
-- klass pointer记录了指向对象的class文件指针。 32bit
-- instance data记录了对象里面的变量数据。
-- padding作为对齐使用，对象在64位服务器版本中，规定对象内存必须要能被8字节整除，如果不能整除，那么就靠对齐来补。举个例子：new出了一个对象，内存只占用18字节，但是规定要能被8整除，所以padding=6。
+## JMM
 
-其中markword和klass pointer组合为object , header.
+|                  | 通信                                                         | 同步                                                       |
+| ---------------- | ------------------------------------------------------------ | ---------------------------------------------------------- |
+| 消息传递并发模型 | 线程之间没有公共状态, 线程间通信必须通过发送消息来显式进行通信 | 因为发送消息总是在接收消息之前, 因此为隐式同步             |
+| 共享内存并发模型 | 线程之间共享程序的公共状态, 通过读-写内存中的公共状态进行隐式通信 | 必须显式指定某段代码需要在线程之间互斥执行, 因此为显式同步 |
 
-object header:
+Java使用的是共享内存并发模型, 堆中的变量就是共享变量.
+
+> 内存可见性，指的是线程之间的可见性，当一个线程修改了共享变量时，另一个线程可以读取到这个修改后的值。
+
+虽然Java堆共享, 但因为每个线程都保存了一份该线程使用到的共享变量的副本在其本地内存（比如机器的寄存器,高速缓存）中, 且规定线程对共享变量的所有操作都必须在自己的本地内存中进行. 如果线程A与线程B之间要通信的话:必须经历下面2个步骤：
+
+1. 线程A将本地内存A中更新过的共享变量刷新到主内存中去;
+2. 线程B到主内存中去读取线程A之前已经更新过的共享变量.
+
+### 对象内存布局
+
+Hotspot Java对象由以下组成:
+
+- markword: 64bit, 加锁的核心, 还包含对象生命信息, 如是否GC,经过了几次Young GC还存活,锁信息;
+- klass pointer: 32bit, 指向对象的class文件指针 java6以前未采用指针压缩为64bit, 之后默认开启);
+- instance data: 对象实例数据
+- padding: 对齐使用, 在64位server版本规定对象内存必须被8字节整除.
+
+其中markword和klass pointer组合为Object Header, 大小为96bit即12字节. 若为数组, 则Object Header需要额外空间进行记录.
+
+Markword:
 
 ![](picture/objectheader.jpg)
 
@@ -15,277 +35,62 @@ object header:
 >
 > System.out.println(ClassLayout.parseInstance(o).toPrintable());
 
-> new一个Object对象，占用16个字节。对象头占用12字节(markword8,klasspoint4)，由于Object中没有额外的变量，所以instance = 0，考虑要对象内存大小要被8字节整除，那么padding=4.
-
-> 因为4bit代表分代年龄, 所以最大范围为0-15, 即新生代的年龄设置不能超过15!!! 
-
-# 多线程
-
-## 理论
-
-**进程和线程**
-
-进程让操作系统的并发性成为了可能，而线程让进程的内部并发成为了可能。
-
-本质的区别是是否单独占有内存地址空间及其它系统资源（比如I/O）.
-
-进程是操作系统进行资源分配的基本单位, 而线程是操作系统进行调度的基本单位.
-
-**上下文切换**
-
-上下文切换（有时也称做进程切换或任务切换）是指 CPU 从一个进程（或线程）切换到另一个进程（或线程）. 上下文是指某一时间点 CPU 寄存器和程序计数器的内容.
-
-**线程状态**
-
-```java
-public enum State {
-    NEW,		//初始值, 在start后变为runnable
-    RUNNABLE,   //可能在运行,可能在等待cpu分配资源
-    BLOCKED,	//等待锁的释放,以进入同步区
-    WAITING,	//等待其他线程唤醒
-    TIMED_WAITING,
-    TERMINATED; //执行完毕
-}
-```
-
-在操作系统中层面线程有 READY 和 RUNNING 状态，而在 JVM 层面只能看到 RUNNABLE 状态. 因为在时分多任务操作系统架构采用时间分片方式进行抢占式轮转调度, 而这个时间分片通常是很小, 一个线程一次最多只能在 CPU 上运行比如 10-20ms 的时间(running), 时间片用完后就要被切换下来放入调度队列的末尾等待再次调度(ready ). 线程切换的如此之快, 区分这两种状态就没什么意义了.
-
-**线程组**
-
-ThreadGroup来线程组可以对线程进行批量控制, 每个Thread必然存在于一个ThreadGroup中, 如果在new Thread时没有显式指定, 那么默认将父线程(当前执行new Thread的线程)线程组设置为自己的线程组.
-
-TThreadGroup为一个向下引用的树状结构, 以防止上级线程被下级线程引用而无法有效地被GC回收.
-
-## JMM
-
-![两种并发模型的比较](picture/两种并发模型的比较.png)
-
-java**使用的是共享内存并发模型**,java内存模型中堆中的变量就是共享变量.
-
-> 内存可见性，指的是线程之间的可见性，当一个线程修改了共享变量时，另一个线程可以读取到这个修改后的值。
-
-**既然堆是共享的,为什么会有内存不可见问题?**
-
-在当前的 Java 内存模型下，每个线程都保存了一份该线程使用到的共享变量的副本在其**本地内存**（比如机器的寄存器,高速缓存）中.
-
-如果线程A与线程B之间要通信的话:必须经历下面2个步骤：
-
-1. 线程A将本地内存A中更新过的共享变量刷新到主内存中去;
-2. 线程B到主内存中去读取线程A之前已经更新过的共享变量.
-
-**所以，线程A无法直接访问线程B的工作内存，线程间通信必须经过主内存。**
-
-> 根据JMM的规定,线程对共享变量的所有操作都必须在自己的本地内存中进行
-
-那么怎么知道这个共享变量的被其他线程更新了呢？这就是JMM的功劳了，也是JMM存在的必要性之一。**JMM通过控制主内存与每个线程的本地内存之间的交互，来提供内存可见性保证**。
-
-Java中的volatile关键字可以保证多线程操作共享变量的可见性以及禁止指令重排序，synchronized关键字不仅保证可见性，同时也保证了原子性（互斥性）。
-
-在更底层，JMM通过内存屏障来实现内存的可见性以及禁止重排序。为了程序员的方便理解，提出了happens-before，它更加的简单易懂，从而避免了程序员为了理解内存可见性而去学习复杂的重排序规则以及这些规则的具体实现方法。
-
-### 重排序
-
-计算机在执行程序时，为了提高性能，编译器和处理器常常会对指令做重排。
-
-**为什么指令重排序可以提高性能？**
-
-每一个指令都会包含多个步骤，每个步骤可能使用不同的硬件。因此，**流水线技术**产生了，它的原理是指令1还没有执行完，就可以开始执行指令2，而不用等到指令1执行结束之后再执行指令2，这样就大大提高了效率。
-
-但是，流水线技术最害怕**中断**，恢复中断的代价是比较大的，所以我们要想尽办法不让流水线中断。指令重排就是减少中断的一种技术。
-
-**指令重排对于提高CPU处理性能十分必要。虽然由此带来了乱序的问题，但是这点牺牲是值得的。**
-
-**指令重排可以保证串行语义一致，但是没有义务保证多线程间的语义也一致**。所以在多线程下，指令重排序可能会导致一些问题。
-
-
-
 ### volatile
 
-所谓保存内存可见性,指的是:
+**内存可见性**:
 
 当一个线程对`volatile`修饰的变量进行**写操作**时，JMM会立即把该线程对应的本地内存中的共享变量的值刷新到主内存；
 
 当一个线程对`volatile`修饰的变量进行**读操作**时，JMM会把立即该线程对应的本地内存置为无效，从主内存中读取共享变量的值。
 
-> volatile关键字能保证数据的可见性，但不能保证数据的原子性, `synchronized` 关键字两者都能保证。
+> volatile关键字能保证数据的可见性，但不能保证数据的原子性, `synchronized` 关键字两者都能保证
 
-> 在内存可见性这一点上，volatile与锁具有相同的内存效果，volatile变量的写和锁的释放具有相同的内存语义，volatile变量的读和锁的获取具有相同的内存语义。
+**禁止重排序**
 
+通过**内存屏障**严格限制编译器和处理器对volatile变量与普通变量的重排序
 
+内存屏障有两个作用：
 
-volatile的内存语义:严格限制编译器和处理器对volatile变量与普通变量的重排序
+1. 阻止屏障两侧的指令重排序;
+2. 强制把写本地内存中的脏数据等写回主内存, 或者让本地内存中相应的数据失效.
 
-编译器还好说，JVM是怎么还能限制处理器的重排序的呢？它是通过**内存屏障**来实现的。
+编译器在生成字节码时，会在指令序列中插入内存屏障来禁止特定类型的处理器重排序:
 
-什么是内存屏障？硬件层面，内存屏障分两种：读屏障（Load Barrier）和写屏障（Store Barrier）。内存屏障有两个作用：
-
-1. 阻止屏障两侧的指令重排序；
-2. 强制把写缓冲区/高速缓存中的脏数据等写回主内存，或者让缓存中相应的数据失效。
-
-> 这里的缓存主要指的是CPU缓存，如L1，L2等
-
-编译器在**生成字节码时**，会在指令序列中插入内存屏障来禁止特定类型的处理器重排序。编译器选择了一个**比较保守的JMM内存屏障插入策略**，这样可以保证在任何处理器平台，任何程序中都能得到正确的volatile内存语义。这个策略是：
-
-- 在每个volatile写操作前插入一个StoreStore屏障；
-- 在每个volatile写操作后插入一个StoreLoad屏障；
-- 在每个volatile读操作后插入一个LoadLoad屏障；
-- 在每个volatile读操作后再插入一个LoadStore屏障。
-
-![内存屏障](picture/内存屏障.png)
-
-再逐个解释一下这几个屏障。注：下述Load代表读操作，Store代表写操作
-
-**LoadLoad屏障**：对于这样的语句Load1; LoadLoad; Load2，在Load2及后续读取操作要读取的数据被访问前，保证Load1要读取的数据被读取完毕。
-**StoreStore屏障**：对于这样的语句Store1; StoreStore; Store2，在Store2及后续写入操作执行前，这个屏障会把Store1强制刷新到内存，保证Store1的写入操作对其它处理器可见。
-**LoadStore屏障**：对于这样的语句Load1; LoadStore; Store2，在Store2及后续写入操作被刷出前，保证Load1要读取的数据被读取完毕。
-**StoreLoad屏障**：对于这样的语句Store1; StoreLoad; Load2，在Load2及后续所有读取操作执行前，保证Store1的写入对所有处理器可见。它的开销是四种屏障中最大的（冲刷写缓冲器，清空无效化队列）。在大多数处理器的实现中，这个屏障是个万能屏障，兼具其它三种内存屏障的功能.
-
-
-
-再介绍一下volatile与普通变量的重排序规则:
-
-1. 如果第一个操作是volatile读，那无论第二个操作是什么，都不能重排序；
-2. 如果第二个操作是volatile写，那无论第一个操作是什么，都不能重排序；
-3. 如果第一个操作是volatile写，第二个操作是volatile读，那不能重排序。
-
-但如果是下列情况：第一个操作是普通变量读，第二个操作是volatile变量读，那是可以重排序的：
-
-```java
-// 声明变量
-int a = 0; // 声明普通变量
-volatile boolean flag = false; // 声明volatile变量
-
-// 以下两个变量的读操作是可以重排序的
-int i = a; // 普通变量读
-boolean j = flag; // volatile变量读
-```
-
-
-
-用途
-
-在禁止重排序这一点上，volatile也是非常有用的。比如我们熟悉的单例模式，其中有一种实现方式是“双重锁检查”，比如这样的代码：
-
-```java
-public class Singleton {
-
-    private static Singleton instance; // 不使用volatile关键字
-
-    // 双重锁检验
-    public static Singleton getInstance() {
-        if (instance == null) { // 第7行
-            synchronized (Singleton.class) {
-                if (instance == null) {
-                    instance = new Singleton(); // 第10行
-                }
-            }
-        }
-        return instance;
-    }
-}
-```
-
-如果这里的变量声明不使用volatile关键字，是可能会发生错误的。它可能会被重排序：
-
-```java
-instance = new Singleton(); // 第10行
-
-// 可以分解为以下三个步骤
-1 memory=allocate();// 分配内存 相当于c的malloc
-2 ctorInstanc(memory) //初始化对象
-3 s=memory //设置s指向刚分配的地址
-
-// 上述三个步骤可能会被重排序为 1-3-2，也就是：
-1 memory=allocate();// 分配内存 相当于c的malloc
-3 s=memory //设置s指向刚分配的地址
-2 ctorInstanc(memory) //初始化对象
-```
-
-而一旦假设发生了这样的重排序，比如线程A在第10行执行了步骤1和步骤3，但是步骤2还没有执行完。这个时候另一个线程B执行到了第7行，它会判定instance不为空，然后直接返回了一个未初始化完成的instance！
-
-
+- 在每个volatile写操作前插入一个StoreStore屏障, 保证写操作执行前, 前面的其他写操作已经完毕并强制刷新到共享内存;
+- 在每个volatile写操作后插入一个StoreLoad屏障, 保证该写操作对其后面的读操作可见;
+- 在每个volatile读操作后插入一个LoadLoad屏障, 保证后续读操作执行前, 该读操作已经完毕;
+- 在每个volatile读操作后再插入一个LoadStore屏障, 保证后续写操作被刷出前, 该读操作已经完毕.
 
 ## synchronized
 
-通过 JDK 自带的 `javap` 命令查看类的相关字节码信息
+通过 JDK 自带的 `javap` 命令查看类的相关字节码信息:
 
-**同步语句块**
+对于同步语句块, 通过 `monitorenter` 和 `monitorexit` 指令控制monitor的持有权;
 
-`synchronized` 同步语句块的实现使用的是 `monitorenter` 和 `monitorexit` 指令.
-
-当执行 `monitorenter` 指令时，线程试图获取锁也就是获取 **对象监视器 `monitor`** 的持有权。
-
-在执行`monitorenter`时，会尝试获取对象的锁，如果锁的计数器为 0 则表示锁可以被获取，获取后将锁计数器设为 1 也就是加 1。
-
-在执行 `monitorexit` 指令后，将锁计数器设为 0，表明锁被释放。如果获取对象锁失败，那当前线程就要阻塞等待，直到锁被另外一个线程释放为止。
-
-**修饰方法**
-
-`synchronized` 修饰的方法并没有 `monitorenter` 指令和 `monitorexit` 指令，取得代之的确实是 `ACC_SYNCHRONIZED` 标识，该标识指明了该方法是一个同步方法。JVM 通过该 `ACC_SYNCHRONIZED` 访问标志来辨别一个方法是否声明为同步方法，从而执行相应的同步调用.
-
-> 不过两者的本质都是对对象监视器 monitor 的获取。
+对于同步方法, 通过`ACC_SYNCHRONIZED`表示, 本质也是对`monitor`对象控制.
 
 ### 锁升级
 
-Java 6 为了减少获得锁和释放锁带来的性能消耗，引入了“偏向锁”和“轻量级锁“。在Java 6 以前，所有的锁都是”重量级“锁。所以在Java 6 及其以后，一个对象其实有四种锁状态，它们级别由低到高依次是：
+Java6以前无锁升级概念, 只有重量级锁. 为了减少获得锁和释放锁带来的性能消耗, 引入了偏向锁和轻量级锁, 几种锁会随着竞争情况逐渐升级.
 
-1. 无锁状态
-2. 偏向锁状态
-3. 轻量级锁状态
-4. 重量级锁状态
-
-几种锁会随着竞争情况逐渐升级，锁的升级很容易发生，但是锁降级发生的条件会比较苛刻，锁降级发生在Stop The World期间，当JVM进入安全点的时候，会检查是否有闲置的锁，然后进行降级。
-
-> 不同于大部分文章说锁不能降级，实际上HotSpot JVM 是支持锁降级的
-
-**java对象头**: 锁存放的地方
-
-每个Java对象都有对象头。如果是非数组类型，则用2个字宽来存储对象头，如果是数组，则会用3个字宽来存储对象头。在32位处理器中，一个字宽是32位；在64位虚拟机中，一个字宽是64位。对象头的内容如下表：
-
-| 内容                   | 说明                         |
-| ---------------------- | ---------------------------- |
-| Mark Word   64bit      | 存储对象的hashCode或锁信息等 |
-| Class Metadata Address | 存储到对象类型数据的指针     |
-| Array length           | 数组的长度（如果是数组）     |
-
-Mark Word的格式：
-
-| 锁状态   | 29 bit 或 61 bit             | 1 bit 是否是偏向锁？       | 2 bit 锁标志位 |
-| -------- | ---------------------------- | -------------------------- | -------------- |
-| 无锁     |                              | 0                          | 01             |
-| 偏向锁   | 线程ID                       | 1                          | 01             |
-| 轻量级锁 | 指向栈中锁记录的指针         | 此时这一位不用于标识偏向锁 | 00             |
-| 重量级锁 | 指向互斥量（重量级锁）的指针 | 此时这一位不用于标识偏向锁 | 10             |
-| GC标记   |                              | 此时这一位不用于标识偏向锁 | 11             |
-
-当对象状态为偏向锁时，`Mark Word`存储的是偏向的线程ID；当状态为轻量级锁时，`Mark Word`存储的是指向线程栈中`Lock Record`的指针；当状态为重量级锁时，`Mark Word`为指向堆中的monitor对象的指针。
-
-
+> 锁的升级很容易发生, 但是锁降级发生的条件较苛刻, 仅发生在Stop The World期间, 当JVM进入安全点的时候, 会检查是否有闲置的锁, 然后进行降级
 
 **偏向锁**
 
-偏向锁会偏向于第一个访问锁的线程，如果在接下来的运行过程中，该锁没有被其他的线程访问，则持有偏向锁的线程将永远不需要触发同步。也就是说，**偏向锁在资源无竞争情况下消除了同步语句，连CAS操作都不做了，提高了程序的运行性能。**
+偏向于第一个访问锁的线程, 如果在接下来的运行过程中, 该锁没有被其他的线程访问, 则持有偏向锁的线程将永远不需要触发同步. 即偏向锁在资源无竞争情况下消除了同步语句, 连CAS操作都不做了, 提高了程序的运行性能.
 
-实现原理:
+> 偏向锁与无锁状态共用01锁标志位
 
-一个线程在第一次进入同步块时，会在对象头和栈帧中的锁记录里存储锁的偏向的线程ID。以后该线程进入这个和退出同步块时，不需要花费CAS操作来加锁和解锁,  只需要检查锁的Mark Word里面是不是放的自己的线程ID。
+一个线程在第一次进入同步块时, 会在对象头和栈帧中的锁记录里存储锁的偏向的线程ID. 以后该线程进入和退出同步块时, 不需要花费CAS操作来加锁和解锁, 只需要检查锁的Mark Word里面是不是放的自己的线程ID.
 
-如果是，表明该线程已经获得了锁， ；如果不是，就代表有另一个线程来竞争这个偏向锁。这个时候会尝试使用CAS来替换Mark Word里面的线程ID为新线程的ID，这个时候要分两种情况：
+如果是, 则表明该线程已经获得了锁; 如果不是, 则代表有另一个线程来竞争这个偏向锁. 这个时候会尝试使用CAS来替换Mark Word里面的线程ID, 这个时候要分两种情况：
 
-- 成功，表示之前的线程不存在了， Mark Word里面的线程ID为新线程的ID，锁不会升级，仍然为偏向锁；
-- 失败，表示之前的线程仍然存在，那么暂停之前的线程，设置偏向锁标识为0，并设置锁标志位为00，升级为轻量级锁，会按照轻量级锁的方式进行竞争锁。
+- 若替换成功, 则表示之前的线程不存在了, 锁不会升级, 仍然为偏向锁；
+- 若替换失败, 则表示之前的线程仍然存在, 那么暂停之前的线程, 升级为轻量级锁.
 
-撤销偏向锁:
+因为偏向锁在升级轻量级锁的过程中, 需要寻找一个安全点暂停拥有偏向锁的线程; 然后遍历线程栈, 若存在锁记录, 则修复锁记录和重置Mark Work, 使其变为无锁; 最后唤醒被暂停的线程对锁进行升级( 如设置偏向锁标识为0, 并设置锁标志位为00)
 
-偏向锁使用了一种**等到竞争出现才释放锁的机制**，所以当其他线程尝试竞争偏向锁时， 持有偏向锁的线程才会释放锁。
-
-偏向锁升级成轻量级锁时，**会暂停拥有偏向锁的线程**，重置偏向锁标识，这个过程看起来容易，实则开销还是很大的，大概的过程如下：
-
-1. 在一个安全点（在这个时间点上没有字节码正在执行）停止拥有锁的线程。
-2. 遍历线程栈，如果存在锁记录的话，需要修复锁记录和Mark Word，使其变成无锁状态。
-3. 唤醒被停止的线程，将当前锁升级成轻量级锁。
-
-所以，如果应用程序里所有的锁通常处于竞争状态，那么偏向锁就会是一种累赘，对于这种情况，我们可以一开始就把偏向锁这个默认功能给关闭：
+因为升级过程消耗资源, 如果应用程序从一开始, 锁就处于竞争状态, 那么偏向锁就会是一种累赘. 因此, 可以关闭偏向锁使用:
 
 ```java
 -XX:UseBiasedLocking=false。
@@ -293,72 +98,31 @@ Mark Word的格式：
 
 > 为了解决多竞争下偏向锁升级的消耗, jdk1.6默认4s以后才激活
 
-
-
 **轻量级锁**
 
-执行同步块之前,  JVM会为每个线程在当前线程的栈帧中创建用于存储锁记录的空间，并将对象头中的Mark Word复制到锁记录中,  我们称为Displaced Mark Word。
+执行同步块之前, JVM会为每个线程在当前线程的栈帧中创建用于存储锁记录的空间, 并将对象头中的Mark Word复制到锁记录中, 这个过程为Displaced Mark Word.
 
-然后线程**尝试用CAS将锁的Mark Word替换为指向锁记录的指针**。如果成功，当前线程获得锁，如果失败，表示Mark Word已经被替换成了其他线程的锁记录，说明在与其它线程竞争锁，当前线程就尝试使用自旋来获取锁。
+然后线程尝试用CAS将锁的Mark Word替换为指向锁记录的指针. 如果成功, 当前线程获得锁; 否则, 表示Mark Word已经被其他线程替换了锁记录的指针, 存在锁竞争, 当前线程尝试使用自旋来获取锁。
 
-> 自旋：不断尝试去获取锁，一般用循环来实现。
+自旋是需要消耗CPU的, JVM采用适应性自旋: 线程如果自旋成功了, 则下次自旋的次数会更多; 如果自旋失败了, 则自旋的次数就会减少.
 
-自旋是需要消耗CPU的，如果一直获取不到锁的话，那该线程就一直处在自旋状态，白白浪费CPU资源。解决这个问题最简单的办法就是指定自旋的次数，例如让其循环10次，如果还没获取到锁就进入阻塞状态。
-
-但是JDK采用了更聪明的方式——**适应性自旋**，简单来说就是线程如果自旋成功了，则下次自旋的次数会更多，如果自旋失败了，则自旋的次数就会减少。
-
-自旋也不是一直进行下去的，如果自旋到一定程度（和JVM、操作系统相关），依然没有获取到锁，称为自旋失败，那么这个线程会阻塞。同时这个锁就会**升级成重量级锁**。
+如果自旋到一定程度(和JVM、操作系统相关), 依然没有获取到锁, 则这个线程会阻塞, 并升级为重量级锁.
 
 **重量级锁**
 
-重量级锁依赖于操作系统的互斥量（mutex） 实现的，而操作系统中线程间状态的转换需要相对比较长的时间，所以重量级锁效率很低，但被阻塞的线程不会消耗CPU。
+重量级锁依赖于操作系统的互斥量(mutex)实现的, 因为操作系统中线程间状态的转换需要相对比较长的时间, 所以重量级锁效率很低, 但被阻塞的线程不会消耗CPU.
 
-前面说到，每一个对象都可以当做一个锁，当多个线程同时请求某个对象锁时，对象锁会设置几种状态用来区分请求的线程：
+Java对重量级锁的实现好像与ReentrantLock的AQS类似.
 
-```
-Contention List：所有请求锁的线程将被首先放置到该竞争队列
-Entry List：Contention List中那些有资格成为候选人的线程被移到Entry List
-Wait Set：那些调用wait方法被阻塞的线程被放置到Wait Set
-OnDeck：任何时刻最多只能有一个线程正在竞争锁，该线程称为OnDeck
-Owner：获得锁的线程称为Owner
-!Owner：释放锁的线程
-```
+> 当调用一个锁对象的`wait`或`notify`方法时, 若当前锁的状态是偏向锁或轻量级锁, 则会先膨胀成重量级锁
 
-当一个线程尝试获得锁时，如果该锁已经被占用，则会将该线程封装成一个`ObjectWaiter`对象插入到Contention List的队列的队首，然后调用`park`函数挂起当前线程。
+### 偏向锁测试
 
-当线程释放锁时，会从Contention List或EntryList中挑选一个线程唤醒，被选中的线程叫做`Heir presumptive`即假定继承人，假定继承人被唤醒后会尝试获得锁，但`synchronized`是非公平的，所以假定继承人不一定能获得锁。这是因为对于重量级锁，线程先自旋尝试获得锁，这样做的目的是为了减少执行操作系统同步操作带来的开销。如果自旋不成功再进入等待队列。这对那些已经在等待队列中的线程来说，稍微显得不公平，还有一个不公平的地方是自旋线程可能会抢占了Ready线程的锁。
+对4s后才开启偏向锁进行测试
 
-如果线程获得锁后调用`Object.wait`方法，则会将线程加入到WaitSet中，当被`Object.notify`唤醒后，会将线程从WaitSet移动到Contention List或EntryList中去。需要注意的是，当调用一个锁对象的`wait`或`notify`方法时，**如当前锁的状态是偏向锁或轻量级锁则会先膨胀成重量级锁**。
+JOL输出的第一个字节的最后两位为锁标志位, jdk8下:
 
-
-
-**总结流程:**
-
-每一个线程在准备获取共享资源时：
-
-第一步，检查MarkWord里面是不是放的自己的ThreadId ,如果是，表示当前线程是处于 “偏向锁” 。
-
-第二步，如果MarkWord不是自己的ThreadId，锁升级，这时候，用CAS来执行切换，新的线程根据MarkWord里面现有的ThreadId，通知之前线程暂停，之前线程将Markword的内容置为空。
-
-第三步，两个线程都把锁对象的HashCode复制到自己新建的用于存储锁的记录空间，接着开始通过CAS操作， 把锁对象的MarKword的内容修改为自己新建的记录空间的地址的方式竞争MarkWord。
-
-第四步，第三步中成功执行CAS的获得资源，失败的则进入自旋 。
-
-第五步，自旋的线程在自旋过程中，成功获得资源(即之前获的资源的线程执行完成并释放了共享资源)，则整个状态依然处于 轻量级锁的状态，如果自旋失败 。
-
-第六步，进入重量级锁的状态，这个时候，自旋的线程进行阻塞，等待之前线程执行完成并唤醒自己。
-
-| 锁       | 优点                                                         | 缺点                                             | 适用场景                             |
-| -------- | ------------------------------------------------------------ | ------------------------------------------------ | ------------------------------------ |
-| 偏向锁   | 加锁和解锁不需要额外的消耗，和执行非同步方法比仅存在纳秒级的差距。 | 如果线程间存在锁竞争，会带来额外的锁撤销的消耗。 | 适用于只有一个线程访问同步块场景。   |
-| 轻量级锁 | 竞争的线程不会阻塞，提高了程序的响应速度。                   | 如果始终得不到锁竞争的线程使用自旋会消耗CPU。    | 追求响应时间。同步块执行速度非常快。 |
-| 重量级锁 | 线程竞争不使用自旋，不会消耗CPU。                            | 线程阻塞，响应时间缓慢。                         | 追求吞吐量。同步块执行时间较长。     |
-
-### 举例分析
-
-jdk8下
-
-对于代码:
+查看下列代码输出:
 
 ```java
 public class JOLDemo {
@@ -373,13 +137,11 @@ public class JOLDemo {
 }
 ```
 
-> JOL输出的第一个字节的最后两位为锁标志位
-
-查看输出可发现第一次输出的锁标志位为01, 锁偏向位为0, 表示无锁状态;
+第一次输出的锁标志位为01, 锁偏向位为0, 表示无锁状态;
 
 第二次输出的锁标志位为00, 表示轻量级锁状态.
 
-对于代码:
+在锁前加入延迟5s, 再查看下列代码输出:
 
 ```java
 public class JOLDemo {
@@ -394,43 +156,7 @@ public class JOLDemo {
 }
 ```
 
-在锁前加入延迟5s, 查看输出的锁标志位为10 和 锁偏向位为1, 表示偏向锁.
-
-**为什么一个为没有sleep为轻量级锁而加了sleep为偏向锁?**
-
-因为Syn锁升级之后，jdk1.8版本的一个底层默认设置4s之后偏向锁开启。也就是说在4s内是没有开启偏向锁的，加了锁就直接升级为轻量级锁了。
-
-**为什么要进行锁升级**?
-
-首先明确早起jdk1.2效率非常低。那时候syn就是重量级锁，申请锁必须要经过操作系统老大kernel进行系统调用，入队进行排序操作，操作完之后再返回给用户态。
-
-内核态：用户态如果要做一些比较危险的操作直接访问硬件，很容易把硬件搞死（格式化，访问网卡，访问内存干掉）操作系统为了系统安全分成两层，用户态和内核态 。申请锁资源的时候用户态要向操作系统老大内核态申请(上下文切换)。Jdk1.2的时候用户需要跟内核态申请锁，然后内核态还会给用户态。这个过程是非常消耗时间的，导致早期效率特别低。有些jvm就可以处理的为什么还交给操作系统做去呢？能不能把jvm就可以完成的锁操作拉取出来提升效率，所以也就有了锁优化。
-
-**为什么要有偏向锁？**
-
-其实这本质上归根于一个概率问题，统计表示，在我们日常用的syn锁过程中70%-80%的情况下，一般都只有一个线程去拿锁，例如我们常使用的System.out.println、StringBuffer.length，虽然底层加了syn锁，但是基本没有多线程竞争的情况。那么这种情况下，没有必要升级到轻量级锁级别了。偏向的意义在于：第一个线程拿到锁，将自己的线程信息标记在锁上，下次进来就不需要在拿去拿锁验证了。如果超过1个线程去抢锁，那么偏向锁就会撤销，升级为轻量级锁，其实我认为严格意义上来讲偏向锁并不算一把真正的锁，因为只有一个线程去访问共享资源的时候才会有偏向锁这个情况。
-
-**为什么jdk8要在4s后开启偏向锁？**
-
-其实这是一个妥协，明确知道在刚开始执行代码时，一定有好多线程来抢锁，如果开了偏向锁效率反而降低，所以上面程序在睡了5s之后偏向锁才开放。为什么加偏向锁效率会降低，因为中途多了几个额外的过程，上了偏向锁之后多个线程争抢共享资源的时候要进行锁升级到轻量级锁，这个过程还的把偏向锁进行撤销在进行升级，所以导致效率会降低。为什么是4s？这是一个统计的时间值。
-
-当然我们是可以禁止偏向锁的，通过配置参数-XX:-UseBiasedLocking = false来禁用偏向锁。jdk15之后默认已经禁用了偏向锁。本文是在jdk8的环境下做的锁升级验证.
-
- **synchronized的底层实现**
-
-对使用syn锁的代码进行反编译, 可以看到有monitorenter和monitorexit，主观上就可以猜到这是跟加锁和解锁相关的指令。有意思的是1个monitorenter和2个monitorexit。为什么呢？正常来说应该就是一个加锁和一个释放锁啊。其实这里也体现了syn和lock的区别。syn是JVM层面的锁，如果异常了不用自己释放，jvm会自动帮助释放，这一步就取决于多出来的那个monitorexit。而lock异常需要我们手动补获并释放的。
-
-1. 对于monitorenter: 每个对象有一个监视器锁（monitor）。当monitor被占用时就会处于锁定状态，线程执行monitorenter指令时尝试获取monitor的所有权，过程如下：
-
-- 如果monitor的进入数为0，则该线程进入monitor，然后将进入数设置为1，该线程即为monitor的所有者。
-
-- 如果线程已经占有该monitor，只是重新进入，则进入monitor的进入数加1。
-
-- 如果其他线程已经占用了monitor，则该线程进入阻塞状态，直到monitor的进入数为0，再重新尝试获取monitor的所有权。
-
-2. 对于monitorexit: 执行monitorexit的线程必须是objectref所对应的monitor的所有者。指令执行时，monitor的进入数减1，如果减1后进入数为0，那线程退出monitor，不再是这个monitor的所有者。其他被这个monitor阻塞的线程可以尝试去获取这个 monitor的所有权。 
-
-> Synchronized底层通过一个monitor的对象来完成，wait/notify等方法其实也依赖于monitor对象，这就是为什么只有在同步的块或者方法中才能调用wait/notify等方法，否则会抛出java.lang.IllegalMonitorStateException的异常。
+输出的锁标志位为10 和 锁偏向位为1, 即偏向锁.
 
 ## ThreadLocal
 
@@ -453,23 +179,9 @@ private static final ThreadLocal<SimpleDateFormat> formatter = ThreadLocal.withI
 
 **原理**
 
-```java
-public class Thread implements Runnable {
-    //......
-    //与此线程有关的ThreadLocal值。由ThreadLocal类维护
-    ThreadLocal.ThreadLocalMap threadLocals = null;
+ThreadLocalMap实际上为一个以ThreadLocal为key, Object为value的Map, 每个Thread包含一个ThreadLocalMap
 
-    //与此线程有关的InheritableThreadLocal值。由InheritableThreadLocal类维护
-    ThreadLocal.ThreadLocalMap inheritableThreadLocals = null;
-    //......
-}
-```
-
-ThreadLocalMap可理解为ThreadLocal 类实现的定制化的 entry数组.
-
-默认情况下这两个变量都是 null，只有当前线程调用 `ThreadLocal` 类的 `set`或`get`方法时才创建它们，实际上调用这两个方法的时候，我们调用的是`ThreadLocalMap`类对应的 `get()`、`set()`方法。
-
-`ThreadLocal`类的`set()`方法
+默认情况下为null, 只有当前线程调用ThreadLocal的 set或get方法时才进行创建, 并且实际上对应调用的方法为ThreadLocalMap类的 get()和set()方法, 以Thread.set为例 :
 
 ```java
 public void set(T value) {
@@ -485,13 +197,9 @@ ThreadLocalMap getMap(Thread t) {
 }
 ```
 
-**每个`Thread`中都具备一个`ThreadLocalMap`，而`ThreadLocalMap`可以存储以`ThreadLocal`为 key ，Object 对象为 value 的键值对。**
+**内存泄漏问题**
 
-如果在同一个线程中声明了两个 `ThreadLocal` 对象的话， `Thread`内部都是使用仅有那个`ThreadLocalMap` 存放数据的，`ThreadLocalMap`的 key 就是 `ThreadLocal`对象，value 就是 `ThreadLocal` 对象调用`set`方法设置的值。
-
-**TheadLocal内存泄漏问题**
-
-`ThreadLocalMap` 中使用的 key 为 `ThreadLocal` 的弱引用,而 value 是强引用。所以，如果 `ThreadLocal` 没有被外部强引用的情况下，在垃圾回收的时候，key 会被清理掉，而 value 不会被清理掉。这样一来，`ThreadLocalMap` 中就会出现 key 为 null 的 Entry。假如我们不做任何措施的话，value 永远无法被 GC 回收，这个时候就可能会产生内存泄露。ThreadLocalMap 实现中已经考虑了这种情况，在调用 `set()`、`get()`、`remove()` 方法的时候，会清理掉 key 为 null 的记录。使用完 `ThreadLocal`方法后 最好手动调用`remove()`方法 .
+ThreadLocalMap中的key为ThreadLocal的弱引用, 但value为强引用. 如果key对应的ThreadLocal对象未被外部强引用, 在GC的时候就会被清理掉, 但value不会被清理掉.  这样会导致ThreadLocalMap中出现key为null的Entry, 并且value永远也不会被GC掉:
 
 ```java
 static class Entry extends WeakReference<ThreadLocal<?>> {
@@ -505,75 +213,27 @@ static class Entry extends WeakReference<ThreadLocal<?>> {
 }
 ```
 
+ThreadLocalMap为了解决该问题, 在调用 set、get、remove的时候会清理掉key为null的记录. 但最好还是使用完ThreadLocal方法后手动调用remove方法.
+
 ## 线程池
 
-> 并不是以Executor结尾的类就是一个线程池, 真正能代表线程池意义的，是ThreadPoolExecutor类，而不是Executor接口. Executor它的职责并不是提供一个线程池的接口，而是提供一个“将来执行命令”的接口. 
+> 真正能代表线程池意义的是ThreadPoolExecutor类, 而不是Executor接口和以Executor结尾的类. Executor它的职责并不是提供一个线程池的接口, 而是提供一个“将来执行命令”的接口.
 
-1. 创建/销毁线程需要消耗系统资源，线程池可以**复用已创建的线程**。
-2. **控制并发的数量**。并发数量过多，可能会导致资源消耗过多，从而造成服务器崩溃。（主要原因）
-3. **可以对线程做统一管理**。
+1. 创建/销毁线程需要消耗系统资源, 线程池可以复用已创建的线程;
+2. 控制并发的数量, 并发数量过多, 可能会导致资源消耗过多, 从而造成服务器崩溃;
+3. 可以对线程做统一管理.
 
-Java中的线程池顶层接口是`Executor`接口，`ThreadPoolExecutor`是这个接口的实现类。
+Java中的线程池顶层接口是`Executor`接口, `ThreadPoolExecutor`是这个接口的实现类。
 
-**ThreadPoolExecutor** 
+ThreadPoolExecutor的3个最重要的参数：
 
-```java
-public ThreadPoolExecutor(int corePoolSize,
-                      int maximumPoolSize,
-                      long keepAliveTime,
-                      TimeUnit unit,
-                      BlockingQueue<Runnable> workQueue,
-                      ThreadFactory threadFactory,
-                      RejectedExecutionHandler handler) {
-    if (corePoolSize < 0 ||
-        maximumPoolSize <= 0 ||
-        maximumPoolSize < corePoolSize ||
-        keepAliveTime < 0)
-            throw new IllegalArgumentException();
-    if (workQueue == null || threadFactory == null || handler == null)
-        throw new NullPointerException();
-    this.corePoolSize = corePoolSize;
-    this.maximumPoolSize = maximumPoolSize;
-    this.workQueue = workQueue;
-    this.keepAliveTime = unit.toNanos(keepAliveTime);
-    this.threadFactory = threadFactory;
-    this.handler = handler;
-}
-```
-
-**`ThreadPoolExecutor` 3 个最重要的参数：**
-
-- **`corePoolSize` :** 核心线程数定义了该线程池中**核心线程数最大值**。
-- **`maximumPoolSize` :** 等于**核心线程数量 + 非核心线程数量**,  当队列中存放的任务达到队列容量的时候，当前可以同时运行的线程数量变为最大线程数 (非核心线程如果长时间的闲置，就会被销毁)。
-- **`workQueue`:** 阻塞队列，维护着**等待执行的Runnable任务对象**。当新任务来的时候会先判断当前运行的线程数量是否达到核心线程数，如果达到的话，新任务就会被存放在队列中。
-
-- **`keepAliveTime`**:**非核心线程闲置超时时长** 当线程池中的线程数量大于 `corePoolSize` 的时候，如果这时没有新的任务提交，核心线程外的线程不会立即销毁，而是会等待，直到等待的时间超过了 `keepAliveTime`才会被回收销毁；
-- **`unit`** : `keepAliveTime` 参数的时间单位。
-
-两个可选参数
-
-1.**`threadFactory`** 创建线程的工厂 ，用于批量创建线程，统一在创建线程时设置一些参数，如是否守护线程、线程的优先级等。如果不指定，会新建一个默认的线程工厂。
-
-```java
-static class DefaultThreadFactory implements ThreadFactory {
-    // 省略属性
-    // 构造函数
-    DefaultThreadFactory() {
-        SecurityManager s = System.getSecurityManager();
-        group = (s != null) ? s.getThreadGroup() :
-        Thread.currentThread().getThreadGroup();
-        namePrefix = "pool-" +
-            poolNumber.getAndIncrement() +
-            "-thread-";
-    }
-
-    // 省略
-}
-```
-
-2.**`handler`** :饱和策略(拒绝策略),线程数量大于最大线程数就会采用拒绝处理策略。
-
-拒绝策略:
+- corePoolSize: 核心线程最大数;
+- maximumPoolSize: 总线程最大数. 总线程数=核心线程数量 + 非核心线程数量;
+- workQueue: 阻塞队列, 用于维护等待执行的Runnable. 若线程数大于核心线程数, 则任务添加到该队列;
+- keepAliveTime: 非核心线程闲置超时时长；
+- unit: keepAliveTime参数的时间单位;
+- threadFactory: 创建线程的工厂, 可选参数;
+- handler: 饱和策略(拒绝策略), 当线程数达到maximumPoolSize且workQueue已满时对新任务的策略, 可选参数.
 
 ```
 ThreadPoolExecutor.AbortPolicy： 抛出 RejectedExecutionException来拒绝新任务的处理。 这是默认的拒绝策略
@@ -583,20 +243,12 @@ ThreadPoolExecutor.DiscardPolicy： 不处理新任务，直接丢弃掉。 Thre
 
 **线程池状态**
 
-`ThreadPoolExecutor`类中使用了一些`final int`常量变量来表示线程池的状态 ，分别为RUNNING、SHUTDOWN、STOP、TIDYING 、TERMINATED。
+ThreadPoolExecutor类中使用了一些`final int`常量变量来表示线程池的状态, 分别为RUNNING、SHUTDOWN、STOP、TIDYING 、TERMINATED:
 
-```java
-private static final int RUNNING    = -1 << COUNT_BITS;
-private static final int SHUTDOWN   =  0 << COUNT_BITS;
-private static final int STOP       =  1 << COUNT_BITS;
-private static final int TIDYING    =  2 << COUNT_BITS;
-private static final int TERMINATED =  3 << COUNT_BITS;
-```
-
-- 线程池创建后处于**RUNNING**状态。
-- 调用shutdown()方法后处于**SHUTDOWN**状态，线程池不能接受新的任务，清除一些空闲worker,会等待阻塞队列的任务完成。
-- 调用shutdownNow()方法后处于**STOP**状态，线程池不能接受新的任务，中断所有线程，阻塞队列中没有被执行的任务全部丢弃。此时，poolsize=0,阻塞队列的size也为0。
-- 当所有的任务已终止，ctl记录的”任务数量”为0，线程池会变为**TIDYING**状态。接着会执行terminated()函数。
+- 线程池创建后处于RUNNING状态;
+- 调用shutdown()后处于SHUTDOWN状态, 线程池不能接受新的任务, 清除一些空闲worker, 会等待阻塞队列的任务完成;
+- 调用shutdownNow()后处于STOP状态, 线程池不能接受新的任务, 中断所有线程, 阻塞队列中没有被执行的任务全部丢弃;
+- 当所有的任务已终止, ctl记录的”任务数量”为0, 线程池会变为TIDYING状态;
 
 > ThreadPoolExecutor中有一个控制状态的属性叫`ctl`，它是一个AtomicInteger类型的变量。线程池状态就是通过AtomicInteger类型的成员变量`ctl`来获取的。
 
@@ -604,7 +256,7 @@ private static final int TERMINATED =  3 << COUNT_BITS;
 
 > `~CAPACITY`在这里相当于掩码，用来获取ctl的高3位，表示线程池状态；而另外的低29位用于表示工作线程数
 
-- 线程池处在TIDYING状态时，**执行完terminated()方法之后**，就会由 **TIDYING -> TERMINATED**， 线程池被设置为TERMINATED状态。
+- 线程池处在TIDYING状态时, 执行完terminated()方法之后, 线程池被设置为TERMINATED状态。
 
 ### ThreadPoolExecutor问题
 
