@@ -1796,3 +1796,189 @@ public class WebSocketServerConfigure implements WebSocketConfigurer {
 - `close`，断开和服务端的连接。
 
 启动项目，浏览器访问：http://localhost:8080/client.html：
+
+## 时序数据库InfluxDB
+
+时间序列数据库主要用于指处理带时间标签（按照时间的顺序变化，即时间序列化）的数据，带时间标签的数据也称为时间序列数据。
+
+InfluxDB中的几个重要名词：
+
+- database：数据库
+- measurement：类似于关系数据库中的table（表）
+- points：类似于关系数据库中的row（一行数据）
+
+其中，一个Point由三个部分组成：
+
+- time：时间戳
+- fields：记录的值
+- tags：索引的属性
+
+```xml
+<dependency>
+    <groupId>org.influxdb</groupId>
+    <artifactId>influxdb-java</artifactId>
+</dependency>
+```
+
+注意：这里因为Spring Boot 2.x版本的parent中有维护InfluxDB的SDK版本，所以不需要手工指明版本信息。如果使用的Spring Boot版本比较老，那么可能会缺少version信息，就需要手工写了。
+
+```xml
+spring.influx.url=http://localhost:8086
+spring.influx.user=admin
+spring.influx.password=
+```
+
+三个属性分别代表：连接地址、用户名、密码。到这一步，基础配置就完成了。
+
+注意：虽然没有spring data的支持，但spring boot 2.x版本中也实现了InfluxDB的自动化配置，所以只需要写好配置信息，就可以使用了。具体配置属性可以查看源码：`org.springframework.boot.autoconfigure.influx.InfluxDbProperties`。
+
+创建定时任务，模拟上报数据，并写入InfluxDB:
+
+```java
+@Service
+@AllArgsConstructor
+@Slf4j
+public class Monitor {
+    private InfluxDB influxDB;
+    @Scheduled(fixedRate = 5000)
+    public void writeQPS() {
+        // 模拟要上报的统计数据
+        int count = (int) (Math.random() * 100);
+
+        Point point = Point.measurement("ApiQPS")     // ApiQPS表
+                .tag("url", "/hello")  // url字段
+                .addField("count", count)        // 统计数据
+                .time(System.currentTimeMillis(), TimeUnit.MILLISECONDS)  // 时间
+                .build();
+        // 往test库写数据
+        influxDB.write("test", "autogen", point);
+
+        log.info("上报统计数据：" + count);
+    }
+}
+```
+
+测试验证:
+
+```
+进入InfluxDB
+$ influx
+
+> show databases
+> create database "test"
+```
+
+启动Spring Boot应用，在定时任务的作用下
+
+```
+2021-08-03 01:52:47.732  INFO 94110 --- [           main] c.d.chapter63.Chapter63Application       : Started Chapter63Application in 2.326 seconds (JVM running for 3.027)
+2021-08-03 01:52:47.764  INFO 94110 --- [   scheduling-1] com.didispace.chapter63.Monitor          : 上报统计数据：25
+2021-08-03 01:52:52.736  INFO 94110 --- [   scheduling-1] com.didispace.chapter63.Monitor          : 上报统计数据：30
+2021-08-03 01:52:57.737  INFO 94110 --- [   scheduling-1] com.didispace.chapter63.Monitor          : 上报统计数据：38
+2021-08-03 01:53:02.739  INFO 94110 --- [   scheduling-1] com.didispace.chapter63.Monitor          : 上报统计数据：51
+2021-08-03 01:53:07.739  INFO 94110 --- [   scheduling-1] com.didispace.chapter63.Monitor          : 上报统计数据：31
+```
+
+验证:
+
+```
+> select * from ApiQPS order by time desc;
+
+name: ApiQPS
+time                count url
+----                ----- ---
+1627926787730000000 31    /hello
+1627926782730000000 51    /hello
+1627926777729000000 38    /hello
+1627926772727000000 30    /hello
+1627926767728000000 25    /hello
+```
+
+可以看到，已经存在与日志中一样的数据了。
+
+## Flyway管理数据库版本
+
+```xml
+<dependency>
+	<groupId>org.flywaydb</groupId>
+	<artifactId>flyway-core</artifactId>
+	<version>5.0.3</version>
+</dependency>
+```
+
+按Flyway的规范在工程的`src/main/resources`目录下创建`db`目录, 其中的版本化文件格式为`V<VERSION>__<NAME>.sql`
+
+在`db`目录下创建版本化的SQL脚本`V1__Base_version.sql`
+
+```sql
+DROP TABLE IF EXISTS user ;
+CREATE TABLE `user` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `name` varchar(20) NOT NULL COMMENT '姓名',
+  `age` int(5) DEFAULT NULL COMMENT '年龄',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+```
+
+在`application.properties`文件中配置Flyway要加载的SQL脚本位置
+
+```properties
+spring.flyway.locations=classpath:/db
+#1.x
+flyway.locations=classpath:/db
+```
+
+执行单元测试使用该数据库,第一次执行没问题,Flyway监测到需要运行版本脚本来初始化数据库，因此执行了`V1__Base_version.sql`脚本，从而创建了user表，这才得以让一系列单元测试（对user表的CRUD操作）通过。
+
+> 从启动日志中，可以看到 Flyway 的执行信息，数据库脚本的执行执行，同时这里还说了，Flyway 还给创建了一个 flyway_schema_history 表，这个表用来记录数据库的更新历史
+
+如果第二次执行测试,由于初始化脚本已经执行过，所以这次执行就没有再去执行`V1__Base_version.sql`脚本来重建user表。
+
+> 如果想让脚本再执行一遍，需要手动删除 flyway_schema_history 表中的对应记录，那么项目启动时，这个脚本就会被执行了。
+
+如果修改脚本再执行测试,比如修改name字段长度后再执行测试,由于初始化脚本的改动，Flyway校验失败，认为当前的`V1__Base_version.sql`脚本与上一次执行的内容不同，提示报错并终止程序，以免造成更严重的数据结构破坏。
+
+> 除了 V 字开头的脚本之外，还有一种 R 字开头的脚本，V 字开头的脚本只会执行一次，而 R 字开头的脚本，只要脚本内容发生了变化，启动时候就会执行。
+
+>  使用了 Flyway 之后，如果再想进行数据库版本升级，直接创建新的数据库脚本，项目在启动时检测了有新的更高版本的脚本，就会自动执行.
+
+> 所有的脚本，一旦执行了，就会在 flyway_schema_history 表中有记录，如果不小心搞错了，可以手动从 flyway_schema_history 表中删除记录，然后修改 SQL 脚本后再重新启动（生产环境不建议）。
+
+## 数据脚本初始化
+
+org.springframework.boot.autoconfigure.sql.init.SqlInitializationProperties
+
+```
+spring.datasource.url=jdbc:mysql://localhost:3306/test
+spring.datasource.username=root
+spring.datasource.password=
+spring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver
+
+# Spring Boot 2.5.0 init schema & data
+# 执行初始化脚本的用户名称
+spring.sql.init.username=root
+# 执行初始化脚本的用户密码
+spring.sql.init.password=
+# 初始化的schema脚本位置
+spring.sql.init.schema-locations=classpath*:schema-all.sql
+```
+
+- 根据上面配置的定义，接下来就在`resource`目录下，创建脚本文件`schema-all.sql`，并写入一些初始化表结构的脚本
+- 完成上面步骤之后，启动应用。然后打开MySQL客户端，可以看到test`库下的初始化结果
+
+> 与JPS
+
+**配置详解**
+
+除了上面用到的配置属性之外，还有一些其他的配置，下面详细讲解一下作用。
+
+- `spring.sql.init.enabled`：是否启动初始化的开关，默认是true。如果不想执行初始化脚本，设置为false即可。通过-D的命令行参数会更容易控制。
+- `spring.sql.init.username`和`spring.sql.init.password`：配置执行初始化脚本的用户名与密码。这个非常有必要，因为安全管理要求，通常给业务应用分配的用户对一些建表删表等命令没有权限。这样就可以与datasource中的用户分开管理。
+- `spring.sql.init.schema-locations`：配置与schema变更相关的sql脚本，可配置多个（默认用`;`分割）
+- `spring.sql.init.data-locations`：用来配置与数据相关的sql脚本，可配置多个（默认用`;`分割）
+- `spring.sql.init.encoding`：配置脚本文件的编码
+- `spring.sql.init.separator`：配置多个sql文件的分隔符，默认是`;`
+- `spring.sql.init.continue-on-error：如果执行脚本过程中碰到错误是否继续，默认是`false`；所以，上面的例子第二次执行的时候会报错并启动失败，因为第一次执行的时候表已经存在。
+
+联合Flyway一同使用，通过`org.springframework.jdbc.datasource.init.DataSourceInitializer`来定义更复杂的执行逻辑。
+

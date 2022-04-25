@@ -258,11 +258,11 @@ ThreadPoolExecutor类中使用了一些`final int`常量变量来表示线程池
 
 - 线程池处在TIDYING状态时, 执行完terminated()方法之后, 线程池被设置为TERMINATED状态。
 
-### ThreadPoolExecutor问题
+### ThreadPoolExecutor
 
 > 该部分内容摘自阿里技术微信公众号文章
 
-**1.corePoolSize=0时会怎么样?**
+**1.corePoolSize=0**
 
 在jdk6以前, ThreadPoolExecutor的流程是:
 
@@ -276,7 +276,7 @@ ThreadPoolExecutor类中使用了一些`final int`常量变量来表示线程池
 
 在jdk6以后, ThreadPoolExecutor的流程是:
 
-- 线程池提交任务后，首先判断当前池中线程数是否小于corePoolSize。如果小于则尝试创建新的线程执行该任务；否则尝试添加到等待队列。
+- 提交任务后，先判断当前池中线程数是否小于corePoolSize，如果小于则尝试创建新的线程执行该任务；否则尝试添加到等待队列。
 
 - 如果添加队列成功，判断当前池内线程数是否为0，如果是则创建一个firstTask为null的worker，这个worker会从等待队列中获取任务并执行。
 
@@ -284,15 +284,14 @@ ThreadPoolExecutor类中使用了一些`final int`常量变量来表示线程池
 
 - 否则执行拒绝策略。
 
-具体流程区别于代码
-
 ```java
 int c = ctl.get();
 if (workerCountOf(c) < corePoolSize) {
     if (addWorker(command, true))
          return;
     c = ctl.get();
-}if (isRunning(c) && workQueue.offer(command)) {
+}
+if (isRunning(c) && workQueue.offer(command)) {
     int recheck = ctl.get();
     if (! isRunning(recheck) && remove(command))
         reject(command);
@@ -303,13 +302,13 @@ if (workerCountOf(c) < corePoolSize) {
     reject(command);
 ```
 
-所以, 在1.6版本之后，如果corePoolSize=0，提交任务时如果线程池为空，则会**立即创建一个线程**来执行任务（先排队再获取）；如果提交任务的时候，线程池不为空，则先在等待队列中排队，只有队列满了才会创建新线程。
+> 该改动最大的区别在于, 在1.6版本之后, 如果corePoolSize=0, 提交任务时如果线程池为空, 则会立即创建一个线程来执行任务, 这样避免了在队列大小未满以前, 任务永远不会被执行
 
- **2.线程池创建之后，会立即创建核心线程么?**
+ **2.核心线程的创建**
 
-不会。从上面的源码可以看出，在刚刚创建ThreadPoolExecutor的时候，线程并不会立即启动，而是要等到有任务提交时才会启动，除非调用了`prestartCoreThread/prestartAllCoreThreads`事先启动核心线程。
+从上面的源码可以看出，在刚刚创建ThreadPoolExecutor的时候，线程并不会立即启动，而是要等到有任务提交时才会启动，除非调用了`prestartCoreThread/prestartAllCoreThreads`事先启动核心线程。
 
-**3.核心线程会不会销毁?**
+**3.核心线程销毁**
 
 在JDK1.6之前，线程池会尽量保持corePoolSize个核心线程，即使这些线程闲置了很长时间。这一点曾被开发者诟病，所以从JDK1.6开始，提供了方法`allowsCoreThreadTimeOut`，如果传参为true，则允许闲置的核心线程被终止。
 
@@ -321,11 +320,9 @@ if (workerCountOf(c) < corePoolSize) {
 >
 > 所以corePoolSize=0(非核心线程, 可销毁)的效果，基本等同于allowsCoreThreadTimeOut=true && corePoolSize=1 (1个核心线程, 可销毁)，但实现细节其实不同。
 
-**4.如何保证线程不被销毁?**
+**4.保证线程不被销毁**
 
-`ThreadPoolExecutor`有个内部类Worker，它实现了Runnable接口, 它表示线程池中的线程; 而等待队列中的元素，是我们提交的Runnable任务。
-
-每一个Worker在创建出来的时候，会调用它本身的run()方法，实现是runWorker(this)，这个实现的核心是一个**while循环**，这个循环不结束，Worker线程就不会终止:
+`ThreadPoolExecutor`内部类Worker实现了Runnable接口, 它表示线程池中的线程; 而等待队列中的元素, 是我们提交的Runnable任务。每一个Worker在创建出来的时候, 会调用它本身的run()方法, 实现是runWorker(this)，这个实现的核心是一个while循环:
 
 ```java
 final void runWorker(Worker w) {
@@ -417,9 +414,9 @@ final void runWorker(Worker w) {
     }
 ```
 
-- 如果线程数没有达到corePoolSize，则创建的Worker在执行完它承接的任务后，会用workQueue.take()取任务、注意，这个接口是阻塞接口，如果取不到任务，Worker线程一直阻塞。
+- 如果线程数没有达到corePoolSize, 则创建的Worker在执行完它承接的任务后, 会通过workQueue.take()阻塞方法取任务, 即如果取不到任务, Worker线程一直阻塞;
 
-- 如果线程数超过了corePoolSize ( 超过的线程允许销毁 )，或者allowCoreThreadTimeOut ( 允许核心线程销毁 )，一个Worker在空闲了之后，会用workQueue.poll(keepAliveTime, TimeUnit.NANOSECONDS)取任务。注意，这个接口只阻塞等待keepAliveTime时间，超过这个时间返回null，则Worker的while循环执行结束，则被终止了。
+- 如果线程数超过了corePoolSize ( 超过的线程允许销毁 )或者allowCoreThreadTimeOut ( 允许核心线程销毁 ), Worker在空闲了之后, 会用workQueue.poll(keepAliveTime, TimeUnit.NANOSECONDS)取任务. 该接口只阻塞等待keepAliveTime时间, 超过这个时间返回null, 则Worker的while循环执行结束, 则被终止了.
 
 **5.空闲线程过多会有什么问题?**
 
@@ -429,13 +426,13 @@ final void runWorker(Worker w) {
 - 对于局部变量, 因为线程处于阻塞状态，肯定还有栈帧没有出栈，栈帧中有局部变量表，凡是被局部变量表引用的内存都不能回收。所以如果这个线程创建了比较大的局部变量，那么这一部分内存无法GC。
 - 对于TLAB机制：如果线程数过多，那么新的线程初始化可能因为Eden没有足够的空间分配TLAB而触发YoungGC。
 
- **6.keepAliveTime=0会怎么样?**
+ **6.keepAliveTime=0**
 
 在JDK1.8中，keepAliveTime=0表示非核心线程执行完立刻终止。
 
 默认情况下，keepAliveTime小于0，初始化的时候会报错；但如果allowsCoreThreadTimeOut，keepAliveTime必须大于0，不然初始化报错。
 
-**7.如何处理异常?**
+**7.处理异常**
 
 对于execute和submit不同场景的异常处理
 
@@ -578,63 +575,21 @@ FutureTask的另一个巧妙的地方就是借用RunnableAdapter内部类，将s
 
 - shutdownNow => 立刻关闭，停止正在执行的任务，并返回队列中未执行的任务。
 
-## CAS
+## CAS与原子类
 
-**悲观锁：**
+CAS: 判断V(var)是否等于E(expected), 如果等于, 将V的值设置为N(new); 如果不等, 说明已经有其它线程更新了V, 则当前线程放弃更新，什么都不做。系统从CPU层面保证CAS操作原子性, 通过Unsafe类的三个本地方法实现: 
 
-悲观锁就是我们常说的锁。对于悲观锁来说，它总是认为每次访问共享资源时会发生冲突，所以必须对每次数据操作加上锁，以保证临界区的程序同一时间只能有一个线程在执行。
-
-**乐观锁：**
-
-乐观锁又称为“无锁”，顾名思义，它是乐观派。乐观锁总是假设对共享资源的访问没有冲突，线程可以不停地执行，无需加锁也无需等待。而一旦多个线程发生冲突，乐观锁通常是使用一种称为CAS的技术来保证线程执行的安全性。
-
-由于无锁操作中没有锁的存在，因此不可能出现死锁的情况，也就是说**乐观锁天生免疫死锁**。
-
-乐观锁多用于“读多写少“的环境，避免频繁加锁影响性能；而悲观锁多用于”写多读少“的环境，避免频繁失败和重试影响性能。
-
-**CAS**的全称是：比较并交换（Compare And Swap）。在CAS中，有这样三个值：
-
-- V：要更新的变量(var)
-- E：预期值(expected)
-- N：新值(new)
-
-比较并交换的过程如下：
-
-判断V是否等于E，如果等于，将V的值设置为N；如果不等，说明已经有其它线程更新了V，则当前线程放弃更新，什么都不做。
-
-所以这里的**预期值E本质上指的是“旧值”**。
-
-那有没有可能我在判断了`i`为5之后，正准备更新它的新值的时候，被其它线程更改了`i`的值呢？
-
-不会的。因为CAS是一种原子操作，它是一种系统原语，是一条CPU的原子指令，从CPU层面保证它的原子性
-
-**当多个线程同时使用CAS操作一个变量时，只有一个会胜出，并成功更新，其余均会失败，但失败的线程并不会被挂起，仅是被告知失败，并且允许再次尝试，当然也允许失败的线程放弃操作。**
-
-**JAVA实现CAS原理 - Unsafe类**
-
-在Java中，如果一个方法是native的，那Java就不负责具体实现它，而是交给底层的JVM使用c或者c++去实现
-
-sun.misc.Unsafe关于CAS的
-
-```
+```java
 boolean compareAndSwapObject(Object o, long offset,Object expected, Object x);
 boolean compareAndSwapInt(Object o, long offset,int expected,int x);
 boolean compareAndSwapLong(Object o, long offset,long expected,long x);
 ```
 
-Unsafe中对CAS的实现是C++写的，它的具体实现和操作系统、CPU都有关系。
+Unsafe类里面还有其它方法用于不同的用途, 如支持线程挂起和恢复的`park`和`unpark`, LockSupport类底层就是调用了这两个方法. 还有支持反射操作的`allocateInstance()`方法.
 
-Linux的X86下主要是通过`cmpxchgl`这个指令在CPU级完成CAS操作的，但在多处理器情况下必须使用`lock`指令加锁来完成。当然不同的操作系统和处理器的实现会有所不同，大家可以自行了解。
+JAVA使用CAS三个方法来实现具体的原子操作为`java.util.concurrent.atomic`下的原子类.
 
-当然，Unsafe类里面还有其它方法用于不同的用途。比如支持线程挂起和恢复的`park`和`unpark`， LockSupport类底层就是调用了这两个方法。还有支持反射操作的`allocateInstance()`方法。
-
-
-
-**原子操作**
-
-JAVA使用CAS三个方法来实现具体的原子操作为java.util.concurrent.atomic下的原子类
-
-以`AtomicInteger`类的`getAndAdd(int delta)`方法为例
+以`AtomicInteger`类的`getAndAdd(int delta)`方法为例:
 
 ```java
 private static final jdk.internal.misc.Unsafe U = jdk.internal.misc.Unsafe.getUnsafe();
@@ -646,15 +601,13 @@ public final int getAndAdd(int delta) {
 }
 ```
 
-`AtomicInteger`类的`getAndAdd(int delta)`方法是调用`Unsafe`类的`getAndAddInt`的方法来实现的.
-
-对象`o`是`this`，也就是一个`AtomicInteger`对象. 
+`o`是this，即一个`AtomicInteger`对象.;
 
 `offset`是一个常量`VALUE`, 这个常量是通过调用`Unsafe`类的`objectFieldOffset`方法获取的, 传入一个类对象和一个该类对象的字段名, **用于获取某个字段相对Java对象的“起始地址”的偏移量**。
 
->一个java对象可以看成是一段内存，各个字段都得按照一定的顺序放在这段内存里，同时考虑到对齐要求，可能这些字段不是连续放置的，
-
 `delta` 为相加的参数
+
+`Unsave`的`getAndAddInt`方法中通过do while循环+CAS, 这是因为CAS允许更新失败, do while用于重试:
 
 ```java
 //Unsafe#getAndAddInt
@@ -668,13 +621,9 @@ public final int getAndAddInt(Object o, long offset, int delta) {
 }
 ```
 
-CAS是“无锁”的基础，它允许更新失败。所以经常会与while循环搭配，在失败后不断去重试。
+另外, v用来保存更新前的原值, 用于与加数相加得到新值和返回; 而使用do-while是为了保证先得到循环体内的v值.
 
-从方法名为`getAndAddInt` ,这个方法应该返回原来的值, 所以这里用v来接收原来的值. 新的值为`v+delta`
-
-**do-while循环**不多见，它的目的是**保证循环体内的语句至少会被执行一遍**。这样才能保证return 的值`v`是我们期望的值.
-
-循环体的条件是一个CAS方法:
+最后`weakCompareAndSetInt`方法即真正执行CAS的方法
 
 ```java
 public final boolean weakCompareAndSetInt(Object o, long offset,
@@ -682,23 +631,11 @@ public final boolean weakCompareAndSetInt(Object o, long offset,
                                           int x) {
     return compareAndSetInt(o, offset, expected, x);
 }
-
-public final native boolean compareAndSetInt(Object o, long offset,
-                                             int expected,
-                                             int x);
 ```
 
-再回到循环条件上来，可以看到它是在不断尝试去用CAS更新。如果更新失败，就继续重试。那为什么要把获取“旧值”v的操作放到循环体内呢？其实这也很好理解。前面我们说了，CAS如果旧值V不等于预期值E，它就会更新失败。说明旧的值发生了变化。那我们当然需要返回的是被其他线程改变之后的旧值了，因此放在了do循环体内。	
+**ABA问题**
 
-
-
-**CAS实现原子操作三大问题**
-
-**1.ABA问题**
-
-所谓ABA问题，就是一个值原来是A，变成了B，又变回了A。这个时候使用CAS是检查不出变化的，但实际上却被更新了两次。
-
-ABA问题的解决思路是在变量前面追加上**版本号或者时间戳**。从JDK 1.5开始，JDK的atomic包里提供了一个类`AtomicStampedReference`类来解决ABA问题。
+即一个值原来是A，变成了B，又变回了A。这个时候使用CAS是检查不出变化的，但实际上却被更新了两次。解决思路是在变量前面追加上**版本号或者时间戳**。从JDK 1.5开始，JDK的atomic包里提供了一个类`AtomicStampedReference`类来解决ABA问题。
 
 这个类的`compareAndSet`方法的作用是首先检查当前引用是否等于预期引用，并且检查当前标志是否等于预期标志，如果二者都相等，才使用CAS设置为新的值和标志。
 
@@ -717,30 +654,22 @@ public boolean compareAndSet(V   expectedReference,
 }
 ```
 
-**2.循环时间长 开销大**
+**2.过多自旋**
 
-CAS多与自旋结合。如果自旋CAS长时间不成功，会占用大量的CPU资源。
-
-解决思路是让JVM支持处理器提供的**pause指令**。
+自旋CAS长时间不成功将会占用大量的CPU资源。解决思路是让JVM支持处理器提供的**pause指令**。
 
 pause指令能让自旋失败时cpu睡眠一小段时间再继续自旋，从而使得读操作的频率低很多,为解决内存顺序冲突而导致的CPU流水线重排的代价也会小很多。
 
 **3.只能保证一个共享变量的原子操作**
 
-这个问题你可能已经知道怎么解决了。有两种解决方案：
+有两种解决方案：
 
-1. 使用JDK 1.5开始就提供的`AtomicReference`类保证对象之间的原子性，把多个变量放到一个对象里面进行CAS操作；
-2. 使用锁。锁内的临界区代码可以保证只有当前线程能操作。
+1. 使用JDK 1.5开始提供的`AtomicReference`类保证对象之间的原子性，把多个变量放到一个对象里面进行CAS操作；
+2. 使用锁，锁内的临界区代码可以保证只有当前线程能操作。
 
 ## AQS
 
-通过同步状态标志+双向队列(链表)实现
-
-链表的第一个node自旋获取状态, 后继node阻塞, 等待前一个node的唤醒( 通过LockSupport实现) 
-
-**AQS的主要方法解析**
-
-AQS的设计是基于**模板方法模式**的，它有一些方法必须要子类去实现的，它们主要有：
+AQS的设计是基于**模板方法模式**的，它有一些protocted修饰的方法必须要子类去实现的，它们主要有：
 
 - isHeldExclusively()：该线程是否正在独占资源。只有用到condition才需要去实现它。
 - tryAcquire(int)：独占方式。尝试获取资源，成功则返回true，失败则返回false。
@@ -748,114 +677,62 @@ AQS的设计是基于**模板方法模式**的，它有一些方法必须要子�
 - tryAcquireShared(int)：共享方式。尝试获取资源。负数表示失败；0表示成功，但没有剩余可用资源；正数表示成功，且有剩余资源。
 - tryReleaseShared(int)：共享方式。尝试释放资源，如果释放后允许唤醒后续等待结点返回true，否则返回false。
 
-这些方法虽然都是`protected`方法，但是它们并没有在AQS具体实现，而是直接抛出异常（这里不使用抽象方法的目的是：避免强迫子类中把所有的抽象方法都实现一遍，减少无用功，这样子类只需要实现自己关心的抽象方法即可，比如 Semaphore 只需要实现 tryAcquire 方法而不用实现其余不需要用到的模版方法）：
+AQS对上面方法默认实现为直接抛出异常, 不适用抽象方法是为了避免子类把所有的抽象方法都实现一遍, 子类只需要实现自己关心的抽象方法即可, 比如 Semaphore 只需要实现 tryAcquire 方法而不用实现其余不需要用到的模版方法.
 
-```java
-protected boolean tryAcquire(int arg) {
-    throw new UnsupportedOperationException();
-}
-```
+通过同步状态标志+双向队列(链表)实现, 链表的第一个node自旋获取状态, 后继node阻塞, 等待前一个node的唤醒( 通过LockSupport实现) .
 
 具体见《Java并发编程的艺术5.2》
 
-### **ReentrantLock**
+ReentrantLock通过AQS实现, 与synchronized关键字相比, 依赖于API而非JVM, 并增加了等待可中断( `lock.lockInterruptibly()` )、公平锁选择、选择性通知( `Condition` ). 具体见《Java并发编程的艺术5.3》
 
-**重入锁** , 属于排他锁
-
-与synchronized区别:
-
-1.两者都是可重入锁;
-
-2.synchronized 依赖于 JVM 而 ReentrantLock 依赖于 API;
-
-3.ReentrantLock 比 synchronized 增加了一些高级功能;
-
-**等待可中断** : `ReentrantLock`提供了一种能够中断等待锁的线程的机制，通过 `lock.lockInterruptibly()` 来实现这个机制。也就是说正在等待的线程可以选择放弃等待，改为处理其他事情。
-
-**可实现公平锁** : `ReentrantLock`可以指定是公平锁还是非公平锁。而`synchronized`只能是非公平锁。所谓的公平锁就是先等待的线程先获得锁。`ReentrantLock`默认情况是非公平的，可以通过 `ReentrantLock`类的`ReentrantLock(boolean fair)`构造方法来制定是否是公平的。
-
-**可实现选择性通知（锁可以绑定多个条件）**: `synchronized`关键字与`wait()`和`notify()`/`notifyAll()`方法相结合可以实现等待/通知机制。`ReentrantLock`类当然也可以实现，但是需要借助于`Condition`接口与`newCondition()`方法。
-
-具体见《Java并发编程的艺术5.3》
-
-### ReentrantReadWriteLock
-
-是ReadWriteLock接口的JDK默认实现。它与ReentrantLock的功能类似，同样是可重入的，支持非公平锁和公平锁。不同的是，它还支持”读写锁“。
-
-两个锁, 读锁为共享锁, 写锁为独占锁, 在一个state上维护16位读+16位写两个状态.
-
-具体见《Java并发编程的艺术5.4》
+ReentrantReadWriteLock是ReadWriteLock接口的JDK默认实现, 与ReentrantLock的功能类似, 并支持支持”读写锁“. 通过在共享状态state上维护16位读+16位写两个状态来对共享锁和独占锁进行操作. 具体见《Java并发编程的艺术5.4》
 
 ## JUC
 
-JDK并没有提供线程安全的List类，因为对List来说，**很难去开发一个通用并且没有并发瓶颈的线程安全的List**。因为即使简单的读操作，拿contains() 这样一个操作来说，很难想到搜索的时候如何避免锁住整个list。
+> JDK并没有提供线程安全的List类，因为很难去开发一个通用且没有并发瓶颈的线程安全List。因为即使简单的读操作，如contains() 很难想到搜索的时候如何避免锁住整个list。
 
 ### Map
 
 **ConcurrentHashMap**
 
-> HashMap在并发put时会引起死循环, 导致Entry链表形成环形数据结构, next节点永远不为空. 从而在get的时候死循环获取.
->
-> HashTable锁整个结构效率低下
+1. JDK1.8前
 
 通过Segment+HashEntry实现, 一个ConcurrentHashMap中包含一个Segment数组, 一个Segment里包含一个HashEntry数组.
 
-Segment是一种可重入锁, 结构与HashMap类似, 是一种数组+链表结构.
+Segment是一种可重入锁, 结构与HashMap类似, 是一种数组+链表结构, HashEntry用于存储键值对数据.
 
-HashEntry用于存储键值对数据.
+为了使得元素能均匀的分布在不同的Segment下, 在插入和获取元素的时候, 必须通过再散列(对元素的hashCode再进行一次散列)的方式定位到Segment.
 
-因为要使得元素能均匀的分布在不同的Segment下, 在插入和获取元素的时候, 必须通过再散列(对元素的hashCode再进行一次散列)的方式定位到Segment.
+对于get操作: 不加锁, 将get方法要使用的共享变量都定义成volatile类型, 如HashEntry的value, 因为get不需要对共享变量进行写, 所以可以不用加锁, 即使多个线程进行put也能get到最新的值. **这是使用volatile替换锁的经典使用场景**.
 
-**对于get操作**:
+对于put操作: 必须要对Segment加锁, **在插入前**, 先会判断Segment里的HashEntry数组是否超过容量(threshold), 如果超过, 则进行二倍扩容.
 
-不加锁, 通过将get方法要使用的共享变量都定义成volatile类型, 如HashEntry的value, 因为get不需要对共享变量进行写, 所以可以不用加锁, 即使多个线程进行put也能get到最新的值. **这是使用volatile替换锁的经典使用场景**.
-
-**对于put操作**:
-
-必须要对Segment加锁, **在插入前**, 先会判断Segment里的HashEntry数组是否超过容量(threshold), 如果超过, 则进行二倍扩容.
-
-> HashMap是在插入元素后判断是否需要扩容后再扩容的, 很有可能扩容之后没有新元素插入, 那么这次扩容就是无效的扩容.
+> HashMap是在插入元素后判断是否需要扩容后再扩容, 存在无效的扩容情况, 所以Segment的扩容判断比HashMap更恰当.
 >
-> 所以Segment的扩容判断比HashMap更恰当.
 
-**对于size操作**:
+对于size操作: 需要统计所有Segment大小求和, 即使Segment里的count是一个volatile变量, 但也避免不了求和时count更新导致结果不正确的情况.  ConcurrentHashMap并没有优先采取在size的时候把所有Segemtn更新方法锁住, 而是先尝试2次不锁住Segment的方式来统计各个Segment大小. 如果在统计过程中, count发生了变化再采用加锁的方式来统计.
 
-因为分段, 所以需要统计所有Segment里元素的大小后求和. 即使Segment里的count是一个volatile变量, 在相加时可以获取到最新值, 但在累加统计前count如果发生变化, 则统计结果就不准了.
+> 集合中常使用`modCount`变量: 在每次更新操作( put、remove和clean )时将modCount加1, 在统计size前后比较modCount是否发生了变化从而得知Segment的count是否发生变化
 
-但是ConcurrentHashMap并没有在size的时候把所有Segemtn的put、remove和clean方法锁住. 因为在累加count的过程中, 之前累加过的count发生变化的几率非常小, 所以先尝试2次不锁住Segment的方式来统计各个Segment大小. 如果在统计过程中, count发生了变化再采用加锁的方式来统计.
+2. JDK1.8优化
 
-> 如何判断在统计时Segment的count发生了变化?
->
-> 使用`modCount`变量: 在每次put、remove和clean方法里操作元素前都会将modCount加1, 在统计size前后比较modCount是否发生了变化从而得知Segment的count是否发生变化.
-
-
-
-在JDK 1.8中，对ConcurrentHashMap主要做了两个优化：
-
-- 同HashMap一样，链表也会在长度达到8的时候转化为红黑树，这样可以提升大量冲突时候的查询效率；
-- 以某个位置的头结点（链表的头结点或红黑树的root结点）为锁，配合自旋+CAS避免不必要的锁开销，进一步提升并发性能。只要 hash 不冲突，就不会产生并发，
+- 链表会在长度达到8的时候转化为红黑树，以冲突时候的查询效率；
+- 以某个位置的头结点（链表的头结点或红黑树的root结点）为锁，配合自旋+CAS避免不必要的锁开销，进一步提升并发性能。只要 hash 不冲突，就不会产生并发.
 
 
 
 **ConcurrentNavigableMap接口与ConcurrentSkipListMap类**
 
->跳表的本质是同时维护了多个链表，并且链表是分层的
+>跳表的本质是同时维护了多个分层链表, 利用空间换时间的算法
 >
->跳表是一种利用空间换时间的算法。
 
-ConcurrentNavigableMap接口继承了NavigableMap接口，这个接口提供了针对给定搜索目标返回最接近匹配项的导航方法。
+ConcurrentNavigableMap接口继承了NavigableMap接口, 这个接口提供了针对给定搜索目标返回最接近匹配项的导航方法.
 
-ConcurrentNavigableMap接口的主要实现类是ConcurrentSkipListMap类。从名字上来看，它的底层使用的是跳表（SkipList）的数据结构。关于跳表的数据结构这里不做太多介绍，它是一种”空间换时间“的数据结构，可以使用CAS来保证并发安全性。
+实现类ConcurrentSkipListMap中使用CAS保证并发安全.
 
-![2级索引跳表](picture/93666217.jpg)
+**ConcurrentSkipListSet**
 
-
-
-**Set**
-
-JDK提供了ConcurrentSkipListSet，是线程安全的有序的集合。底层是使用ConcurrentSkipListMap实现。
-
-谷歌的guava框架实现了一个线程安全的ConcurrentHashSet：
+线程安全的有序的集合, 底层是使用ConcurrentSkipListMap实现. Google的Guava框架实现了一个线程安全的ConcurrentHashSet：
 
 ```java
 Set<String> s = Sets.newConcurrentHashSet();
@@ -863,25 +740,13 @@ Set<String> s = Sets.newConcurrentHashSet();
 
 ### Queue
 
-Java 提供的线程安全的 `Queue` 可以分为**阻塞队列**和**非阻塞队列**，其中阻塞队列的典型例子是 `BlockingQueue`，非阻塞队列的典型例子是 `ConcurrentLinkedQueue`，在实际应用中要根据实际需要选用阻塞队列或者非阻塞队列。 **阻塞队列可以通过加锁来实现，非阻塞队列可以通过 CAS 操作实现。** 
-
-
-
 **非阻塞队列**
 
-ConcurrentLinkedQueue是一个基于链表节点的无界线程安全队列. 由head节点和tail节点组成.
-
-具体见《Java并发编程的艺术6.2》
-
-
+ConcurrentLinkedQueue是一个基于链表节点的无界线程安全队列. 由head节点和tail节点组成, CAS实现. 具体见《Java并发编程的艺术6.2》
 
 **阻塞队列**
 
-阻塞队列来源于生产者-消费者模式.
-
-BlockingQueue一般用于生产者-消费者模式和线程池，生产者是往队列里添加元素的线程，消费者是从队列里拿元素的线程。**BlockingQueue就是存放元素的容器**。
-
-阻塞队列提供了四组不同的方法用于插入、移除、检查元素：
+BlockingQueue一般用于生产者-消费者模式和线程池, 提供了四组不同的方法用于插入、移除、检查元素：
 
 | 方法\处理方式 | 抛出异常  | 返回特殊值 |  一直阻塞  |      超时退出      |
 | :-----------: | :-------: | :--------: | :--------: | :----------------: |
@@ -889,90 +754,49 @@ BlockingQueue一般用于生产者-消费者模式和线程池，生产者是往
 |   移除方法    | remove()  |   poll()   | **take()** |  poll(time,unit)   |
 |   检查方法    | element() |   peek()   |     -      |         -          |
 
-> 不能往阻塞队列中插入null,会抛出空指针异常。
-
-> 可以访问阻塞队列中的任意元素，调用remove(o)可以将队列之中的特定对象移除，但并不高效，尽量避免使用。
+> 不能往阻塞队列中插入null,会抛出空指针异常; 避免调用remove(o)将队列之中的特定对象移除
 
 1.**ArrayBlockingQueue**
 
-由**数组**结构组成的**有界**阻塞队列。内部结构是数组，故具有数组的特性。
+由数组结构组成的有界阻塞队列, 初始化队列大小一旦设置不能改变。
 
-可以初始化队列大小， 且一旦初始化不能改变。构造方法中的fair表示控制对象的内部锁是否采用公平锁，默认是**非公平锁**。
-
-访问者额公平性是通过ReentrantLock实现的.
+构造方法中的fair表示控制对象的内部锁是否采用公平锁, 默认是非公平锁, 访问者公平性是通过ReentrantLock实现的.
 
 2.**LinkedBlockingQueue**
 
-由**链表**结构组成的**有界**阻塞队列。内部结构是链表，具有链表的特性。默认队列的大小是`Integer.MAX_VALUE`，也可以指定大小。此队列按照**先进先出**的原则对元素进行排序。
+由链表结构组成的有界阻塞队列, 默认大小是`Integer.MAX_VALUE`, 按照**先进先出**的原则对元素进行排序.
 
 3.**DelayQueue**
 
-该队列中的元素只有当其指定的延迟时间到了，才能够从队列中获取到该元素 。注入其中的元素必须实现 java.util.concurrent.Delayed 接口来指定多久才能从队列中获取当前元素。 
+没有大小限制, 插入无阻塞, 队列中的元素只有当其指定的延迟时间到了, 才能够获取.
 
-DelayQueue是一个没有大小限制的队列，因此往队列中插入数据的操作（生产者）永远不会被阻塞，而只有获取数据的操作（消费者）才会被阻塞。 
+注入的元素必须实现 `java.util.concurrent.Delayed` 接口来指定多久才能从队列中获取当前元素. 
 
 4.**PriorityBlockingQueue**
 
-基于优先级的无界阻塞队列（优先级的判断通过构造函数传入的Compator对象来决定），内部控制线程同步的锁采用的是非公平锁。
+基于优先级的无界阻塞队列（优先级的判断通过构造函数传入的Compator对象来决定）, 通过ReentrantLock实现线程非公平性同步.
 
-```java
-public PriorityBlockingQueue(int initialCapacity,
-                                  Comparator<? super E> comparator) {
-         this.lock = new ReentrantLock(); //默认构造方法-非公平锁
-         ...//其余代码略
-     }
-```
-
-**注意**
-
-**PriorityBlockingQueue**不会阻塞数据生产者（因为队列是无界的），而只会在没有可消费的数据时，阻塞数据的消费者。因此使用的时候要特别注意，**生产者生产数据的速度绝对不能快于消费者消费数据的速度，否则时间一长，会最终耗尽所有的可用堆内存空间。**对于使用默认大小的**LinkedBlockingQueue**也是一样的。
+> 无界队列生产者生产数据的速度不要快于消费者消费数据的速度, 否则时间一长, 会最终耗尽所有的可用堆内存空间
 
 5.**SynchronousQueue**
 
-这个队列比较特殊，**没有任何内部容量**，甚至连一个队列的容量都没有。并且每个 put 必须等待一个 take，反之亦然。
+特殊队列, 每个 put 必须等待一个 take, 反之亦然.
 
-> 需要区别容量为1的ArrayBlockingQueue、LinkedBlockingQueue。
-
-以下方法的返回值，可以帮助理解这个队列：
-
-- iterator() 永远返回空，因为里面没有东西
-- peek() 永远返回null
-- put() 往queue放进去一个element以后就一直wait直到有其他thread进来把这个element取走。
-- offer() 往queue里放一个element后立即返回，如果碰巧这个element被另一个thread取走了，offer方法返回true，认为offer成功；否则返回false。
-- take() 取出并且remove掉queue里的element，取不到东西他会一直等。
-- poll() 取出并且remove掉queue里的element，只有到碰巧另外一个线程正在往queue里offer数据或者put数据的时候，该方法才会取到东西。否则立即返回null。
-- isEmpty() 永远返回true
-- remove()&removeAll() 永远返回false
-
-
+> 区别容量为1的ArrayBlockingQueue、LinkedBlockingQueue。
 
 ### CopyOnWrite
 
-CopyOnWrite是计算机设计领域中的一种优化策略，也是一种在并发场景下常用的设计思想——写入时复制思想。
-
-CopyOnWrite容器即**写时复制的容器**,当我们往一个容器中添加元素的时候，不直接往容器中添加，而是将当前容器进行copy，复制出来一个新的容器，然后向新容器中添加我们需要的元素，最后将原容器的引用指向新容器。
-
-这样做的好处在于，我们可以在并发的场景下对容器进行"读操作"而不需要"加锁"，从而达到读写分离的目的。从JDK 1.5 开始Java并发包里提供了两个使用CopyOnWrite机制实现的并发容器 ，分别是CopyOnWriteArrayList和CopyOnWriteArraySet 。
+JDK1.5提供了CopyOnWriteArrayList和CopyOnWriteArraySet
 
 **CopyOnWriteArrayList**
 
-**优点**： 
+迭遍历线程非安全的List如ArrayList和LinkedList的时候, 若中途有别的线程对List容器进行修改, 会抛出ConcurrentModificationException异常. 而CopyOnWriteArrayList由于其"读写分离", 遍历和修改操作分别作用在不同的List容器, 所以在使用迭代器遍历的时候, 则不会抛出异常.
 
-CopyOnWriteArrayList经常被用于“读多写少”的并发场景，是因为CopyOnWriteArrayList无需任何同步措施，大大增强了读的性能。在Java中遍历线程非安全的List(如：ArrayList和 LinkedList)的时候，若中途有别的线程对List容器进行修改，那么会抛出ConcurrentModificationException异常。CopyOnWriteArrayList由于其"读写分离"，遍历和修改操作分别作用在不同的List容器，所以在使用迭代器遍历的时候，则不会抛出异常。
+CopyOnWriteArrayList的缺点为, 写操作时会增加内存压力, 更甚者会导致频繁GC; 另外, 在写操作时因为读取的是老容器, 存在不一致.
 
-**缺点**： 
+> CopyOnWriteArrayList是对ReentrantReadWriteLock读写锁读读共享、写写互斥、读写互斥、写读互斥的思想的进步
 
-第一个缺点是CopyOnWriteArrayList每次执行写操作都会将原容器进行拷贝一份，数据量大的时候，内存会存在较大的压力，可能会引起频繁Full GC（ZGC没有使用Full GC）。
-
-第二个缺点是CopyOnWriteArrayList由于实现的原因，写和读分别作用在不同新老容器上，在写操作执行过程中，读不会阻塞，但读取到的却是老容器的数据。
-
-
-
-与 `ReentrantReadWriteLock` 读写锁的思想读读共享、写写互斥、读写互斥、写读互斥相比。JUC中提供了 `CopyOnWriteArrayList` 类比相比于在读写锁的思想又更进一步。为了将读取的性能发挥到极致，`CopyOnWriteArrayList` 读取是完全不用加锁的，并且更厉害的是：写入也不会阻塞读取操作。只有写入和写入之间需要进行同步等待。这样一来，读操作的性能就会大幅度提升。****( 像 mysql 快照读)
-
-**写操作:**
-
-add逻辑很清晰，就是先把原容器进行copy，然后在新的副本上进行“写操作”，最后再切换引用，在此过程中是加了锁的。
+add操作在加锁的情况下先把原容器进行copy, 然后在新的副本上进行写操作, 最后再切换引用:
 
 ```java
 public boolean add(E e) {
@@ -997,11 +821,10 @@ public boolean add(E e) {
 }
 ```
 
-remove的逻辑是将要remove元素之外的其他元素拷贝到新的副本中，然后再将原容器的引用指向新的副本中，因为remove操作也是“写操作”所以也是要加锁的。
+remove操作在加锁的情况下, 将要remove元素之外的其他元素拷贝到新的副本中,最后再切换引用:
 
 ```java
 public E remove(int index) {
-
         // 加锁
         final ReentrantLock lock = this.lock;
         lock.lock();
@@ -1029,7 +852,7 @@ public E remove(int index) {
     }
 ```
 
-再来看看CopyOnWriteArrayList效率最高的读操作的源码:没有加锁，直接读取
+读操作没有加锁:
 
 ```java
 public E get(int index) {
@@ -1042,9 +865,7 @@ public E get(int index) {
 
 
 
-**自己实现CopyOnWriteMap**
-
-**场景：**假如我们有一个搜索的网站需要屏蔽一些“关键字”，“黑名单”**每晚**定时更新，每当用户搜索的时候，“黑名单”中的关键字不会出现在搜索结果当中，并且提示用户敏感字。满足读多写少,且对一致性要求不高.
+**实现CopyOnWriteMap**
 
 ```java
 public class CopyOnWriteMap<K, V> implements Map<K, V>, Cloneable {
@@ -1166,7 +987,7 @@ public boolean tryAcquire(int permits, long timeout, TimeUnit unit)
 public boolean tryAcquire(long timeout, TimeUnit unit)
 ```
 
-**Semaphore原理**
+Semaphore原理
 
 Semaphore内部有一个继承了AQS的同步器Sync，重写了`tryAcquireShared`方法。在这个方法里，会去尝试获取资源。
 
@@ -1441,25 +1262,11 @@ static final class QNode implements ForkJoinPool.ManagedBlocker {
 
 ## Fork/Join
 
-Fork/Join框架是一个实现了ExecutorService接口的多线程处理器，它专为那些可以通过递归分解成更细小的任务而设计，最大化的利用多核处理器来提高应用程序的性能。
-
-与其他ExecutorService相关的实现相同的是，Fork/Join框架会将任务分配给线程池中的线程。而与之不同的是，Fork/Join框架在执行任务时使用了**工作窃取算法**。
-
-**fork**在英文里有分叉的意思，**join**在英文里连接、结合的意思。顾名思义，fork就是要使一个大任务分解成若干个小任务，而join就是最后将各个小任务的结果结合起来得到大任务的结果。
-
-**工作窃取算法**指的是在多线程执行不同任务队列的过程中，某个线程执行完自己队列的任务后从其他线程的任务队列里窃取任务来执行。
-
-值得注意的是，当一个线程窃取另一个线程的时候，为了减少两个任务线程之间的竞争，我们通常使用**双端队列**来存储任务。被窃取的任务线程都从双端队列的**头部**拿任务执行，而窃取其他任务的线程从双端队列的**尾部**执行任务。
-
-另外，当一个线程在窃取任务时要是没有其他可用的任务了，这个线程会进入**阻塞状态**以等待再次“工作”。
-
-简单来讲就是对任务的分割与子任务的合并，所以要实现这个框架，先得有**任务**。在Fork/Join框架里提供了抽象类`ForkJoinTask`来实现任务。
-
- **ForkJoinTask**
+ForkJoinPool实现了ExecutorService接口, 专为那些可以通过递归分解成更细小的任务而设计, 最大化的利用多核处理器来提高应用程序的性能. 与其他ExecutorService不同的是, Fork/Join框架在执行任务时使用了**工作窃取算法**, 每个工作线程维护一个双端队列, 在多线程执行不同任务队列的过程中, 某个线程执行完自己队列的任务后从其他线程的任务队列里窃取任务放到自己队列来执行. 为了减少两个任务线程之间的竞争, 使用**双端队列**来存储任务, 被窃取的任务线程从双端队列的头部取任务执行, 而窃取其他任务的线程从双端队列的尾部执行任务.
 
 ForkJoinPool由ForkJoinTask数组和ForkJoinWorkerThread数组组成, ForkJoinTask数组负责将存放程序提交给ForkJoinPool的任务, 而ForkJoinWorkThread数组负责执行这些任务.
 
-**fork()方法**:使用线程池中的空闲线程异步提交任务
+ForkJoinTask.fork() : 把任务推入当前工作线程的工作队列里
 
 ```java
 public final ForkJoinTask<V> fork() {
@@ -1476,9 +1283,7 @@ public final ForkJoinTask<V> fork() {
 }
 ```
 
-其实fork()只做了一件事，那就是**把任务推入当前工作线程的工作队列里**。
-
-**join()方法**：等待处理任务的线程处理完毕，获得返回值。
+ForkJoinTask.join() : 等待处理任务的线程处理完毕, 获得返回值。
 
 ```java
 public final V join() {
@@ -1514,21 +1319,9 @@ private int doJoin() {
 }
 ```
 
-**RecursiveAction和RecursiveTask**
+通常情况下需要继承ForkJoinTask的子类RecursiveAction(无返回值)和RecursiveTask(有返回值), 两个方法区别于compute方法返回值.
 
-通常情况下，在创建任务的时候我们一般不直接继承ForkJoinTask，而是继承它的子类**RecursiveAction**和**RecursiveTask**。
-
-两个都是ForkJoinTask的子类，**RecursiveAction可以看做是无返回值的ForkJoinTask，RecursiveTask是有返回值的ForkJoinTask**。
-
-此外，两个子类都有执行主要计算的方法compute()，当然，RecursiveAction的compute()返回void，RecursiveTask的compute()有具体的返回值。
-
-
-
-**ForkJoinPool**
-
-ForkJoinPool是用于执行ForkJoinTask任务的执行（线程）池。
-
-ForkJoinPool管理着执行池中的线程和任务队列，此外，执行池是否还接受任务，显示线程的运行状态也是在这里处理。
+**ForkJoinPool** 管理执行池中的线程和任务队列:
 
 ```java
 @sun.misc.Contended
@@ -1561,29 +1354,10 @@ public class ForkJoinPool extends AbstractExecutorService {
         long np = (long)(-parallelism); // offset ctl counts
         this.ctl = ((np << AC_SHIFT) & AC_MASK) | ((np << TC_SHIFT) & TC_MASK);
     }
-
 }
 ```
 
-WorkQueue:
-
-双端队列，ForkJoinTask存放在这里。
-
-当工作线程在处理自己的工作队列时，会从队列首取任务来执行（FIFO）；如果是窃取其他队列的任务时，窃取的任务位于所属任务队列的队尾（LIFO）。
-
-ForkJoinPool与传统线程池最显著的区别就是它维护了一个**工作队列数组**（volatile WorkQueue[] workQueues，ForkJoinPool中的**每个工作线程都维护着一个工作队列**）。
-
-runState:
-
-ForkJoinPool的运行状态。**SHUTDOWN**状态用负数表示，其他用2的幂次表示。
-
-
-
- **Fork/Join的使用**
-
-说ForkJoinPool负责管理线程和任务，ForkJoinTask实现fork和join操作，所以要使用Fork/Join框架就离不开这两个类了，只是在实际开发中我们常用ForkJoinTask的子类RecursiveTask 和RecursiveAction来替代ForkJoinTask。
-
-案例:计算斐波那契数列
+**使用**
 
 ```java
 public class FibonacciTest {
@@ -1626,21 +1400,9 @@ public class FibonacciTest {
 }
 ```
 
-上面例子在本机的输出：
-
-```
-CPU核数：4
-计算结果：102334155
-耗时：9490 millis
-```
-
-需要注意的是，上述计算时间复杂度为`O(2^n)`，随着n的增长计算效率会越来越低，这也是上面的例子中n不敢取太大的原因。
-
-此外，也并不是所有的任务都适合Fork/Join框架，比如上面的例子任务划分过于细小反而体现不出效率,使用普通递归的效率要比使用Fork/Join框架要高很多。
-
-另外，Java 8 Stream的并行操作底层就是用到了Fork/Join框架.
-
 ### Stream并行计算
+
+Java 8 Stream的并行操作底层就是用到了Fork/Join框架.
 
 单线程的stream
 
@@ -1786,15 +1548,11 @@ long actualTotal = customThreadPool
 
 - [Java8 Stream 并行计算实现的原理](https://blog.csdn.net/u013898617/article/details/79146389)
 
-
-
 ## StampedLock
 
-`StampedLock`类是在Java 8 才发布的，也是Doug Lea大神所写，有人号称它为锁的性能之王。它没有实现Lock接口和ReadWriteLock接口，但它其实是实现了“读写锁”的功能，并且性能比ReentrantReadWriteLock更高。StampedLock还把读锁分为了“乐观读锁”和“悲观读锁”两种。
+`StampedLock`类是在Java 8发布的，为锁的性能之王Doug Lea所写，它没有实现Lock接口和ReadWriteLock接口，但仍实现了“读写锁”的功能，并且性能比ReentrantReadWriteLock更高。StampedLock还把读锁分为了“乐观读锁”和“悲观读锁”两种。
 
-前面提到了ReentrantReadWriteLock会发生“写饥饿”的现象，但StampedLock不会。它是怎么做到的呢？它的核心思想在于，**在读的时候如果发生了写，应该通过重试的方式来获取新的值，而不应该阻塞写操作。这种模式也就是典型的无锁编程思想，和CAS自旋的思想一样**。这种操作方式决定了StampedLock在读线程非常多而写线程非常少的场景下非常适用，同时还避免了写饥饿情况的发生。
-
-这里篇幅有限，就不介绍StampedLock的源码了，只是分析一下官方提供的用法（在JDK源码类声明的上方或Javadoc里可以找到）。
+ReentrantReadWriteLock会发生“写饥饿”的现象，但StampedLock不会。核心思想在于，**在读的时候如果发生了写，应该通过重试的方式来获取新的值，而不应该阻塞写操作。这种模式也就是典型的无锁编程思想，和CAS自旋的思想一样**。这种操作方式决定了StampedLock在读线程非常多而写线程非常少的场景下非常适用，同时还避免了写饥饿情况的发生。
 
 ```java
 class Point {
