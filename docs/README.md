@@ -6,11 +6,13 @@
 
 # 数据库
 
-[MySQL](note/guide/db-mysql.md "mysql")
+[MySQL原理](note/guide/db-mysql.md "mysql")
 
 [Redis](note/guide/db-redis.md "redis")
 
 [其他数据库](note/guide/db-other.md "other")
+
+[MySQL应用](note/guide/db-mysql-apply.md "mysql")
 
 # 中间件
 
@@ -26,17 +28,15 @@
 
 [Spring](note/springboot-common.md "spring")
 
-[Spring扩展](note/springboot-extend.md "spring扩展")
-
 [MVC](note/springmvc.md "mvc")
-
-[Spring其他相关](note/springboot-problem.md "spring其他")
 
 [数据库](note/db.md "数据库")
 
 [持久层框架](note/dao.md "持久层")
 
 [日志框架](note/log.md "日志")
+
+[注解开发](note/springboot-new.md "注解开发")
 
 [Json](note/json2j.md "json")
 
@@ -49,6 +49,10 @@
 [消息队列](note/mq.md "mq")
 
 [Nginx](note/first/nginx.md "nginx")
+
+[Spring扩展](note/springboot-extend.md "spring扩展")
+
+[Spring其他相关](note/springboot-problem.md "spring其他")
 
 # 源码笔记
 
