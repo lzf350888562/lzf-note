@@ -685,7 +685,7 @@ AQS对上面方法默认实现为直接抛出异常, 不适用抽象方法是为
 
 ReentrantLock通过AQS实现, 与synchronized关键字相比, 依赖于API而非JVM, 并增加了等待可中断( `lock.lockInterruptibly()` )、公平锁选择、选择性通知( `Condition` ). 具体见《Java并发编程的艺术5.3》
 
-ReentrantReadWriteLock是ReadWriteLock接口的JDK默认实现, 与ReentrantLock的功能类似, 并支持支持”读写锁“. 通过在共享状态state上维护16位读+16位写两个状态来对共享锁和独占锁进行操作. 具体见《Java并发编程的艺术5.4》
+ReentrantReadWriteLock是ReadWriteLock接口的JDK默认实现, 与ReentrantLock的功能类似, 并支持支持”读写锁“. 通过在共享状态state上维护16位读+16位写两个状态来对共享锁和独占锁进行操作. 读写锁因为在读多写少的情况下, 存在写饥饿问题(StampedLock解决). 具体见《Java并发编程的艺术5.4》
 
 ## JUC
 
