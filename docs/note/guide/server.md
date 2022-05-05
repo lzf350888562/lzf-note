@@ -9,7 +9,9 @@
 - 注重代码质量,测试严格把关
 
 - 使用集群,减少单点故障
+
 - 限流
+
 - 超时和重试机制设置
 
 - 熔断降级
@@ -17,6 +19,7 @@
 - 异步调用
 
 - 使用缓存
+
 - 容灾备份
 
 规避单点是高可用架构设计最基本的考量.(实际上总是无法避免)
@@ -33,41 +36,39 @@
 
 ```
 vrrp_instance VI_1 {
-	state MASTER			#主服务器
-	interface ens33			#绑定的网卡
-	virtual_router_id 51	#虚拟路由编号 (用于分组)
-	priority 100			#优先级，高优先级竞选为master
-	advert_int 2			#每2秒发送一次心跳包
-	authentication {		#设置认证
-		auth_type PASS		#认证方式，类型主要有PASS、AH 两种
-		auth_pass 123456	#认证密码
-	}
-	virtual_ipaddress {		#设置vip
-		192.168.237.5/24
-	}
+    state MASTER            #主服务器
+    interface ens33            #绑定的网卡
+    virtual_router_id 51    #虚拟路由编号 (用于分组)
+    priority 100            #优先级，高优先级竞选为master
+    advert_int 2            #每2秒发送一次心跳包
+    authentication {        #设置认证
+        auth_type PASS        #认证方式，类型主要有PASS、AH 两种
+        auth_pass 123456    #认证密码
+    }
+    virtual_ipaddress {        #设置vip
+        192.168.237.5/24
+    }
 }
 # ---------------------
 vrrp_instance VI_1 {
-	state BACKUP			#备服务器
-	interface ens33			#绑定的网卡
-	virtual_router_id 51	#虚拟路由编号 (用于分组)
-	priority 99			    #优先级，高优先级竞选为master
-	advert_int 2			#每2秒发送一次心跳包
-	authentication {		#设置认证
-		auth_type PASS		#认证方式，类型主要有PASS、AH 两种
-		auth_pass 123456	#认证密码
-	}
-	virtual_ipaddress {		#设置vip
-		192.168.237.5/24
-	}
+    state BACKUP            #备服务器
+    interface ens33            #绑定的网卡
+    virtual_router_id 51    #虚拟路由编号 (用于分组)
+    priority 99                #优先级，高优先级竞选为master
+    advert_int 2            #每2秒发送一次心跳包
+    authentication {        #设置认证
+        auth_type PASS        #认证方式，类型主要有PASS、AH 两种
+        auth_pass 123456    #认证密码
+    }
+    virtual_ipaddress {        #设置vip
+        192.168.237.5/24
+    }
 }
 ```
 
 设置完后master设置vip为237.5,  master的keepalived每两秒发送一次VRRP心跳包给backup, 让backup知道其还在工作 ,如果超时未接收到, 则需要keepalived进行vip漂移.
 
 > 因为设置了优先级 , 所以即使master中途宕机,vip漂移到backup后,master恢复时, vip会自动漂移回原master, 新master自动降级回backup
-
-
 
 **Nginx故障切换场景**
 
@@ -85,9 +86,9 @@ vrrp_instance VI_1 {
 
 ```conf
 vrrp_script check_nginx{
-	script "/etc/keepalived/nginx_check.sh"		#nginx服务器检查脚本
-	interval 2 									#触发间隔
-	weight 1									#权重
+    script "/etc/keepalived/nginx_check.sh"        #nginx服务器检查脚本
+    interval 2                                     #触发间隔
+    weight 1                                    #权重
 }
 ```
 
@@ -98,7 +99,7 @@ nginx_check.sh (手写脚本 , 有更好的方案 , pid文件不一定会消失)
 #检查nginx的pid文件是否存在 不存在时 killall keepalived VIP漂移
 NGINXPID="/usr/install/nginx/logs/nginx.pid"
 if [ ! -f $NGINXPID ];then
-	killall keepalived
+    killall keepalived
 fi
 ```
 
@@ -111,34 +112,34 @@ fi
 为了让另外一台nginx也投入使用,  可对两台nginx设置互为主备: 通过再加入一组VIP配置, vip为237.6
 
 ```
-vrrp_instance VI_2 {  		#修改处1
-	state BACKUP			#修改处2
-	interface ens33			
-	virtual_router_id 52	#修改处3
-	priority 199			#修改处4
-	advert_int 2			
-	authentication {		
-		auth_type PASS		
-		auth_pass 123456	
-	}
-	virtual_ipaddress {		
-		192.168.237.6/24	#修改处5
-	}
+vrrp_instance VI_2 {          #修改处1
+    state BACKUP            #修改处2
+    interface ens33            
+    virtual_router_id 52    #修改处3
+    priority 199            #修改处4
+    advert_int 2            
+    authentication {        
+        auth_type PASS        
+        auth_pass 123456    
+    }
+    virtual_ipaddress {        
+        192.168.237.6/24    #修改处5
+    }
 }
 //-------------------
-vrrp_instance VI_2 {  		#修改处1
-	state MASTER			#修改处2
-	interface ens33			
-	virtual_router_id 52	#修改处3
-	priority 200			#修改处4
-	advert_int 2			
-	authentication {		
-		auth_type PASS		
-		auth_pass 123456	
-	}
-	virtual_ipaddress {		
-		192.168.237.6/24	#修改处5
-	}
+vrrp_instance VI_2 {          #修改处1
+    state MASTER            #修改处2
+    interface ens33            
+    virtual_router_id 52    #修改处3
+    priority 200            #修改处4
+    advert_int 2            
+    authentication {        
+        auth_type PASS        
+        auth_pass 123456    
+    }
+    virtual_ipaddress {        
+        192.168.237.6/24    #修改处5
+    }
 }
 ```
 
@@ -166,19 +167,19 @@ A:设置nopreempt非抢占模式 , 只需要加入一个配置即可
 
 ```
 vrrp_instance VI_1 {
-	state BACKUP			
-	interface ens33			
-	virtual_router_id 51	
-	nopreempt			#非抢占模式
-	priority 99			    
-	advert_int 2			
-	authentication {		
-		auth_type PASS		
-		auth_pass 123456	
-	}
-	virtual_ipaddress {		
-		192.168.237.5/24
-	}
+    state BACKUP            
+    interface ens33            
+    virtual_router_id 51    
+    nopreempt            #非抢占模式
+    priority 99                
+    advert_int 2            
+    authentication {        
+        auth_type PASS        
+        auth_pass 123456    
+    }
+    virtual_ipaddress {        
+        192.168.237.5/24
+    }
 }
 ```
 
@@ -195,8 +196,8 @@ vrrp_instance VI_1 {
 **限流算法**
 
 1. 固定窗口计数器算法;
-
- 固定窗口计数器算法规定了我们单位时间处理的请求数量
+   
+   固定窗口计数器算法规定了我们单位时间处理的请求数量
 
 ![固定窗口计数器算法](picture/8ded7a2b90e1482093f92fff555b3615.png)
 
@@ -215,18 +216,18 @@ vrrp_instance VI_1 {
 **当滑动窗口的小窗口划分的越多，滑动窗口的滚动就越平滑，限流的统计就会越精确。**
 
 > 可通过前后指针算法实现
->
+> 
 > ```c++
 > int left = 0, right = 0;
 > while (right < s.size()) {`
-> 	// 增⼤窗⼝
-> 	window.add(s[right]);
-> 	right++;
-> 	while (window needs shrink) {
-> 		// 缩⼩窗⼝
-> 		window.remove(s[left]);
-> 		left++;
-> 	}
+>     // 增⼤窗⼝
+>     window.add(s[right]);
+>     right++;
+>     while (window needs shrink) {
+>         // 缩⼩窗⼝
+>         window.remove(s[left]);
+>         left++;
+>     }
 > }
 > ```
 
@@ -241,7 +242,7 @@ vrrp_instance VI_1 {
 漏桶算法能强行限制数据的传输速率(漏水速度) , 所以**当系统在短时间内有突发的大流量时, 漏桶算法处理不了**
 
 > 可通过redis-cell模块插件实现, 仅一条命令: 
->
+> 
 > ```
 > > cl.throttle key 15 30 60  #表示漏斗初始容量为15, 每60s频率为30
 > 1) (integer) 0 # 0 表示允许，1 表示拒绝
@@ -284,7 +285,7 @@ vrrp_instance VI_1 {
      double sleepingTime = rateLimiter.acquire(1);
      System.out.printf("get 1 tokens: %ss%n", sleepingTime);
  }
- 
+
 //输出
 get 1 tokens: 0.0s
 get 1 tokens: 0.188413s
@@ -374,9 +375,11 @@ Containers：容器，由镜像启动起来正在运行中的程序
 核心为资源隔离:
 
 - cpu、memory资源隔离与限制
+
 - 访问设备隔离与限制
 
 - 网络隔离与限制
+
 - 用户、用户组隔离限制
 
 常用命令
@@ -513,8 +516,6 @@ redis:latest  redis-server /etc/redis/redis.conf
 # 而前面也将宿主机的/data/redis/redis.conf挂载到了/etc/redis/redis.conf
 ```
 
-
-
 #### 基于虚拟网段
 
 使用Centos7下Docker发布Nginx+Tomcat+MySQL项目
@@ -573,9 +574,9 @@ docker network create ‐d bridge my‐bridge
 4.构建mysql应用实例
 
 > 镜像仓库 [dockerhub ](hub.docker.com) 
->
+> 
 > 搜索镜像 --> tags --> 选择版本 --> 查看使用方式 
->
+> 
 > 找到需要的镜像后 docker pull xxx
 
 将数据库初始化sql文件加入宿主机器的/usr/local/lzf/sql下, 用于初始化mysql;
@@ -605,7 +606,7 @@ docker run \
 - -d 代表采用后台模式运行，不加-d则采用前台独占方式运行
 
 > 执行完后可以通过与宿主机ip+映射到宿主机的端口访问mysql , 账号密码为root , 并且存在sql文件初始化后的数据.
->
+> 
 > 并且随着mysql启动运行, 可以查看宿主机的 /usr/local/lzf/data 目录下已经有了mysql的相关文件 
 
 ![image-20211208002307309](picture/image-20211208002307309.png)
@@ -613,7 +614,7 @@ docker run \
 5.构建tomcat应用 , 如springboot打包后的jar包(自带tomcat) : app.jar
 
 > 建议打包后在本机测试是否能够通过java -jar 运行, 因为可能会提示找不到主类, 需要寻找解决方案.
->
+> 
 > 本人采取的方案为在命令行执行: mvn compile  + mvn package spring-boot:repackage (不要使用idea maven)
 
 在项目中, 配置了mysql数据源信息为:
@@ -685,7 +686,7 @@ docker run ‐‐name app3 \
 ```
 
 > 这里给3个app指定了网段和容器名 , 而在app的配置文件中配置的url主机为db ,且mysql镜像容器的容器名为db , 3个app和db在同一网段.  
->
+> 
 > 这里不用关心ip地址, 只要填写容器名即可, docker 会自动帮我们分配管理ip , 这样做的好处为在测试开发的时候只要约定指定的容器名 , 运维发布只需要关心约定的容器名.
 
 > 执行完成后可以通过宿主ip:8080访问应用了
@@ -707,32 +708,28 @@ docker run ‐‐name nginx \
 ```
 #后端服务器池
 upstream lzf {
-		server app1:8080 ;
-		server app2:8080 ;
-		server app3:8080 ;
-	}
+        server app1:8080 ;
+        server app2:8080 ;
+        server app3:8080 ;
+    }
 
-	server {
-		#nginx通过80端口提供服务
-		listen 80;
-		#使用bsbdj服务器池进行后端处理
-		location /{
-			proxy_pass http://lzf; 
-			proxy_set_header Host $host;
-			proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-		}
-	}
+    server {
+        #nginx通过80端口提供服务
+        listen 80;
+        #使用bsbdj服务器池进行后端处理
+        location /{
+            proxy_pass http://lzf; 
+            proxy_set_header Host $host;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        }
+    }
 ```
 
 > 注意: nginx配置里 , 映射的也是容器名 , 且端口为容器内的端口 ,而不是宿主机映射的端口.
->
+> 
 > docker中容器间通信一律指定容器名+容器内部端口的方式
 
 现在访问宿主机ip , 就能以负载均衡的方式访问应用了.
-
-
-
-
 
 > docker命令
 
@@ -761,17 +758,51 @@ docker network rm my‐bridge
 
 > 为了解决多机部署 ,可加入k8s进行分发部署
 
-#### Macvlan
+#### 网络模式
 
-通常Docker使用桥接模式进行端口映射提供外部访问.
+1.Bridge (默认)
 
-优点:兼容性好, Docker默认的通信规则.
+Docker启动时, 创建docker0虚拟网桥, 在此主机上启动的Docker容器会连接到该虚拟网桥上. 类似交换机的工作方式, 给容器分配一个以docker0的IP为网关的子网IP.
 
-缺点:主机端口占用严重, 无法使用指定端口; 无法跨主机容器间通信.
+使用时不需要-network参数, 可通过-p或-P指定映射端口:
 
-Docker内置Macvlan驱动通过为容器提供独立MAC和IP地址, 让容器在物理网络上与真是主机平等(需要将主机网课设置为混杂模式)
+```
+docker run --name t1 -d -p 8666:8080 tomcat
+```
 
+隔离性好; 会占用宿主机一个IP和多个端口, 无法跨主机容器间通信.
 
+2.Host
+
+与宿主机共用一个网络空间
+
+```
+docker run --name t2 --network=host -d tomcat
+```
+
+隔离性差, 但性能最好且保证端口不冲突.
+
+3.Container
+
+二次端口转发, 允许容器间通信
+
+```
+docker run --name t3 -d -p 80:80 tomcat
+
+docker run -d --name nginx --net container:t3 nginx
+
+curl localhost:80
+```
+
+性能差, 适合网关应用
+
+4.none
+
+自己为docker容器添加网卡配置, 略
+
+5.自定义模式
+
+Macvlan通过为容器提供独立MAC和IP地址, 让容器在物理网络上与真是主机平等(需要将主机网课设置为混杂模式)
 
 ### Kubernetes
 
@@ -781,16 +812,19 @@ kubernetes具有以下特性：
 
 - **服务发现和负载均衡**
   Kubernetes 可以使用 DNS 名称或自己的 IP 地址公开容器，如果进入容器的流量很大， Kubernetes 可以负载均衡并分配网络流量，从而使部署稳定。
+
 - **存储编排**
   Kubernetes 允许你自动挂载你选择的存储系统，例如本地存储、公共云提供商等。
 
 - **自动部署和回滚**
   你可以使用 Kubernetes 描述已部署容器的所需状态，它可以以受控的速率将实际状态 更改为期望状态。例如，你可以自动化 Kubernetes 来为你的部署创建新容器， 删除现有容器并将它们的所有资源用于新容器。
+
 - **自动完成装箱计算**
   Kubernetes 允许你指定每个容器所需 CPU 和内存（RAM）。 当容器指定了资源请求时，Kubernetes 可以做出更好的决策来管理容器的资源。
 
 - **自我修复**
   Kubernetes 重新启动失败的容器、替换容器、杀死不响应用户定义的 运行状况检查的容器，并且在准备好服务之前不将其通告给客户端。
+
 - **密钥与配置管理**
   Kubernetes 允许你存储和管理敏感信息，例如密码、OAuth 令牌和 ssh 密钥。 你可以在不重建容器镜像的情况下部署和更新密钥和应用程序配置，也无需在堆栈配置中暴露密钥。
 
@@ -837,9 +871,11 @@ etcd 是兼具一致性和高可用性的键值数据库，可以作为保存 Ku
 这些控制器包括:
 
 - 节点控制器（Node Controller）: 负责在节点出现故障时进行通知和响应
+
 - 任务控制器（Job controller）: 监测代表一次性任务的 Job 对象，然后创建 Pods 来运行这些任务直至完成
 
 - 端点控制器（Endpoints Controller）: 填充端点(Endpoints)对象(即加入 Service 与 Pod)
+
 - 服务帐户和令牌控制器（Service Account & Token Controllers）: 为新的命名空间创建默认帐户和 API 访问令牌
 
 **cloud-controller-manager**
@@ -853,6 +889,7 @@ etcd 是兼具一致性和高可用性的键值数据库，可以作为保存 Ku
 下面的控制器都包含对云平台驱动的依赖：
 
 - 节点控制器（Node Controller）: 用于在节点终止响应后检查云提供商以确定节点是否已被删除
+
 - 路由控制器（Route Controller）: 用于在底层云基础架构中设置路由
 
 - 服务控制器（Service Controller）: 用于创建、更新和删除云提供商负载均衡器
@@ -927,7 +964,7 @@ sudo systemctl enable --now kubelet
 ```
 
 > kubelet 现在每隔几秒就会重启，因为它陷入了一个等待 kubeadm 指令的死循环
->
+> 
 > 可通过systemctl status kubelet验证
 
 3.**使用kubeadm引导集群**
@@ -950,7 +987,7 @@ for imageName in ${images[@]} ; do
 docker pull registry.cn-hangzhou.aliyuncs.com/lfy_k8s_images/$imageName
 done
 EOF
- 
+
 # 执行上面会产生images.sh
 chmod +x ./images.sh && ./images.sh
 ```
@@ -1023,15 +1060,15 @@ kubectl get nodes
 ```
 
 > 根据配置文件，给集群创建资源
->
+> 
 > kubectl apply -f xxxx.yaml
->
+> 
 > 查看集群部署了哪些应用？
->
+> 
 > docker ps   =等价=   kubectl get pods -A
->
+> 
 > 运行中的应用在docker里面叫容器，在k8s里面叫Pod
->
+> 
 > kubectl get pods -A
 
 加入node节点
@@ -1039,7 +1076,7 @@ kubectl get nodes
 ```
 # 其他节点上执行  复制上面文本中的内容, 令牌必须一样
 kubeadm join cluster-endpoint:6443 --token x5g4uy.wpjjdbgra92s25pp \
-	--discovery-token-ca-cert-hash sha256:6255797916eaee52bf9dda9429db616fcd828436708345a308f4b917d3457a22
+    --discovery-token-ca-cert-hash sha256:6255797916eaee52bf9dda9429db616fcd828436708345a308f4b917d3457a22
 #提示This node has joined the cluster
 
 # 其他节点执行完后 在主节点查看node 
@@ -1048,11 +1085,11 @@ kubectl get nodes
 kubectl get pods -A
 ```
 
->如果令牌失效, 创建新令牌命令 : kubeadm token create --print-join-command
+> 如果令牌失效, 创建新令牌命令 : kubeadm token create --print-join-command
 
 4.**部署dashboard**
 
->kubernetes官方提供的可视化界面 https://github.com/kubernetes/dashboard
+> kubernetes官方提供的可视化界面 https://github.com/kubernetes/dashboard
 
 ```
 # 主节点执行 
@@ -1147,7 +1184,7 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: hello
-  
+
 #应用
 kubectl apply -f xxx.yml
 #删除应用
@@ -1236,11 +1273,11 @@ curl 192.168.53.195
 ```
 
 >  即**k8s会为每个pod分配一个id**, 提供集群应用间的通信.
->
+> 
 > 分配的ip 与 创建集群初始化主节点配置时设置的
->
+> 
 > --pod-network-cidr=192.168.0.0/16 对应
->
+> 
 > 注意: 此时外部还是无法访问
 
 **如何进入pod内去修改配置信息**?
@@ -1259,8 +1296,6 @@ curl 192.168.53.195
 
 > 另外, 可视化界面也提供了Pod控制台, 可直接点击进入
 
-
-
 **多容器pod**
 
 ```
@@ -1276,7 +1311,7 @@ spec:
     name: nginx
   - image: tomcat:8.5.68
     name: tomcat
-    
+
 vim xxx.yaml
 kubectl apply -f xxx.yaml
 # 通过事件查看可发现创建tomcat容器比较慢 
@@ -1290,8 +1325,6 @@ curl 192.168.101.194:8080   # 404
 **同一个pod中的容器共享网络空间**
 
 因此在nginx容器可通过127.0.0.1:8080访问tomcat, 在tomcat容器中可通过127.0.0.1访问nginx, 这点可以通过可视化界面验证, 上面选择框可以选择容器.
-
-
 
 同一个pod允许存在多个相同的镜像容器, 但他们端口不能相同:
 
@@ -1321,7 +1354,7 @@ Address already in use
 ```
 
 > kubectl get pod/deploy xxx -oyaml
->
+> 
 > 以yaml形式输出该pod或deploy的配置信息
 
 #### Deployment
@@ -1353,8 +1386,6 @@ kubectl delete pod mytomcat-6f5f895f4f-wvtwz
 ```
 kubectl delete deploy mytomcat
 ```
-
-
 
 **多副本**
 
@@ -1401,8 +1432,6 @@ spec:
         name: nginx
 ```
 
-
-
 **扩缩容**
 
 在流量高峰时, 需要运行过程中增加pod ; 在流量恢复后, 需要运行过程中减少pod -->   kubectl scale;
@@ -1421,17 +1450,13 @@ kubectl edit deployment/my-dep
 
 或者直接在可视化界面缩放.
 
-
-
 >  k8s的故障转移自愈能力可通过运行过程docker stop containerId进行模拟.  
->
+> 
 > **但如果是服务器宕机, k8s默认在5分钟以后进行故障转移再创建该机器上的pod**,   如果时间间隔设的很小, 而服务器中可能存在的网络延迟和网络故障导致无法通信一段时间, 这样会使得k8s经常处于删pod,创pod的过程.
->
+> 
 > 宕机等待5分钟过程可通过kubectl get pod -w查看效果, 不需要盯着看, 该命令会记录.
->
+> 
 > k8s自愈保证最终总会有预先设置的n个pod副本
-
-
 
 **滚动更新**
 
@@ -1468,23 +1493,19 @@ kubectl rollout undo deployment/my-dep --to-revision=2
 kubectl get deploy/my-dep -oyaml |grep image
 ```
 
-
-
 > 更多：
->
+> 
 > 除了Deployment，k8s还有 `StatefulSet` 、`DaemonSet` 、`Job`  等 类型资源。我们都称为 `工作负载`。
->
+> 
 > 有状态应用使用  `StatefulSet`  部署(如redis)， 提供稳定的存储,网络等功能;
->
+> 
 > 无状态应用使用 `Deployment` 部署(如微服务),   提供多副本等功能;
->
+> 
 > 守护型应用部署`DaemonSet`部署(如日志收集组件), 在每个机器上都运行一份;
->
+> 
 > 定时任务部署 `Job/CronJob`部署(比如垃圾清理组件) ,可以在指定时间运行.
->
+> 
 > https://kubernetes.io/zh/docs/concepts/workloads/controllers/
-
-
 
 #### Service
 
@@ -1719,8 +1740,8 @@ kubectl edit ing ingress-host-bar
 
 为了模拟域名访问, hosts给master设置两个域名的映射, 通过安装ingress暴露的端口在外网进行访问
 
-172.20.200.0	hello.atguigu.com
-172.20.200.0 	demo.atguigu.com
+172.20.200.0    hello.atguigu.com
+172.20.200.0     demo.atguigu.com
 
 ```
 http://hello.atguigu.com:30849/
@@ -1811,8 +1832,6 @@ spec:
 现在访问http://demo.atguigu.com:32401/nginx 将被 demo.atguigu.com:32401/ 处理,
 
 但原来的http://demo.atguigu.com:32401/ 不能被处理了?
-
-
 
 **流量限制**
 
@@ -1999,8 +2018,6 @@ kubectl get persistentvolume
 kubectl get pv
 ```
 
-
-
 **PVC创建与绑定**
 
 创建PVC,  storageClassName与上面的 storageClassName对应
@@ -2017,7 +2034,7 @@ spec:
     requests:
       storage: 200Mi
   storageClassName: nfs
-  
+
 #应用上面文件 再查看pv
 kubectl apply -f xxx.yaml
 kubectl get pv
@@ -2062,7 +2079,7 @@ spec:
         - name: html
           persistentVolumeClaim:
             claimName: nginx-pvc
-            
+
 
 #查看
 get pvc,pv
@@ -2074,8 +2091,6 @@ cd /usr/share/nginx/html/
 ll
 cat index.html
 ```
-
-
 
 **在docker中,创建容器时通常还可以指定挂载配置文件, 在k8s中如何实现?**
 
@@ -2138,7 +2153,7 @@ spec:
         items:
         - key: redis.conf
           path: redis.conf
-          
+
 #应用后进入redis pod  目录与上面对应
 cd /redis-master
 ls
@@ -2160,8 +2175,6 @@ kubectl exec -it redis -- redis-cli
 ```
 
 > 结论: 修改了CM。Pod里面的配置文件会跟着变, 但配置值未更改，因为需要重新启动 Pod 才能从关联的 ConfigMap 中获取更新的值。即Pod部署的中间件自己本身没有热更新能力.
-
-
 
 3.**Secret**
 
@@ -2241,8 +2254,6 @@ Java -jar -XX:+UseG1GC -Xms2G -Xmx2G -Xss256k
 5) 虚拟机栈默认采用一个线程分配1M空间, 因为局部变量表不保存对象(指针) ,多余(不涉及复杂业务运算)且内存压力大, 采用`-Xss`设置为128k/256k即可, 不建议超过256k , 如超过考虑其他优化, 特别是代码;
 6) G1一般不设置新生代大小 , G1的新生代是动态调整的.
 
-
-
 ### 读写屏障
 
 一.读写屏障在JVM中第一个应用为解决并发标记存在的问题:
@@ -2267,8 +2278,6 @@ Java -jar -XX:+UseG1GC -Xms2G -Xmx2G -Xss256k
 
 漏标会影响程序的正确性，需要引入读写屏障来解决漏标的问题。
 
-
-
 GC 里的读屏障（Read barrier）和写屏障（Write barrier）指的是程序在从堆中**读取引用或更新堆中引用时**，GC 需要执行一些额外操作，其本质是一些同步的指令操作，在进行读/写引用时，会额外执行这些指令。(和Spring的AOP有点像?)
 
 读写屏障是如何解决并发标记时的漏标的？总结一下发生漏标的充分必要条件是：
@@ -2283,8 +2292,6 @@ GC 里的读屏障（Read barrier）和写屏障（Write barrier）指的是程�
 2.开启读屏障，**当检测到应用即将要访问白色对象时，触发读屏障，GC 会立刻访问该对象并将之标为灰色**。这种方法也是增量更新, 目前只有ZGC的颜色指针采用读屏障.
 
 3.开启写屏障。当删除引用关系前，**将所有即将被删除的引用关系的旧引用记录下来，最后以这些旧引用为根重新扫描一遍**，这种方法破坏了条件2, 被称为 **原始快照** SATB（Snapshot At The Begining） , 目前G1采用此方案.
-
-
 
 二.写屏障也用在分代算法中处理跨代引用.
 
@@ -2315,7 +2322,7 @@ write_barrier(obj, field, new_obj){
 
 在实现类加载隔离的前提下, 注意两个JVM类加载器理论:
 
-> 双亲委派机制的具体逻辑实现在loadClass()中:先委托给父类加载  如果父类加载失败, 会调用自己的findClass()方法来完成加载, 这样既不影响用户按照自己的意愿去加载类, 又可以保证新写出来的类加载器是复合双亲委派规则的.	--深入理解Java虚拟机
+> 双亲委派机制的具体逻辑实现在loadClass()中:先委托给父类加载  如果父类加载失败, 会调用自己的findClass()方法来完成加载, 这样既不影响用户按照自己的意愿去加载类, 又可以保证新写出来的类加载器是复合双亲委派规则的.    --深入理解Java虚拟机
 
 > JVM 提供了一种类加载传导规则:  JVM 会选择当前类的类加载器来加载所有该类的引用的类。
 
@@ -2413,16 +2420,14 @@ TestB: sun.misc.Launcher$AppClassLoader@18b4aac2
 所以在这里, JVM 确实使用了MyClassLoaderParentFirst 来加载 TestB，但是因为双亲委派的机制，TestB 被委托给了 MyClassLoaderParentFirst 的父加载器 AppClassLoader 进行加载。
 
 > Q: 为什么MyClassLoaderParentFirst 的父加载器是 AppClassLoader？
->
+> 
 > A: 因为我们定义的 main 方法类默认情况下都是由 JDK 自带的 AppClassLoader 加载的，根据类加载传导规则，main 类引用的 MyClassLoaderParentFirst 也是由加载了 main 类的AppClassLoader 来加载。由于 MyClassLoaderParentFirst 的父类是 ClassLoader，ClassLoader 的默认构造方法会自动设置父加载器的值为 AppClassLoader。
->
+> 
 > ```
 > protected ClassLoader() {
 >     this(checkCreateClassLoader(), getSystemClassLoader());
 > }
 > ```
-
-
 
 2.如果通过重写`loadClass()`:
 
@@ -2513,11 +2518,7 @@ TestB: com.java.loader.MyClassLoaderCustom@1d44bcfa
 
 升级时,开辟一个全新集群部署新版本(黑) , 当部署完成后 , 网关接入新集群 , 下掉旧集群(完全释放资源).
 
-
-
 **红黑发布的优势**:充分利用了云计算的弹性伸缩优势 ( 适合容器化&虚拟化部署 ,资源需要的时候才进行分配 )，从而获得了两个收益：一是，简化了流程(不需要频繁设置网关)；二是，避免了在升级的过程中，由于只有一半的服务器提供服务，而可能导致的系统过载问题。
-
-
 
 ### 增量发布
 
@@ -2526,9 +2527,9 @@ TestB: com.java.loader.MyClassLoaderCustom@1d44bcfa
 比如通过网关先将部分请求接入新版本集群, 可视情况逐渐提升比例最后将旧版本集群替换掉.
 
 > 如果新旧版本无法协同工作,
->
+> 
 > 1.可采用红黑发布
->
+> 
 > 2.可考虑独立部署新旧版本数据源, 但数据源之间的同步等问题考验架构师和DBA水平.
 
 **灰度发布带来的挑战**
@@ -2562,8 +2563,6 @@ insert into t(a,b) values(‘a’,’b’);
 在灰度发布的时候，可以部署相对较小的集群，让集群保持在高压力确认新版应用的性能情况，之后再酌情进行扩容。
 
 > TIPS: 服务监控可使用简单粗暴的SkyWalking
-
-
 
 ## VM
 
@@ -2620,11 +2619,9 @@ lzf ALL=(ALL)   NOPASSWD: ALL
 #! bin/bash
 for((i=100;i<110;i++))
 do
-	echo "192.168.5.$i  hadoop$i"  >> /etc/hosts
+    echo "192.168.5.$i  hadoop$i"  >> /etc/hosts
 done
 ```
-
-
 
 ## 硬件
 
@@ -2670,10 +2667,9 @@ RAID是磁盘冗余队列的简称. 简单来说RAID的作用就是可以把多�
 
 它是对磁盘先做RAID 1 之后对两组RAID 1的磁盘再做RAID 0 , 所以读写都有良好的性能, 相对于RAID 5重建起来更简单 , 速度也更快
 
-| 等级    | 特点             | 冗余 | 盘数 | 读   | 写             |
-| ------- | ---------------- | ---- | ---- | ---- | -------------- |
-| RAID 0  | 便宜,快速,危险   | 否   | N    | 快   | 慢             |
-| RAID 1  | 高速度,简单,安全 | 有   | 2    | 快   | 快             |
-| RAID 5  | 安全,成本折中    | 有   | N+1  | 快   | 取决于最慢的盘 |
-| RAID 10 | 贵,高速,安全     | 有   | 2N   | 快   | 快             |
-
+| 等级      | 特点        | 冗余  | 盘数  | 读   | 写       |
+| ------- | --------- | --- | --- | --- | ------- |
+| RAID 0  | 便宜,快速,危险  | 否   | N   | 快   | 慢       |
+| RAID 1  | 高速度,简单,安全 | 有   | 2   | 快   | 快       |
+| RAID 5  | 安全,成本折中   | 有   | N+1 | 快   | 取决于最慢的盘 |
+| RAID 10 | 贵,高速,安全   | 有   | 2N  | 快   | 快       |

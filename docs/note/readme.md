@@ -90,8 +90,6 @@ TDesgin 腾讯开源
 
 版本控制 Flyway
 
-
-
 **分库分表**
 
 ShardingSphere  
@@ -99,8 +97,6 @@ ShardingSphere
 MyCat
 
 [mybatis-mate](https://gitee.com/baomidou/mybatis-mate-examples)  mp企业级模块
-
-
 
 ## 大数据
 
@@ -437,7 +433,7 @@ apt-get   apt-cache   aptitude
 
 直接使用sudo apt install
 
-apt update 更新	
+apt update 更新    
 
 apt upgrade 升级  两者区别
 

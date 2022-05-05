@@ -34,15 +34,15 @@
 
 ```
 @Retryable(value = Exception.class, maxAttempts = 6,
-			backoff = @Backoff(value = 1000))
+            backoff = @Backoff(value = 1000))
 public boolean xmethod(int a){
-	//业务代码 和 与其他微服务模块远程通信代码
+    //业务代码 和 与其他微服务模块远程通信代码
 }
 @Recover
 public boolean doRecover(Throwable e,int a)throws ArithmeticException{
-	log.error(...)
-	// 补偿
-	return false;
+    log.error(...)
+    // 补偿
+    return false;
 }
 ```
 
@@ -84,15 +84,13 @@ Sentinel Core为服务限流, 熔断提供了核心拦截器SentinelWebIntercept
 
 ## Alibaba Seata
 
-### AT
-
 seata的设计为分布式事务设计理念中的二阶段提交.
 
 事务管理器（TM）：决定什么时候全局提交/回滚  --> @GlobalTransactionl
 
 事务协调者（TC）：负责通知命令的中间件            --> Seata-Server
 
-资源管理器（RM）：做具体事的工具人				  --> @Transactional
+资源管理器（RM）：做具体事的工具人                  --> @Transactional
 
 1.通过添加seata核心注解@GlobalTransactional注解开启全局事务 , TM通知TC向下通达给RM开启本地事务
 
@@ -106,18 +104,16 @@ seata的设计为分布式事务设计理念中的二阶段提交.
 
 ![image-20211205170857133](picture/image-20211205170857133.png)
 
-
-
 Q:如果事务中间阶段出了问题, 而在RM处理本地子事务时,处理完成后是直接写表提交, 在TC下达分支结果时,是如何实现回滚的?
 
-以主流的AT模式为例 , Seata AT模式下如何实现数据自动提交、回滚?
+**AT模式(独有)**
 
-seata AT通过在所有数据库增加一张UNDO_LOG表.
+Seata AT通过在所有数据库增加一张UNDO_LOG表.
 
 > seata AT通过sql parser第三方jar包生成逆向sql , 存储在UNDO_LOG表中.  如:
->
+> 
 > insert into 订单表 values(1,...);   -->  delete from 订单表 where id = 1; 
->
+> 
 > update 会员积分表 set point = 50 where pid=1   --> update 会员积分表 set point = 40 where pid=1 
 
 如果收到TC下达的分支提交, 则删掉UNDO_LOG中对于的记录即可;
@@ -130,17 +126,21 @@ Q: Seata如何避免并发场景的脏读与脏写?
 
 ![image-20211205172341582](picture/image-20211205172341582.png)
 
-Q: 怎么使用Seata框架，来保证事务的隔离性？
+**TCC**
 
-因seata一阶段本地事务已提交，为防止其他事务脏读脏写需要加强隔离。
+通过在代码与数据表中扩展字段, 实现对数据资源的锁定. 回滚补偿逻辑需要开发自己实现.
 
-1.脏读select语句加for update，代理方法增加@GlobalLock+@Transactional或@GlobalTransaction
+**SAGA**
 
-2.脏写 必须使用@GlobalTransaction
+长事务(多节点、第三方)解决方案, 事务中每个参与者都提交本地事务, 当出现一个参与者失败则补偿前面已经成功的参与者, 一阶段正向服务和二阶段补偿服务都由业务开发实现.(如调用支付宝支付对应调用退款接口, 即存在正向链和反向链). 无法保证隔离性.
 
-注：如果你查询的业务的接口没有GlobalTransactional包裹，也就是这个方法上压根没有分布式事务的
-需求，这时你可以在方法上标注@GlobalLock+@Transactional 注解，并且在查询语句上加 for update。
-如果你查询的接口在事务链路上外层有GlobalTransactional注解，那么你查询的语句只要加for update就
-行。设计这个注解的原因是在没有这个注解之前，需要查询分布式事务读已提交的数据，但业务本身不
-需要分布式事务。若使用GlobalTransactional注解就会增加一些没用的额外的rpc开销比如begin返回
-xid，提交事务等。GlobalLock简化了rpc过程，使其做到更高的性能。
+**XA**
+
+基于数据库的XA协议来实现2PC, 因为是基于数据库自带特性, 实现简单.
+
+| 模式   | 性能    | 一致性            | 要求                                        |
+| ---- | ----- | -------------- | ----------------------------------------- |
+| AT   | 高     | AP, 存在不一致的中间状态 | 需要拥有所有服务的数据库权限来创建UNDO_LOG表                |
+| TCC  | 好     | AP             | 需要拥有所有服务的数据库权限, 回滚补偿逻辑需要开发自己实现. 但可支持异构数据库 |
+| SAGA | 取决各个服 | AP             | 在当前架构下加入类似工作流的状态机机制, 提交与回滚逻辑都需要开发自己实现.    |
+| XA   | 低     | CP, 强一致性       | 数据库需要支持XA方案                               |

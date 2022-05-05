@@ -146,8 +146,6 @@ spring.datasource.druid.stat-view-servlet.login-password       ：监控页面�
 
 输入上面`spring.datasource.druid.stat-view-servlet.login-username`和`spring.datasource.druid.stat-view-servlet.login-password`配置的登录账户与密码，就能看到监控页面
 
-
-
 ## JPA
 
 ```xml
@@ -177,7 +175,7 @@ spring.jpa.properties.hibernate.hbm2ddl.auto=create-drop
 
 ```java
 public interface UserRepository extends JpaRepository<User, Long> {
-	//Spring-data-jpa的一大特性：通过解析方法名创建查询
+    //Spring-data-jpa的一大特性：通过解析方法名创建查询
     User findByName(String name);
     User findByNameAndAge(String name, Integer age);
     @Query("from User u where u.name=:name")
@@ -215,54 +213,54 @@ AUTO:默认,把主键生成策略交给持久化引擎,即根据数据库自动�
 
 还可以自己制定生成策略, 如:
 
->```java
->@Id
->@GeneratedValue(strategy = GenerationType.IDENTITY)
->private Long id;
->```
->
->等价于通过 `@GenericGenerator`声明一个主键策略，然后 `@GeneratedValue`使用这个策略
->
->```java
->@Id
->@GeneratedValue(generator = "IdentityIdGenerator")
->@GenericGenerator(name = "IdentityIdGenerator", strategy = "identity")
->private Long id;
->```
+> ```java
+> @Id
+> @GeneratedValue(strategy = GenerationType.IDENTITY)
+> private Long id;
+> ```
+> 
+> 等价于通过 `@GenericGenerator`声明一个主键策略，然后 `@GeneratedValue`使用这个策略
+> 
+> ```java
+> @Id
+> @GeneratedValue(generator = "IdentityIdGenerator")
+> @GenericGenerator(name = "IdentityIdGenerator", strategy = "identity")
+> private Long id;
+> ```
 
 JPA提供的主键生成策略:
 
 ```java
 public class DefaultIdentifierGeneratorFactory implements MutableIdentifierGeneratorFactory, Serializable, ServiceRegistryAwareService {
-	@SuppressWarnings("deprecation")
-	public DefaultIdentifierGeneratorFactory() {
-		register( "uuid2", UUIDGenerator.class );
-		register( "guid", GUIDGenerator.class );			// can be done with UUIDGenerator + strategy
-		register( "uuid", UUIDHexGenerator.class );			// "deprecated" for new use
-		register( "uuid.hex", UUIDHexGenerator.class ); 	// uuid.hex is deprecated
-		register( "assigned", Assigned.class );
-		register( "identity", IdentityGenerator.class );
-		register( "select", SelectGenerator.class );
-		register( "sequence", SequenceStyleGenerator.class );
-		register( "seqhilo", SequenceHiLoGenerator.class );
-		register( "increment", IncrementGenerator.class );
-		register( "foreign", ForeignGenerator.class );
-		register( "sequence-identity", SequenceIdentityGenerator.class );
-		register( "enhanced-sequence", SequenceStyleGenerator.class );
-		register( "enhanced-table", TableGenerator.class );
-	}
+    @SuppressWarnings("deprecation")
+    public DefaultIdentifierGeneratorFactory() {
+        register( "uuid2", UUIDGenerator.class );
+        register( "guid", GUIDGenerator.class );            // can be done with UUIDGenerator + strategy
+        register( "uuid", UUIDHexGenerator.class );            // "deprecated" for new use
+        register( "uuid.hex", UUIDHexGenerator.class );     // uuid.hex is deprecated
+        register( "assigned", Assigned.class );
+        register( "identity", IdentityGenerator.class );
+        register( "select", SelectGenerator.class );
+        register( "sequence", SequenceStyleGenerator.class );
+        register( "seqhilo", SequenceHiLoGenerator.class );
+        register( "increment", IncrementGenerator.class );
+        register( "foreign", ForeignGenerator.class );
+        register( "sequence-identity", SequenceIdentityGenerator.class );
+        register( "enhanced-sequence", SequenceStyleGenerator.class );
+        register( "enhanced-table", TableGenerator.class );
+    }
 
-	public void register(String strategy, Class generatorClass) {
-		LOG.debugf( "Registering IdentifierGenerator strategy [%s] -> [%s]", strategy, generatorClass.getName() );
-		final Class previous = generatorStrategyToClassNameMap.put( strategy, generatorClass );
-		if ( previous != null ) {
-			LOG.debugf( "    - overriding [%s]", previous.getName() );
-		}
-	}
+    public void register(String strategy, Class generatorClass) {
+        LOG.debugf( "Registering IdentifierGenerator strategy [%s] -> [%s]", strategy, generatorClass.getName() );
+        final Class previous = generatorStrategyToClassNameMap.put( strategy, generatorClass );
+        if ( previous != null ) {
+            LOG.debugf( "    - overriding [%s]", previous.getName() );
+        }
+    }
 }
 ```
 
-@CreationTimestamp:	生成创建时间
+@CreationTimestamp:    生成创建时间
 
 @UpdateTimestamp:  更新时间
 
@@ -340,7 +338,7 @@ public class AuditSecurityConfiguration {
 1. `@CreatedDate`: 表示该字段为创建时间字段，在这个实体被 insert 的时候，会设置值
 
 2. `@CreatedBy` :表示该字段为创建人(username)，在这个实体被 insert 的时候，会设置值
-
+   
    `@LastModifiedDate`、`@LastModifiedBy`同理。
 
 `@EnableJpaAuditing`：开启 JPA 审计功能。
@@ -351,18 +349,18 @@ public class AuditSecurityConfiguration {
 
 ```java
 public @interface Query {
-	/** 定义被执行的sql或者hql */
-	String value() default "";
-	/** 分页时用于查询中数量的sql或者hql */
-	String countQuery() default "";
-	/** 用原生的分页 */
-	String countProjection() default "";
-	/** 使用原生sql,为false时使用hql hql from对象 sql from表名*/
-	boolean nativeQuery() default false;
-	/** 定义该查询的名字 */
-	String name() default "";
-	/** 数量查询返回的别名 */
-	String countName() default "";
+    /** 定义被执行的sql或者hql */
+    String value() default "";
+    /** 分页时用于查询中数量的sql或者hql */
+    String countQuery() default "";
+    /** 用原生的分页 */
+    String countProjection() default "";
+    /** 使用原生sql,为false时使用hql hql from对象 sql from表名*/
+    boolean nativeQuery() default false;
+    /** 定义该查询的名字 */
+    String name() default "";
+    /** 数量查询返回的别名 */
+    String countName() default "";
 }
 ```
 
@@ -429,40 +427,40 @@ public interface JpaSpecificationExecutor<T> {
 
 @OneToMany：建立一对多的关系映射
 属性：
-    	targetEntityClass：指定多的一方的类的字节码
-    	mappedBy：指定从表实体类中引用主表对象的名称。
-    	cascade：指定要使用的级联操作
-    	fetch：指定是否采用延迟加载
-    	orphanRemoval：是否使用删除
+        targetEntityClass：指定多的一方的类的字节码
+        mappedBy：指定从表实体类中引用主表对象的名称。
+        cascade：指定要使用的级联操作
+        fetch：指定是否采用延迟加载
+        orphanRemoval：是否使用删除
 
 @ManyToOne :  建立多对一的关系
 属性：
-    	targetEntityClass：指定一的一方实体类字节码
-    	cascade：指定要使用的级联操作
-    	fetch：指定是否采用延迟加载
-    	optional：关联是否可选。如果设置为false，则必须始终存在非空关系。
+        targetEntityClass：指定一的一方实体类字节码
+        cascade：指定要使用的级联操作
+        fetch：指定是否采用延迟加载
+        optional：关联是否可选。如果设置为false，则必须始终存在非空关系。
 
 @JoinColumn: 用于定义主键字段和外键字段的对应关系。
 属性：
-    	name：指定外键字段的名称
-    	referencedColumnName：指定引用主表的主键字段名称
-    	unique：是否唯一。默认值不唯一
-    	nullable：是否允许为空。默认值允许。
-    	insertable：是否允许插入。默认值允许。
-    	updatable：是否允许更新。默认值允许。
-    	columnDefinition：列的定义信息。
-    	
+        name：指定外键字段的名称
+        referencedColumnName：指定引用主表的主键字段名称
+        unique：是否唯一。默认值不唯一
+        nullable：是否允许为空。默认值允许。
+        insertable：是否允许插入。默认值允许。
+        updatable：是否允许更新。默认值允许。
+        columnDefinition：列的定义信息。
+
 @ManyToMany: 用于映射多对多关系
 属性：
-		cascade：配置级联操作。
-		fetch：配置是否采用延迟加载。
-    	targetEntity：配置目标的实体类。映射多对多的时候不用写。
+        cascade：配置级联操作。
+        fetch：配置是否采用延迟加载。
+        targetEntity：配置目标的实体类。映射多对多的时候不用写。
 
 @JoinTable :  针对中间表的配置
 属性：
-    	nam：配置中间表的名称
-    	joinColumns：中间表的外键字段关联当前实体类所对应表的主键字段			  			
-    	inverseJoinColumn：中间表的外键字段关联对方表的主键字段
+        nam：配置中间表的名称
+        joinColumns：中间表的外键字段关联当前实体类所对应表的主键字段                          
+        inverseJoinColumn：中间表的外键字段关联对方表的主键字段
 
 ### 多数据应用
 
@@ -553,15 +551,13 @@ public class SecondaryConfig {
 }
 ```
 
-
-
 ## MyBatis
 
 ```xml
 <dependency>
-	<groupId>org.mybatis.spring.boot</groupId>
-	<artifactId>mybatis-spring-boot-starter</artifactId>
-	<version>2.1.1</version>
+    <groupId>org.mybatis.spring.boot</groupId>
+    <artifactId>mybatis-spring-boot-starter</artifactId>
+    <version>2.1.1</version>
 </dependency>
 ```
 
@@ -631,10 +627,10 @@ mybatis.type-handlers-package=xxx.xxx.xxx
 
 ```xml
 <resultMap id="UserResultMap" type="com.entity.User">
-	<id column="id" jdbcType="VARCHAR" property="id" />
-	<result column="name" jdbcType="VARCHAR" property="name" />
-	<result column="date" jdbcType="VARCHAR" property="date"
-	        javaType="Date" typeHandler="xxx.xxx.xxx.MyDateTypeHandler" />
+    <id column="id" jdbcType="VARCHAR" property="id" />
+    <result column="name" jdbcType="VARCHAR" property="name" />
+    <result column="date" jdbcType="VARCHAR" property="date"
+            javaType="Date" typeHandler="xxx.xxx.xxx.MyDateTypeHandler" />
 </resultMap>
 ```
 
@@ -726,8 +722,6 @@ public class PageHelperConfig {
 
 1.通过insert标签的两个属性:
 
-
-
 > useGeneratedKeys = true　　返回自增主键值
 > keyProperty = "xxx"　　将值赋给哪个属性，这个属性是方法参数中的
 
@@ -741,10 +735,10 @@ public class PageHelperConfig {
 
 2.通过selectKey标签自增
 
->resultType：返回类型
->order：BEFORE在添加之前查询　AFTER在添加之后查询　　//这两个都是全大写
->keyProperty：将取值赋值给方法参数，如果方法参数是实体类，一般赋值给实体类的字段
->keyColumn：对应表的列名
+> resultType：返回类型
+> order：BEFORE在添加之前查询　AFTER在添加之后查询　　//这两个都是全大写
+> keyProperty：将取值赋值给方法参数，如果方法参数是实体类，一般赋值给实体类的字段
+> keyColumn：对应表的列名
 
 ```xml
 <insert id = "insertEmp">
@@ -883,18 +877,18 @@ public interface OrderMapper {
         sqlSessionTemplateRef = "sqlSessionTemplatePrimary")
 public class PrimaryConfig {
     private DataSource primaryDataSource;
-    
+
     public PrimaryConfig(@Qualifier("primaryDataSource") DataSource primaryDataSource) {
         this.primaryDataSource = primaryDataSource;
     }
-    
+
     @Bean
     public SqlSessionFactory sqlSessionFactoryPrimary() throws Exception {
         SqlSessionFactoryBean bean = new SqlSessionFactoryBean();
         bean.setDataSource(primaryDataSource);
         return bean.getObject();
     }
-    
+
     @Bean
     public SqlSessionTemplate sqlSessionTemplatePrimary() throws Exception {
         return new SqlSessionTemplate(sqlSessionFactoryPrimary());
@@ -989,7 +983,7 @@ public class User {
 import tk.mybatis.mapper.common.Mapper;
 import tk.mybatis.mapper.common.MySqlMapper;
 public interface MyMapper<T> extends Mapper<T>, MySqlMapper<T> {
-   
+
 }
 
 public interface UserMapper extends MyMapper<User> {
@@ -1126,7 +1120,7 @@ for (User u : userList) {
 ```java
 @Service
 public interface IService<T> {
-	List<T> selectAll();	
+    List<T> selectAll();    
     T selectByKey(Object key);
     int save(T entity);
     int delete(Object key);
@@ -1138,7 +1132,7 @@ public interface IService<T> {
 public abstract class BaseService<T> implements IService<T> {
     @Autowired
     protected Mapper<T> mapper;
-    
+
     public Mapper<T> getMapper() {
         return mapper;
     }    
@@ -1183,16 +1177,16 @@ public interface UserService extends IService<User>{
 
 @Repository("userService")
 public class UserServiceImpl extends BaseService<User> implements UserService {
-	@Override
-	public User findByName(String userName) {
-		Example example = new Example(User.class);
-		example.createCriteria().andCondition("username=", userName);
-		List<User> userList = this.selectByExample(example);
-		if (userList.size() != 0)
-			return userList.get(0);
-		else
-			return null;
-	}
+    @Override
+    public User findByName(String userName) {
+        Example example = new Example(User.class);
+        example.createCriteria().andCondition("username=", userName);
+        List<User> userList = this.selectByExample(example);
+        if (userList.size() != 0)
+            return userList.get(0);
+        else
+            return null;
+    }
 }
 ```
 
@@ -1227,9 +1221,9 @@ spring.redis.timeout=0
 private StringRedisTemplate stringRedisTemplate;
 @Test
 public void test() throws Exception {
-	// 保存字符串
-	stringRedisTemplate.opsForValue().set("aaa", "111");
-	Assert.assertEquals("111", stringRedisTemplate.opsForValue().get("aaa"));
+    // 保存字符串
+    stringRedisTemplate.opsForValue().set("aaa", "111");
+    Assert.assertEquals("111", stringRedisTemplate.opsForValue().get("aaa"));
 }
 ```
 
@@ -1243,8 +1237,6 @@ Properties commandStats = (Properties) redisTemplate.execute((RedisCallback<Obje
 //数据大小 相当于key数量
 Object dbSize = redisTemplate.execute((RedisCallback<Object>) RedisServerCommands::dbSize);
 ```
-
-
 
 ### RedisSerializer
 
@@ -1366,12 +1358,12 @@ o.s.t.c.transaction.TransactionContext   : Rolled back transaction for ...
 
 `@Transactional` 的常用配置参数总结（只列出了 5 个平时比较常用的):
 
-| 属性名      | 说明                                                         |
-| :---------- | :----------------------------------------------------------- |
-| propagation | 事务的传播行为，默认值为 REQUIRED                            |
-| isolation   | 事务的隔离级别，默认值采用 DEFAULT, 即使用底层数据库默认隔离级别. |
-| timeout     | 事务的超时时间，默认值为-1（不会超时）。如果超过该时间限制但事务还没有完成，则自动回滚事务。 |
-| readOnly    | 指定事务是否为只读事务，默认值为 false。                     |
+| 属性名         | 说明                                                              |
+|:----------- |:--------------------------------------------------------------- |
+| propagation | 事务的传播行为，默认值为 REQUIRED                                           |
+| isolation   | 事务的隔离级别，默认值采用 DEFAULT, 即使用底层数据库默认隔离级别.                          |
+| timeout     | 事务的超时时间，默认值为-1（不会超时）。如果超过该时间限制但事务还没有完成，则自动回滚事务。                 |
+| readOnly    | 指定事务是否为只读事务，默认值为 false。                                         |
 | rollbackFor | 用于指定能够触发事务回滚的异常类型，并且可以指定多个异常类型。默认只会在遇到`RuntimeException`的时候才会回滚 |
 
 > 传播行为: 如果在开始当前事务之前，一个事务上下文已经存在，此时有若干选项可以指定一个事务性方法的执行行为。即何时要创建一个事务，或者何时使用已有的事务.
@@ -1408,7 +1400,7 @@ spring.jpa.database-platform=org.hibernate.dialect.MySQL5InnoDBDialect
 ```java
 @Service
 public class UserServiceImpl implements UserService {
-	//调用此方法 事务将失效
+    //调用此方法 事务将失效
     @Override
     public void saveUserTest(User user) {
         this.saveUser(user);
@@ -1496,7 +1488,7 @@ Generic, JCache (JSR-107), EhCache 2.x, Hazelcast, Infinispan, Redis, Guava, Sim
 当我们不指定具体其他第三方实现的时候，Spring Boot的Cache模块会使用`ConcurrentHashMap`来存储.
 
 > 可通过debug调试查看cacheManager对象的实例来判断当前使用了什么缓存
->
+> 
 > 可通过开启SQL打印查询多次验证缓存是否生效
 
 若想编程式使用Cache, 可以直接通过CacheManager使用:
@@ -1507,19 +1499,19 @@ private  CacheManager cacheManager;
 
 @Test
 public void test1(){
-	// 根据名称获取缓存对象
-	Cache cache = cacheManager.getCache("test1");
-	Element element = cache.get("key1");
-	System.out.println(element.getObjectValue());
+    // 根据名称获取缓存对象
+    Cache cache = cacheManager.getCache("test1");
+    Element element = cache.get("key1");
+    System.out.println(element.getObjectValue());
 }
 ```
-
-
 
 ### 核心注解
 
 - `@CacheConfig`：主要用于配置该类中会用到的一些共用的缓存配置。如`@CacheConfig(cacheNames = "users")`：配置了该数据访问对象中返回的内容将存储于名为users的缓存对象中(对应cacheManager.getCache(cacheName)方法)，我们也可以不使用该注解，直接通过`@Cacheable`自己配置缓存集的名字来定义。
+
 - `@Cacheable`：配置了findByName函数的返回值将被加入缓存。同时在查询时，会先从缓存中获取，若不存在才再发起对数据库的访问。该注解主要有下面几个参数：
+  
   - `value`、`cacheNames`：两个等同的参数，用于指定缓存存储的集合名。由于Spring 4中新增了`@CacheConfig`，因此在Spring 3中原本必须有的`value`属性，也成为非必需项了。
   - `key`：缓存对象存储在Map集合中的key值，非必需，缺省按照函数的所有参数组合作为key值，若自己配置需使用SpEL表达式，比如：`@Cacheable(key = "#p0")`：使用函数第一个参数作为缓存的key值。
   - `condition`：缓存对象的条件，非必需，也需使用SpEL表达式，只有满足表达式条件的内容才会被缓存，比如：`@Cacheable(key = "#p0", condition = "#p0.length() < 3")`，表示只有当第一个参数的长度小于3的时候才会被缓存，若做此配置上面的AAA用户就不会被缓存，读者可自行实验尝试。
@@ -1529,7 +1521,9 @@ public void test1(){
   - `cacheResolver`：用于指定使用那个缓存解析器，非必需。需通过。`org.springframework.cache.interceptor.CacheResolver`接口来实现自己的缓存解析器，并用该参数指定。
 
 - `@CachePut`：配置于函数上，能够根据参数定义条件来进行缓存，它与`@Cacheable`不同的是，它每次都会真实调用函数，所以主要用于数据新增和修改操作上。它的参数与`@Cacheable`类似。
+
 - `@CacheEvict`：配置于函数上，通常用在删除方法上，用来从缓存中移除相应数据。除了同`@Cacheable`一样的参数之外，它还有下面两个参数：
+  
   - `allEntries`：非必需，默认为false。当为true时，会移除所有数据。
   - `beforeInvocation`：非必需，默认为false，会在调用方法之后移除数据。当为true时，会在调用方法之前移除数据。
 
@@ -1540,47 +1534,47 @@ public void test1(){
 ```java
 @Configuration
 public class RedisConfig extends CachingConfigurerSupport {
-	// 自定义缓存key生成策略
-	@Bean
-	@Override
-	public KeyGenerator keyGenerator() {
-		return new KeyGenerator() {
-			@Override
-			public Object generate(Object target, java.lang.reflect.Method method, Object... params) {
-				StringBuffer sb = new StringBuffer();
-				sb.append(target.getClass().getName());
-				sb.append(method.getName());
-				for (Object obj : params) {
-					sb.append(obj.toString());
-				}
-				return sb.toString();
-			}
-		};
-	}
-	//---------------------------
-	// 使用SHA256生成key 
-	@Bean
-	@Override
-	public KeyGenerator keyGenerator() {
-    	return (target, method, params) -> {
-        	Map<String,Object> container = new HashMap<>(3);
-        	Class<?> targetClassClass = target.getClass();
-        	// 类地址
-        	container.put("class",targetClassClass.toGenericString());
-       	 	// 方法名称
-        	container.put("methodName",method.getName());
-        	// 包名称
-        	container.put("package",targetClassClass.getPackage());
-        	// 参数列表
-        	for (int i = 0; i < params.length; i++) {
-            	container.put(String.valueOf(i),params[i]);
-        	}
-        	// 转为JSON字符串
-        	String jsonString = JSON.toJSONString(container);
-        	// 做SHA256 Hash计算，得到一个SHA256摘要作为Key
-        	eturn DigestUtils.sha256Hex(jsonString);
-    	};
-	}
+    // 自定义缓存key生成策略
+    @Bean
+    @Override
+    public KeyGenerator keyGenerator() {
+        return new KeyGenerator() {
+            @Override
+            public Object generate(Object target, java.lang.reflect.Method method, Object... params) {
+                StringBuffer sb = new StringBuffer();
+                sb.append(target.getClass().getName());
+                sb.append(method.getName());
+                for (Object obj : params) {
+                    sb.append(obj.toString());
+                }
+                return sb.toString();
+            }
+        };
+    }
+    //---------------------------
+    // 使用SHA256生成key 
+    @Bean
+    @Override
+    public KeyGenerator keyGenerator() {
+        return (target, method, params) -> {
+            Map<String,Object> container = new HashMap<>(3);
+            Class<?> targetClassClass = target.getClass();
+            // 类地址
+            container.put("class",targetClassClass.toGenericString());
+                // 方法名称
+            container.put("methodName",method.getName());
+            // 包名称
+            container.put("package",targetClassClass.getPackage());
+            // 参数列表
+            for (int i = 0; i < params.length; i++) {
+                container.put(String.valueOf(i),params[i]);
+            }
+            // 转为JSON字符串
+            String jsonString = JSON.toJSONString(container);
+            // 做SHA256 Hash计算，得到一个SHA256摘要作为Key
+            eturn DigestUtils.sha256Hex(jsonString);
+        };
+    }
 }
 ```
 
@@ -1591,29 +1585,27 @@ public class RedisConfig extends CachingConfigurerSupport {
 @Override
 public CacheErrorHandler errorHandler() {
     // 异常处理，当Redis发生异常时，打印日志，但是程序正常走
-   	log.info("初始化 -> [{}]", "Redis CacheErrorHandler");
+       log.info("初始化 -> [{}]", "Redis CacheErrorHandler");
     return new CacheErrorHandler() {
         @Override
         public void handleCacheGetError(RuntimeException e, Cache cache, Object key) {
             log.error("Redis occur handleCacheGetError：key -> [{}]", key, e);
         }
-		@Override
+        @Override
         public void handleCachePutError(RuntimeException e, Cache cache, Object key, Object value) {
             log.error("Redis occur handleCachePutError：key -> [{}]；value -> [{}]", key, value, e);
         }
-		@Override
+        @Override
         public void handleCacheEvictError(RuntimeException e, Cache cache, Object key) {
             log.error("Redis occur handleCacheEvictError：key -> [{}]", key, e);
         }
-		@Override
+        @Override
         public void handleCacheClearError(RuntimeException e, Cache cache) {
             log.error("Redis occur handleCacheClearError：", e);
         }
     };
 }
 ```
-
-
 
 ### EhCache
 
@@ -1632,12 +1624,12 @@ public CacheErrorHandler errorHandler() {
 <ehcache xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:noNamespaceSchemaLocation="ehcache.xsd">
     <!-- 磁盘缓存位置,当内存中对象数量达到maxElementsInMemory时，将会写到磁盘中-->
-	<diskStore path="user.dir/cachedata" />
+    <diskStore path="user.dir/cachedata" />
     <!-- 默认缓存, 当ehcache找不到指定的缓存对象时，则使用这个缓存策略 -->
-	<defaultCache maxElementsInMemory="10000" eternal="false"
-		timeToIdleSeconds="120" timeToLiveSeconds="120"
-		maxElementsOnDisk="10000000" diskExpiryThreadIntervalSeconds="120"
-		memoryStoreEvictionPolicy="LRU">
+    <defaultCache maxElementsInMemory="10000" eternal="false"
+        timeToIdleSeconds="120" timeToLiveSeconds="120"
+        maxElementsOnDisk="10000000" diskExpiryThreadIntervalSeconds="120"
+        memoryStoreEvictionPolicy="LRU">
        <!-- 缓存对象配置 --> 
     <cache name="users"
            maxEntriesLocalHeap="200"
@@ -1652,7 +1644,7 @@ public CacheErrorHandler errorHandler() {
 
 ### redis
 
-集中式缓存	
+集中式缓存    
 
 ```xml
 <dependency>
@@ -1695,17 +1687,17 @@ Spring Boot Cache在侦测到存在Redis的依赖并且Redis的配置是可用�
 ```java
 @Bean
 public CacheManager cacheManager(@SuppressWarnings("rawtypes") RedisTemplate redisTemplate) {
-	RedisCacheManager cacheManager = new RedisCacheManager(redisTemplate);
-	// 设置缓存过期时间
-	cacheManager.setDefaultExpiration(10000);
-	return cacheManager;
+    RedisCacheManager cacheManager = new RedisCacheManager(redisTemplate);
+    // 设置缓存过期时间
+    cacheManager.setDefaultExpiration(10000);
+    return cacheManager;
 }
 @Bean
 public RedisTemplate<String, String> redisTemplate(RedisConnectionFactory factory) {
-	StringRedisTemplate template = new StringRedisTemplate(factory);
-	//... 这里可以做一些自定义设置, 如指定RedisSerializer
-	template.afterPropertiesSet();
-	return template;
+    StringRedisTemplate template = new StringRedisTemplate(factory);
+    //... 这里可以做一些自定义设置, 如指定RedisSerializer
+    template.afterPropertiesSet();
+    return template;
 }
 ```
 
@@ -1776,8 +1768,6 @@ private static final LoadingCache<String, String> ASYNC_CACHE = CacheBuilder.new
 );
 ```
 
-
-
 ## 使用oracle序列值实现主键
 
 提供获取序列值的mapper接口,
@@ -1805,4 +1795,3 @@ public void test() throws Exception {
     this.userMapper.save(user);
 }
 ```
-

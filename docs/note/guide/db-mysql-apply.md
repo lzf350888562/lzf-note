@@ -24,18 +24,18 @@ Extra: NULL
 ```
 
 ```
-1. id 				//select查询的序列号，包含一组数字，表示查询中执行select子句或操作表的顺序
-2. select_type 		//查询类型 主要用于区别普通查询、联合查询、子查询等的复杂查询
-3. table 			//这个数据是基于哪张表的
-4. partitions 		//匹配的分区
-5. type 			//访问的类型
-6. possible_keys 	//与当前查询相关备选的索引有哪些, PRIMARY代表主键
-7. key 				//代表当前实际使用的索引是哪个
-8. key_len 			//代表单个索引值的长度
-9. ref 				//显示使用哪个列或常数与key一起从表中选择行
-10. rows 			//本次查询所扫描的行数, 不一定一致, 扫描行数越少越好
-11. filtered 		//查询的表行占表的百分比
-12. Extra 			//包含不适合在其它列中显示但十分重要的额外信息
+1. id                 //select查询的序列号，包含一组数字，表示查询中执行select子句或操作表的顺序
+2. select_type         //查询类型 主要用于区别普通查询、联合查询、子查询等的复杂查询
+3. table             //这个数据是基于哪张表的
+4. partitions         //匹配的分区
+5. type             //访问的类型
+6. possible_keys     //与当前查询相关备选的索引有哪些, PRIMARY代表主键
+7. key                 //代表当前实际使用的索引是哪个
+8. key_len             //代表单个索引值的长度
+9. ref                 //显示使用哪个列或常数与key一起从表中选择行
+10. rows             //本次查询所扫描的行数, 不一定一致, 扫描行数越少越好
+11. filtered         //查询的表行占表的百分比
+12. Extra             //包含不适合在其它列中显示但十分重要的额外信息
 ```
 
 **id字段**
@@ -53,7 +53,7 @@ Extra: NULL
 2.PRIMARY : 查询中若包含任何复杂的子部分，最外层查询则被标记为主查询
 3.SUBQUERY : 在select或where中包含子查询
 4.DERIVED : 在FROM列表中包含的子查询被标记为DERIVED（衍生），MySQL 会递归执行这些子查询，把结果放在临时表中
-			MySQL5.7+ 进行优化了，增加了derived_merge（派生合并），默认开启，可加快查询效率
+            MySQL5.7+ 进行优化了，增加了derived_merge（派生合并），默认开启，可加快查询效率
 5.UNION : 若第二个select出现在union之后，则被标记为UNION
 6.UNION RESULT : 从UNION表获取结果的select (去重)
 ```
@@ -77,20 +77,20 @@ Extra: NULL
 
 ```
 1.Using filesort : 说明MySQL会对数据使用一个外部的索引排序，而不是按照表内的索引顺序进行读取 
-	MySQL中无法利用索引完成的排序操作称为“文件排序”
-	优化方式,给排序字段建索引，并使用where或limit激活
+    MySQL中无法利用索引完成的排序操作称为“文件排序”
+    优化方式,给排序字段建索引，并使用where或limit激活
 2.Using temporary : 使用了临时表保存中间结果，MySQL在对结果排序时使用临时表，常见于排序order by 和分组查询group by
-	优化方式,给分组字段建索引
+    优化方式,给分组字段建索引
 3.Using index : 使用了覆盖索引,不必回表
 4.Using where : 从数据表中返回数据再过过滤
 5.Using join buffer :使用了连接缓存 
-	explain select student.*,teacher.*,subject.* from student,teacher,subject;
-	explain select * from emp ,dept where emp.empno = dept.ceo ;
+    explain select student.*,teacher.*,subject.* from student,teacher,subject;
+    explain select * from emp ,dept where emp.empno = dept.ceo ;
 6.impossible where : where子句的值总是false，不能用来获取任何元组
 7.distinct : 一旦mysql找到了与行相联合匹配的行，就不再搜索了, 如左连接里的右表
 8.Select tables optimized away
-	explain select * from emp ,dept where emp.empno = dept.ceo ;
-	explain select min(id) from subject;
+    explain select * from emp ,dept where emp.empno = dept.ceo ;
+    explain select min(id) from subject;
 9.using MMR : 使用到了MMR,关于MMR见B+树索引-特性
 ```
 
@@ -101,7 +101,7 @@ Extra: NULL
 与编程中的二层嵌套类似,  驱动表中的每一条记录与被驱动表总的记录进行比较, 驱动表的选择决定了查询性能的高低.
 
 > mysql会自动选择最优驱动表, 但是在多级关联情况下有可能会出现选择问题;
->
+> 
 > 可以使用STRAIGHT_JOIN让优化器按照指定的关联顺序查询, 通常不建议使用.
 
 案例:
@@ -132,8 +132,8 @@ create index idx_role on blog_menber(role);
 此时, 再给关联条件的外键增加索引:
 
 ```
-create index idx_chapter_id on blog_browse_history(chapter_id);  	#新增
-create index idx_menber_id on blog_browse_history(menber_id);		#新增
+create index idx_chapter_id on blog_browse_history(chapter_id);      #新增
+create index idx_menber_id on blog_browse_history(menber_id);        #新增
 create index idx_series_id on blog_chapter(series_id);
 create index idx_role on blog_menber(role);
 ```
@@ -152,8 +152,6 @@ create index idx_role on blog_menber(role);
 
 > 结论:只有正确的在外键上建立索引(关联的主键自带索引), 在关联表的索引才能生效, 查询优化器才能正确决定用哪个表作为驱动表是最优解
 
-
-
 另外
 
 1.在索引正确的情况下, 如果将多表关联改为where in 子查询,  在查询优化器的驱使执行计划不会改变, 仍然使用NLJ高效查询.
@@ -167,8 +165,6 @@ create index idx_role on blog_menber(role);
 ![image-20211211185819137](picture/image-20211211185819137.png)
 
 查看查询计划与上面结果一样.
-
-
 
 3.例外:如果select包含子查询, 会出现DEPENDENT SUBQUERY, 代表依赖子查询, 也属于NLJ范畴
 
@@ -191,8 +187,6 @@ id相同时从上往下执行:
 id=1的执行计划先以derived3为驱动表c,通过c表的chapter_id查询h表二级索引,然后回表获取h表数据,然后再根据h表的menber_id查询blog_menber表数据(没有走二级索引)
 
 - UNION RESULT 少用UNION, 多用UNION ALL.
-
-
 
 ![image-20211211193250977](picture/image-20211211193250977.png)
 
@@ -227,8 +221,6 @@ id=1的执行计划先以derived3为驱动表c,通过c表的chapter_id查询h表
 ## 主从复制
 
 MySQL binlog主要记录了 MySQL 数据库中数据的所有变化(数据库执行的所有 DDL 和 DML 语句)。根据主库的 MySQL binlog 日志就能够将主库的数据同步到从库中。 
-
-![img](picture/webp.webp)
 
 1.Master 数据库只要发生变化，立马记录到Binary log 日志文件中
  2.Slave数据库启动一个I/O thread连接Master数据库，请求Master变化的二进制日志
@@ -304,8 +296,6 @@ MGR约束:
 1、仅支持InnoDB表，并且每张表一定要有一个主键，用于做write set的冲突检测;2、必须打开GTID特性，二进制日志格式必须设置为ROW，用于选主与writeset；主从状态信息存于表中（--master-info-repository=TABLE)、--relay-log-info-repository=TABLE），--log-slave-updates打开3、MGR不支持大事务，事务大小最好不超过143MB，当事务过大，无法在5秒的时间内通过网络在组成员之间复制消息，则可能会怀疑成员失败了，然后将其驱逐出局4、目前一个MGR集群最多支持9个节点5、不支持外键于save point特性，无法做全局间的约束检测与部分事务回滚6、二进制日志不支持Binlog Event Checksum
 ```
 
-
-
 ### MHA高可用
 
 MHA（Master HA）是一款开源的 MySQL 的高可用程序，它为 MySQL 主从复制架构提供了 automating master failover 功能。MHA 在监控到 master 节点故障时，会提升其中拥有最新数据的 slave 节点成为新的master 节点，在此期间，MHA 会通过于其它从节点获取额外信息来避免一致性方面的问题。MHA 还提供了 master 节点的在线切换功能，即按需切换 master/slave 节点。
@@ -356,8 +346,6 @@ MHA manager默认每3秒ping主节点(select 1), 如果3次ping无法通信,则�
 
 ![image-20211205142522179](picture/image-20211205142522179.png)
 
-
-
 8.vip内部漂移 , 指向新的主服务器
 
 ![image-20211205142533152](picture/image-20211205142533152.png)
@@ -380,8 +368,6 @@ MHA缺点:
 
 4.没有提供从服务器的读负载均衡功能;
 
-
-
 ## 分库分表
 
 ![img](picture/662ea3bda90061d0b40177e3a46fefc3.jpg)
@@ -398,13 +384,13 @@ MHA缺点:
 
 > 数据切分原则:
 > 1.尽量不要切分
->
+> 
 > 2.如果一定要切分需要选择合适的切分规则, 提前规划好
->
+> 
 > 3.切分后尽量通过数据冗余或表分组来降低跨库Join问题
->
+> 
 > 4.由于各数据库中间件对join的实现各有优劣, 达到高性能难度极大, 所以业务读取尽量少使用join.
->
+> 
 > 《MyCat权威指南》
 
 **水平分表**
@@ -547,8 +533,6 @@ canal实现mysql异构数据同步机制
 
 > 另外, 为支持去IOE, 阿里针对oracle异构数据提出了yugong解决方案
 
-
-
 ## 分布式全局唯一id
 
 在分库之后， 数据遍布在不同服务器上的数据库，数据库的自增主键已经没办法满足生成的主键唯一了。**我们如何为不同的数据节点生成全局唯一主键呢？**
@@ -643,11 +627,11 @@ Tinyid(滴滴) https://github.com/didi/tinyid/wiki/tinyid%E5%8E%9F%E7%90%86%E4%B
 > Timestamp范围只有 1970-01-01 00:00:01 ~ 2037-12-31 23:59:59
 
 > SELECT @@session.time_zone;  # 查看当前会话时区 
->
+> 
 > SET time_zone = "+00:00"; #设置当前会话时区
->
+> 
 > SELECT @@global.time_zone; # 全局时区
->
+> 
 > SET GLOBAL time_zone = '+8:00';
 
 3.当需要存储比秒更小时间粒度的时间用BIGINT类型存储微妙级别的时间戳,或者使用double存储秒之后的小数部分.
@@ -667,4 +651,3 @@ Tinyid(滴滴) https://github.com/didi/tinyid/wiki/tinyid%E5%8E%9F%E7%90%86%E4%B
 - 对于简单的模糊查询, 可使用MySQL 5.7.6内置的ngram全文解析器.
 - 创建索引的时候,要保证唯一的值足够多,这样才有意义,一般情况下是大于80%.
 - 如果已经设置了主键为聚簇索引又希望再单独设置聚簇索引，必须先删除主键，然后添加我们想要的聚簇索引， 最后恢复设置主键即可.
-

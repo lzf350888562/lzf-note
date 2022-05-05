@@ -67,13 +67,13 @@ Master Thread具有最高线程优先级别, 其内部由多个loop组成(循环
 
 ```c
 void master_thread(){
-	loop;
-	for(int i=0; i<10; i++){
-		do thing once per second
-		sleep 1 second if necessary
-	}
-	do things once per ten seconds
-	goto loop;
+    loop;
+    for(int i=0; i<10; i++){
+        do thing once per second
+        sleep 1 second if necessary
+    }
+    do things once per ten seconds
+    goto loop;
 }
 ```
 
@@ -124,7 +124,7 @@ srv_master_thread loops: <每秒活动执行次数> 1_second, <sleep的次数> s
 ```
 
 > 在服务器压力较小下, 可发现sleeps值等于1_second值,与理想伪代码中的实现一致; 
->
+> 
 > 但在服务器压力很大时, 可发现sleeps值远小于1_second的值, 这是因为InnoDB对其进行了优化, 在压力大时并不总是等待1s. 因此也可通过两值反映服务器的负载压力.
 
 **InnoDB 1.2**
@@ -212,11 +212,11 @@ InnoDB内存区中独立与缓冲池之外, InnoDB先将重做日志信息放入
 ②每个事务提交时(默认);
 
 > 通过 `innodb_flush_log_at_trx_commit` 选择事务提交时的刷盘策略：
->
+> 
 > 0：表示每次事务提交时不进行刷盘操作 (有丢失风险, 性能最好)
->
+> 
 > 1：表示每次事务提交时都将进行刷盘操作（默认值, 包括写入文件系统page cache + fsync真正刷盘, 这也是为了保证事务的持久性必须的选项）
->
+> 
 > 2：表示每次事务提交时都只把 redo log buffer 内容写入 page cache (有丢失风险, 仅MySQL宕机除外)
 
 ③当重做日志缓冲池剩余空闲小于1/2时.
@@ -252,9 +252,9 @@ Master Thread以每秒或每十秒的速度从缓冲池的脏页列表中刷新�
 当执行LRU时, 如果尾页为脏页, 则执行checkpoint.(对应问题2)
 
 > InnoDB需要保证LRU中需要存在大约100个空闲页可供使用, 否则需要执行LRU.
->
+> 
 > 在InnoDB 1.2以前, 检查空闲页的工作发生在用户查询线程, 会阻塞用户操作;
->
+> 
 > 在InnoDB 1.2开始, 由Page Cleaner Thread进行检查, 避免用户线程阻塞.
 
 ③Async/Sync Flush Checkpoint:
@@ -278,7 +278,7 @@ sync_water_mark = 90% * total_redo_log_file_size
 ```
 
 > InnoDB 1.2以前, Async Flush Checkpoint 会阻塞发现问题的用户查询线程, Sync Flush Checkpoint 会阻塞索引的用户查询线程;
->
+> 
 > InnoDB 1.2之后, 两个刷新操作都由Page Cleaner Thread完成, 故不会阻塞用户查询线程.
 
 ④Dirty Page too much Checkpoint:
@@ -430,12 +430,10 @@ MySQL4.1开始, CHAR(n)中n指的是字符的长度, 而不是之前的字节长
 
 > 可通过`CHAR_LENGTH`函数查看字符长度, `LENGTH`函数查看字节长度.  注意, UTF8为变长编码, ascii字符只占一个字节
 
-
-
 ## binlog
 
 > 查询最近记录binlog的事件:
->
+> 
 > ```
 > mysql>show master status;
 > # 根据返回的第一行的File列的值,发起下一步查询
@@ -451,11 +449,11 @@ binlog文件名由`log-bin`参数指定, 默认为主机名, 后缀为binlog的�
 事务中所有未提交的binlog将写入binlog cache, binlog cache是基于session的( 也可认为是基于thread的 ), 如果一个事务的记录大于`binlog_cache_size`, 则会写入到一个临时文件.
 
 > binlog_cache_size默认32K, 其既不能太大也不能太小, 可通过
->
+> 
 > `show global status`查看以下参数决定是否增加binlog_cache_size:
->
+> 
 > binlog_cache_use: 记录使用binlog cache次数;
->
+> 
 > binlog_cache_disk_use: 记录使用临时文件次数, 如果该值为0或很小, 表示当前binlog cache已经够用.
 
 `sync_binlog`参数可设置刷盘时机, 表示在多少次事务提交时写入到磁盘(write page cache + fsync), 当数据库宕机时将丢失最近N此事务的记录; 如果为0表示由操作系统负责刷盘.
@@ -473,7 +471,7 @@ binlog文件名由`log-bin`参数指定, 默认为主机名, 后缀为binlog的�
 ## 分区表
 
 > 提示: 分区表实用性较差, 通常也只用在OLAP下的亿行级别大表以及使用range分区以提高大数据量查询;  对于OLTP应用, 通常只需要通过B+树返回几条数据即可, 而分区与否B+树通常也就2~3层, 因此最多也只能减少一次IO.
->
+> 
 > 并且**因为分区时如果存在非分区的索引列, 也会为每个分区数据创建单独的索引**. 如果要根据该列查询, 因为无法根据该列定位分区, 只能每个分区去查询, IO次数为partitions*IO次数, 相比单表性能差了很多. 因此, 分区表不推荐创建索引.
 
 分区功能非存储引擎层提供, MySQL 5.1提供了对分区的支持, 对一个表或索引进行分解, 逻辑上还是一个但物理上由多个分区组成. MySQL仅支持水平分区, 并且一个分区中即存放数据又存放索引(局部分区索引). 
@@ -582,7 +580,7 @@ B树: 节点(一个磁盘块大小)中除了指向子节点的指针外,存储�
 B+树:所有数据存储在叶子节点,非叶子只存储指针和索引值,每个节点能索引的范围更大更精确. 叶节点增加的链指针,结合上层索引页加快范围访问.
 
 > 每一个节点最多存储degree-1个数据,degree越大(datapagesize和索引大小决定),每个节点存储的数据越多,io次数越少
->
+> 
 > datapagesize(16) / (索引大小+地址指针大小) = 每个节点存储索引的个数(degree -1) 
 
 > 为了使b+树足够矮,尽量减少索引值的占用空间(比如varchar大于4B用int|使用前缀短索引), 通过千万级别数据3-4层足以
@@ -612,7 +610,7 @@ InnoDB中的非聚簇索引, 叶子节点存储主键; MyISAM中堆表使用的�
 对于辅助索引的离散读, 堆表的索引比索引组织表的索引(回表)要快
 
 > InnoDB表空间(数据+索引)文件:  `.idb`
->
+> 
 > MyISAM数据+索引文件: `.myd` `.myi`
 
 **管理**
@@ -624,7 +622,7 @@ InnoDB中的非聚簇索引, 叶子节点存储主键; MyISAM中堆表使用的�
 通过`show index from <表名>`可查看索引信息,  其中最重要的为**Cardinality**字段, 表示索引中唯一值的数目估计值, 该值越接近行数越好, 优化器也会根据该值决定是否使用索引(索引选择性). 如果该值较实际行数小很多, 可选择删除索引.
 
 > 因为统计Cardinality值在数据量大时很耗时,  所以MySQL是通过**采样**的方式来完成统计, 因此该值并不一定是最新的, 可通过`analyze table <表名>`手动更新该值. 而对该值的统计是在存储引擎层完成, 因此不同存储引擎有不同其自己的更新策略.
->
+> 
 > 关于InnoDB更新Cardinality策略可查阅《InnoDB技术内幕》相关章节
 
 ### 特性
@@ -703,9 +701,9 @@ select * from table where b=2 and c=3;
 ```
 
 > 利用IN可消除前缀, 如对于索引(sex, country, age),
->
+> 
 > where sex in ('男','女') and ...
->
+> 
 > 但是当in中的条件过多时且多处使用in消除前缀, mysql相当于进行了所有IN条件个数相乘次查询, 影响效率
 
 ### Multi-Range Read
@@ -760,16 +758,16 @@ InnoDB通过意向锁(Intention Lock)来支持多粒度锁定, 允许事务的�
 
 意向锁之前不会冲突(即一个表上可同时存在IS和IX), 但意向锁与行锁存在一定互斥:
 
-|               | 表意向共享锁（IS） | 表意向排他锁（IX） |
-| ------------- | ------------------ | ------------------ |
-| 表共享锁（S） | 兼容               | 互斥               |
-| 表排他锁（X） | 互斥               | 互斥               |
+|         | 表意向共享锁（IS） | 表意向排他锁（IX） |
+| ------- | ---------- | ---------- |
+| 表共享锁（S） | 兼容         | 互斥         |
+| 表排他锁（X） | 互斥         | 互斥         |
 
 对于意向锁的应用解释:
 
 ```sql
 # 事务A获取了某一行的排他锁，并未提交
-begin;	
+begin;    
 SELECT * FROM table WHERE id=28 FOR UPDATE;
 # 此时事务A持有表上的ix锁与id为28的数据行上的x锁
 
@@ -784,7 +782,7 @@ LOCK TABLE table READ;
 # 如果存在意向锁:事务B只需要检测事务A是否持有表的ix锁，就可以得知事务A必然持有该表中某些数据行的x锁
 
 # 事务C想要获取表中某一行的排他锁:
-begin;	
+begin;    
 SELECT * FROM table WHERE id = 31 FOR UPDATE;
 # 因为意向锁之间并不互斥，所以事务C获取到了表的ix锁
 # 因为id为31的数据行上不存在任何x锁，事务C获取锁成功
@@ -801,7 +799,7 @@ INNODB_LOCKS表可查看所有锁信息, 如锁的事务id, 锁的类型, 锁的
 INNODB_LOCK_WAIT表可查看事务阻塞信息, 每一行记录哪一个事务阻塞了另一个事务, 里面只存了事务id和锁id, 有了id再去上面的表获取事务和锁信息即可.
 
 > InnoDB通过各事务的互斥锁构造一个`wait-for graph`(等待图)并判断是否存在回路(深度优先)来自动检测死锁并回滚undo量最小的事务.
->
+> 
 > 也可以通过innodb_lock_wait_timeout参数设置超时时间来解决死锁问题
 
 **其他锁**
@@ -810,9 +808,13 @@ INNODB_LOCK_WAIT表可查看事务阻塞信息, 每一行记录哪一个事务�
 
 InnoDB的行锁是通过对**索引项加锁**实现的，这表示只有通过索引查询记录时才会使用行锁，如果不走索引查询数据将使用表锁，则性能会大打折扣.
 
+> `show engine innodb status#TANSACTIONS`的locks rec  but not gap表示记录锁
+
 2.间隙锁(Gap Locks)
 
-间隙锁是一种区间锁。锁加在不存在的空闲空间上，或者两个索引记录之间，或者第一个索引记录之前，或者最后一个索引之后的空间，用来表示只锁住一段范围(一般在进行范围查询时且隔离级别在RR或Serializable时).
+间隙锁是一种区间锁。锁加在不存在的空闲空间上，或者两个索引记录之间，或者第一个索引记录之前，或者最后一个索引之后的空间(MySQL提供Supremum表示当前页中最大记录)，用来表示只锁住一段范围(一般在进行范围查询时且隔离级别在RR(锁定读)或Serializable时).
+
+> `show engine innodb status#TANSACTIONS`的locks gap before rec表示间隙锁
 
 3.Next-key Locks
 
@@ -858,19 +860,19 @@ consistent nonlocking read指InnoDB存储引擎通过行多版本控制（multi 
 但在 `Repeatable Read` 下, 若事务中使用了多次**锁定读**(当前读), 且在中间有其他事务插入/删除记录, 将导致幻读产生, 即多次锁定读的数据并不相同. **InnoDB采用Next-Key Lock解决锁定读下的幻读问题**.
 
 >  锁定读, 读取数据的最新版本并加锁:
->
+> 
 > `select ... lock in share mode`, s锁
->
+> 
 > `select ... for update`, x锁
->
+> 
 > `insert`、`update`、`delete` 操作, x锁
 
 因此MVCC+Next-Key Lock下, 可解决**部分**非锁定读和锁定读下的幻读问题.
 
 > 实验特例: 如果在事务1(先begin)的两次快照读中, 修改(当前读)了事务2(后begin)insert(当前读)的记录(这里事务1会阻塞直到事务2提交, 因为insert为x锁),  会重新生成ReadView ,  导致出现幻读. 
->
+> 
 > 结论: 当前读会重置Read View的生成, 尽管隔离级别为RR. 如果事务在两个快照读中的当前读覆盖了其他事务新增的数据, 将会产生幻读
->
+> 
 > 文章https://blog.csdn.net/rsjssc/article/details/123465816对RR级别下幻读情况进行了列举
 
 #### MVCC实现
@@ -888,7 +890,7 @@ Multi-Version Concurrency Control ，即多版本并发控制, 是InnoDB在一�
 undo log主要有两个作用：
 
 - 当事务回滚时用于将数据恢复到修改前的样子
--  MVCC中 ，当读取记录时，若该记录被其他事务占用或当前版本对该事务不可见，则可以通过 `undo log` 读取之前的版本数据，以此实现非锁定读
+- MVCC中 ，当读取记录时，若该记录被其他事务占用或当前版本对该事务不可见，则可以通过 `undo log` 读取之前的版本数据，以此实现非锁定读
 
 在 `InnoDB` 存储引擎中 `undo log` 分为:  `insert undo log` 和 `update undo log`:
 
@@ -906,19 +908,19 @@ undo log主要有两个作用：
 
 ```c++
 class ReadView {
-	private:  
-    	/* 大于等于这个 ID 的事务均不可见 */  
-		trx_id_t m_low_limit_id;
-    	/* 小于这个 ID 的事务均可见 */  
-		trx_id_t m_up_limit_id;  
-    	/* 创建该 Read View 的事务ID */  
-		trx_id_t m_creator_trx_id;   
-    	/* 事务 Number, 小于该 Number 的 Undo Logs 均可以被 Purge */ 
-		trx_id_t m_low_limit_no;    
-    	/* 创建 Read View 时的活跃事务列表 */  
-		ids_t m_ids;            
-    	/* 标记 Read View 是否 close */
-		m_closed;                     			
+    private:  
+        /* 大于等于这个 ID 的事务均不可见 */  
+        trx_id_t m_low_limit_id;
+        /* 小于这个 ID 的事务均可见 */  
+        trx_id_t m_up_limit_id;  
+        /* 创建该 Read View 的事务ID */  
+        trx_id_t m_creator_trx_id;   
+        /* 事务 Number, 小于该 Number 的 Undo Logs 均可以被 Purge */ 
+        trx_id_t m_low_limit_no;    
+        /* 创建 Read View 时的活跃事务列表 */  
+        ids_t m_ids;            
+        /* 标记 Read View 是否 close */
+        m_closed;                                 
 }
 ```
 
@@ -945,7 +947,7 @@ class ReadView {
 bool changes_visible(trx_id_t id, const table_name_t &name) const
       MY_ATTRIBUTE((warn_unused_result)) {
     ut_ad(id > 0);
-		
+
     /* 假如 trx_id 小于 Read View 限制的最小活跃事务ID m_up_limit_id 或者等于正在创建的事务ID
      * m_creator_trx_id 即满足事务的可见性. */
     if (id < m_up_limit_id || id == m_creator_trx_id) {
@@ -955,7 +957,7 @@ bool changes_visible(trx_id_t id, const table_name_t &name) const
 
     /* 检查 trx_id 是否有效. */
     check_trx_id_sanity(id, name);
-		
+
     if (id >= m_low_limit_id) {
       /* 假如 trx_id 大于等于最大活跃的事务ID m_low_limit_id, 即不可见. */
       return (false);
@@ -980,8 +982,6 @@ bool changes_visible(trx_id_t id, const table_name_t &name) const
    - 在活跃事务列表中找不到，则表明“id 为 trx_id 的事务”在修改“该记录行的值”后，在“当前事务”创建快照前就已经提交了，所以记录行对当前事务可见
 5. 在该记录行的 DB_ROLL_PTR 指针所指向的 `undo log` 取出快照记录，用快照记录的 DB_TRX_ID 跳到步骤 1 重新开始判断，直到找到满足的快照版本或返回空
 
-
-
 **MVCC 解决不可重复读问题**
 
 虽然 RC 和 RR 都通过 `MVCC` 来读取快照数据，但由于 **生成 Read View 时机不同**，从而在 RR 级别下实现可重复读
@@ -989,8 +989,6 @@ bool changes_visible(trx_id_t id, const table_name_t &name) const
 举个例子：
 
 ![img](picture/6fb2b9a1-5f14-4dec-a797-e4cf388ed413.png)
-
-  
 
 **RC 下 ReadView 生成情况**
 
@@ -1021,8 +1019,6 @@ bool changes_visible(trx_id_t id, const table_name_t &name) const
 
 > **总结：** **在 RC 隔离级别下，事务在每次查询开始时都会生成并设置新的 Read View，所以导致不可重复读**
 
-
-
 **在 RR 下 ReadView 生成情况**
 
 1. **`在 T4 情况下的版本链为`：**
@@ -1034,20 +1030,22 @@ bool changes_visible(trx_id_t id, const table_name_t &name) const
 此时和 RC 级别下一样：
 
 - 最新记录的 `DB_TRX_ID` 为 101，m_up_limit_id <= 101 < m_low_limit_id，所以要在 `m_ids` 列表中查找，发现 `DB_TRX_ID` 存在列表中，那么这个记录不可见
+
 - 根据 `DB_ROLL_PTR` 找到 `undo log` 中的上一版本记录，上一条记录的 `DB_TRX_ID` 还是 101，不可见
-- 继续找上一条 `DB_TRX_ID`为 1，满足 1 < m_up_limit_id，可见，所以事务 103 查询到数据为 `name = 菜花`
 
+- 继续找上一条 `DB_TRX_ID`为 1，满足 1 < m_up_limit_id，可见，所以事务 103 查询到数据为 `name = 菜花`
 1. **`时间点 T6 情况下`：**
-
+   
    ![markdown](picture/79ed6142-7664-4e0b-9023-cf546586aa39.png)
-
+   
    在 RR 级别下只会生成一次`Read View`，所以此时依然沿用 **`m_ids` ：[101,102]** ，`m_low_limit_id`为：104，`m_up_limit_id`为：101，`m_creator_trx_id` 为：103
-
 - 最新记录的 `DB_TRX_ID` 为 102，m_up_limit_id <= 102 < m_low_limit_id，所以要在 `m_ids` 列表中查找，发现 `DB_TRX_ID` 存在列表中，那么这个记录不可见
-- 根据 `DB_ROLL_PTR` 找到 `undo log` 中的上一版本记录，上一条记录的 `DB_TRX_ID` 为 101，不可见
-- 继续根据 `DB_ROLL_PTR` 找到 `undo log` 中的上一版本记录，上一条记录的 `DB_TRX_ID` 还是 101，不可见
-- 继续找上一条 `DB_TRX_ID`为 1，满足 1 < m_up_limit_id，可见，所以事务 103 查询到数据为 `name = 菜花`
 
+- 根据 `DB_ROLL_PTR` 找到 `undo log` 中的上一版本记录，上一条记录的 `DB_TRX_ID` 为 101，不可见
+
+- 继续根据 `DB_ROLL_PTR` 找到 `undo log` 中的上一版本记录，上一条记录的 `DB_TRX_ID` 还是 101，不可见
+
+- 继续找上一条 `DB_TRX_ID`为 1，满足 1 < m_up_limit_id，可见，所以事务 103 查询到数据为 `name = 菜花`
 1. **时间点 T9 情况下：**
 
 ![markdown](picture/cbbedbc5-0e3c-4711-aafd-7f3d68a4ed4e.png)
@@ -1055,7 +1053,6 @@ bool changes_visible(trx_id_t id, const table_name_t &name) const
 此时情况跟 T6 完全一样，由于已经生成了 `Read View`，此时依然沿用 **`m_ids` ：[101,102]** ，所以查询结果依然是 `name = 菜花`
 
 > 总结: 连续多次快照读，ReadView会产生复用，没有幻读问题.
->
 
 ### 自增长锁
 
@@ -1069,24 +1066,22 @@ select max(自增长列) from table;
 
 自增长插入分类:
 
-| 插入类型           | 解释                                                         |
-| ------------------ | ------------------------------------------------------------ |
-| insert-like        | 指下面所有插入语句                                           |
-| simple inserts     | 指在插入前就能确定插入行数的语句,如insert、replace等         |
-| bulk inserts       | 指在插入前不能确定插入行数的语句,如insert...select、replace...select、load data |
+| 插入类型               | 解释                                                              |
+| ------------------ | --------------------------------------------------------------- |
+| insert-like        | 指下面所有插入语句                                                       |
+| simple inserts     | 指在插入前就能确定插入行数的语句,如insert、replace等                               |
+| bulk inserts       | 指在插入前不能确定插入行数的语句,如insert...select、replace...select、load data    |
 | mixed-mode inserts | 指插入中存在自增长,也存在指定值(指定NULL表示使用自增长); 或者如insert...on duplicate key等. |
 
 虽然自增长锁在插入后就立马释放的机制一定程度上提高了并发插入性能, 但因为在高并发插入特别是insert...select、load data等大数据量插入下仍然会存在性能瓶颈.
 
 MySQL 5.1.22时InnoDB提供了`innodb_autoinc_lock_mode`根据不同自增长插入类型控制自增长模式, 并提供了轻量级互斥量机制大大提高了自增长值插入的性能.
 
-| innodb_autoinc_lock_mode | 解释                                                         |
-| ------------------------ | ------------------------------------------------------------ |
-| 0                        | 使用传统的基于表锁的自增长锁方式, 淘汰                       |
-| 1 默认值                 | 对于simple inserts, 使用互斥量对内存中的计数器进行累加; 对于bulk inserts, 使用使用传统的基于表锁的自增长锁方式 |
-| 2                        | 对于insert-like即所有自增长值都使用互斥量, 性能最高, 但存在并发问题 |
-
-
+| innodb_autoinc_lock_mode | 解释                                                                      |
+| ------------------------ | ----------------------------------------------------------------------- |
+| 0                        | 使用传统的基于表锁的自增长锁方式, 淘汰                                                    |
+| 1 默认值                    | 对于simple inserts, 使用互斥量对内存中的计数器进行累加; 对于bulk inserts, 使用使用传统的基于表锁的自增长锁方式 |
+| 2                        | 对于insert-like即所有自增长值都使用互斥量, 性能最高, 但存在并发问题                               |
 
 ## 事务
 
@@ -1105,7 +1100,7 @@ MySQL 5.1.22时InnoDB提供了`innodb_autoinc_lock_mode`根据不同自增长插
 **丢失修改**（`Lost to modify`）: 指在一个事务读取一个数据时, 另外一个事务也访问了该数据, 那么在第一个事务中修改了这个数据后, 第二个事务也修改了这个数据. 这样第一个事务内的修改结果就被丢失因此称为丢失修改. 
 
 > InnoDB RR级别会对DML操作上x锁, 不允许多个事务同时修改, 因此能防止丢失修改问题.
->
+> 
 > 注意: 通常业务代码是先查询到保存为内存vo, 在内存中更新然后更新到数据库, 如果同时存在多个事务执行此操作同样会导致丢失更新, 对于该情况只能对查询语句加x锁(for update). 
 
 **不可重复读**（`Unrepeatable read`）: 不可重复读是指在同一次事务中前后查询不一致的问题
@@ -1175,6 +1170,3 @@ undo log保证事务一致性, 为逻辑日志, 根据每行记录进行记录, 
 undo log分为insert undo log和update undo log, 其中insert undo log在事务提交后直接删除而不需purge操作, 因为insert操作对其他事务不可见, 只对事务本身可见;
 
 update undo log记录delete和undate操作产生的undo log, 因为还用来提供MVCC支持, 所以不能再事务提交时删除, 提交时放入undo log链表, 等待purge线程删除.
-
-
-

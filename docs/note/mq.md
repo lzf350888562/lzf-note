@@ -34,8 +34,6 @@ RocketMQ：基于JMS，阿里巴巴产品
 Kafka：类似MQ的产品；分布式消息系统，高吞吐量
 ```
 
-
-
 # RabbitMQ
 
 ```
@@ -44,8 +42,6 @@ Kafka：类似MQ的产品；分布式消息系统，高吞吐量
         <artifactId>spring-boot-starter-amqp</artifactId>
     </dependency>
 ```
-
-
 
 ```
 spring.rabbitmq.host=localhost
@@ -75,7 +71,7 @@ https://www.rabbitmq.com/install-windows.html
 
 打开浏览器访问网站http://localhost:15672进入登录页面，默认账号和密码都为guest
 
-##  Virtual Hosts
+## Virtual Hosts
 
 像mysql拥有数据库的概念并且可以指定用户对库和表等操作的权限。RabbitMQ也有类似的权限管理；在RabbitMQ 中可以虚拟消息服务器Virtual Host，每个Virtual Hosts相当于一个相对独立的RabbitMQ服务器，每个VirtualHost 之间是相互隔离的。exchange、queue、message不能互通。
 
@@ -88,10 +84,6 @@ https://www.rabbitmq.com/install-windows.html
 ## 工作模式
 
 https://www.rabbitmq.com/getstarted.html
-
-
-
-
 
 ## 简单使用
 
@@ -213,7 +205,7 @@ public class BookVisitAddListener {
 
     @RabbitListener(queues = {"UPDATE-ES-QUEUE"})
     public void updateEs(Long bookId, Channel channel, Message message) {
-		//...
+        //...
     }
 }
 ```
@@ -224,8 +216,6 @@ private final RabbitTemplate rabbitTemplate;
 
 rabbitTemplate.convertAndSend("ADD-BOOK-VISIT-EXCHANGE", null, bookId);
 ```
-
-
 
 # RocketMQ
 
@@ -658,7 +648,7 @@ public void listen(@Payload String message,
 
 ```
 @KafkaListener(groupId = "test-consumer", 
-	topicPartitions = @TopicPartition(topic = "test", partitions = { "0", "1" }))
+    topicPartitions = @TopicPartition(topic = "test", partitions = { "0", "1" }))
 ```
 
 ## 消息过滤器
@@ -697,7 +687,7 @@ public class Message implements Serializable {
     private String from;
     private String message;
     public Message() {
-    	
+
     }
     public Message(String from, String message) {
         this.from = from;
@@ -902,4 +892,3 @@ spring.kafka.streams.ssl.trust-store-type= # Type of the trust store.
 spring.kafka.streams.state-dir= # Directory location for the state store.
 spring.kafka.template.default-topic= # Default topic to which messages are sent.
 ```
-

@@ -113,7 +113,7 @@ System.out.println(jwt.getIssuer()); // => auth0
 System.out.println(jwt.getIssuedAt()); // =>Sat Jan 11 20:25:13 CST 2020
 System.out.println(jwt.getExpiresAt());
 String algorithm = jwt.getAlgorithm(); //获取算法类型 HS256
-String type = jwt.getType();	//获取token类型  JWT
+String type = jwt.getType();    //获取token类型  JWT
 Map<String, Claim> claims = jwt.getClaims();
 Claim claim = claims.get("username");
 System.out.println(claim.asString());
@@ -202,7 +202,7 @@ public class BrowserSecurityConfig extends WebSecurityConfigurerAdapter {
 
 自定义认证的过程需要实现Spring Security提供的`UserDetailService`接口.
 
->还可以通过实现AuthenticationProvider接口自定义认证
+> 还可以通过实现AuthenticationProvider接口自定义认证
 
 `loadUserByUsername`方法返回一个`UserDetail`接口，包含一些用于描述用户信息的方法，可以自定义`UserDetails`接口的实现类，也可以直接使用Spring Security提供的`UserDetails`接口实现类`org.springframework.security.core.userdetails.User`
 
@@ -262,8 +262,8 @@ public PasswordEncoder passwordEncoder() {
 }
 @Override
 public void configure(AuthenticationManagerBuilder auth) throws Exception {
-    User.UserBuilder builder = User.builder().passwordEncoder(passwordEncoder()::encode);     		       	     auth.inMemoryAuthentication()
-    	.withUser(builder.username(username).password(password).roles("ADMIN").build());
+    User.UserBuilder builder = User.builder().passwordEncoder(passwordEncoder()::encode);                             auth.inMemoryAuthentication()
+        .withUser(builder.username(username).password(password).roles("ADMIN").build());
 }
 @Override
 protected void configure(HttpSecurity http) throws Exception {
@@ -310,13 +310,13 @@ src/main/resources/resources目录下定义一个login.html（不需要Controlle
 protected void configure(HttpSecurity http) throws Exception {
     http.formLogin() 
             .loginPage("/login.html") //登录页面请求URL
-            .loginProcessingUrl("/login")	//登录表单action
+            .loginProcessingUrl("/login")    //登录表单action
             .and()
             .authorizeRequests() // 授权配置
-            .antMatchers("/login.html").permitAll()	//登录不拦截, 否则会进入无限循环
+            .antMatchers("/login.html").permitAll()    //登录不拦截, 否则会进入无限循环
             .anyRequest()  // 所有请求
             .authenticated(); // 都需要认证
-    		.and().csrf().disable();//禁用csrf保护
+            .and().csrf().disable();//禁用csrf保护
 }
 ```
 
@@ -331,11 +331,11 @@ Spring Security有一套默认的处理登录成功和失败的方法：当用�
 ```java
 @Component
 public class MyAuthenticationSucessHandler implements AuthenticationSuccessHandler {
-	@Autowired
+    @Autowired
     private ObjectMapper mapper;
     /**
-	 *	Authentication对象参数包含了登录用户的UserDetail信息以及ip等信息
-	 */
+     *    Authentication对象参数包含了登录用户的UserDetail信息以及ip等信息
+     */
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,Authentication authentication) throws IOException, ServletException {
         response.setContentType("application/json;charset=utf-8");
@@ -595,8 +595,8 @@ public class ValidateCodeFilter extends OncePerRequestFilter {
     private SessionStrategy sessionStrategy = new HttpSessionSessionStrategy();
     @Override
     protected void doFilterInternal(HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse, 
-    	FilterChain filterChain) throws ServletException, IOException {
-    	//post类型的login请求才进行验证码校验过滤
+        FilterChain filterChain) throws ServletException, IOException {
+        //post类型的login请求才进行验证码校验过滤
         if (StringUtils.equalsIgnoreCase("/login", httpServletRequest.getRequestURI())
                 && StringUtils.equalsIgnoreCase(httpServletRequest.getMethod(), "post")) {
             try {
@@ -612,22 +612,22 @@ public class ValidateCodeFilter extends OncePerRequestFilter {
     private void validateCode(ServletWebRequest servletWebRequest) throws ServletRequestBindingException {
          ImageCode codeInSession = (ImageCode) sessionStrategy.getAttribute(servletWebRequest, ValidateController.SESSION_KEY);
          //获取请求参数  ServletRequestUtils可以用来操作request
-    	String codeInRequest = ServletRequestUtils.getStringParameter(servletWebRequest.getRequest(), "imageCode");
-    	if (StringUtils.isBlank(codeInRequest)) {
-        	throw new ValidateCodeException("验证码不能为空！");
-    	}
-    	if (codeInSession == null) {
+        String codeInRequest = ServletRequestUtils.getStringParameter(servletWebRequest.getRequest(), "imageCode");
+        if (StringUtils.isBlank(codeInRequest)) {
+            throw new ValidateCodeException("验证码不能为空！");
+        }
+        if (codeInSession == null) {
              throw new ValidateCodeException("验证码不存在！");
-    	}
-    	if (codeInSession.isExpire()) {
-        	sessionStrategy.removeAttribute(servletWebRequest, ValidateController.SESSION_KEY);
-        	throw new ValidateCodeException("验证码已过期！");
-    	}
-    	if (!StringUtils.equalsIgnoreCase(codeInSession.getCode(), codeInRequest)) {
-        	throw new ValidateCodeException("验证码不正确！");
-    	}
-    	sessionStrategy.removeAttribute(servletWebRequest, ValidateController.SESSION_KEY);
-	}
+        }
+        if (codeInSession.isExpire()) {
+            sessionStrategy.removeAttribute(servletWebRequest, ValidateController.SESSION_KEY);
+            throw new ValidateCodeException("验证码已过期！");
+        }
+        if (!StringUtils.equalsIgnoreCase(codeInSession.getCode(), codeInRequest)) {
+            throw new ValidateCodeException("验证码不正确！");
+        }
+        sessionStrategy.removeAttribute(servletWebRequest, ValidateController.SESSION_KEY);
+    }
 }
 ```
 
@@ -638,7 +638,7 @@ public class ValidateCodeFilter extends OncePerRequestFilter {
 private ValidateCodeFilter validateCodeFilter;
 @Override
 protected void configure(HttpSecurity http) throws Exception {
-	// 添加验证码校验过滤器
+    // 添加验证码校验过滤器
     http.addFilterBefore(validateCodeFilter, UsernamePasswordAuthenticationFilter.class) 
             //...
 }
@@ -671,7 +671,7 @@ public class BrowserSecurityConfig extends WebSecurityConfigurerAdapter {
 ```
 
 >  查看`JdbcTokenRepositoryImpl`的源码，可看到CREATE_TABLE_SQL`属性即存储token对象数据表的SQL语句:
->
+> 
 > ```sql
 > CREATE TABLE persistent_logins (
 >     username VARCHAR (64) NOT NULL,
@@ -777,8 +777,8 @@ public class ValidateController {
 @Override
 protected void configure(HttpSecurity http) throws Exception {
     http.formLogin() 
-		.authorizeRequests() 
-    	.antMatchers("/authentication/require","/login.html","/code/sms").permitAll() 
+        .authorizeRequests() 
+        .antMatchers("/authentication/require","/login.html","/code/sms").permitAll() 
         .anyRequest().authenticated() 
         .and().csrf().disable();
 }
@@ -943,7 +943,7 @@ public class SmsCodeFilter extends OncePerRequestFilter {
 
     @Override
     protected void doFilterInternal(HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse, 
-    	FilterChain filterChain) throws ServletException, IOException {
+        FilterChain filterChain) throws ServletException, IOException {
         if (StringUtils.equalsIgnoreCase("/login/mobile", httpServletRequest.getRequestURI())&& StringUtils.equalsIgnoreCase(httpServletRequest.getMethod(), "post")) {
             try {
                 validateCode(new ServletWebRequest(httpServletRequest));
@@ -998,7 +998,7 @@ public class SmsAuthenticationConfig extends SecurityConfigurerAdapter<DefaultSe
         smsAuthenticationFilter.setAuthenticationManager(http.getSharedObject(AuthenticationManager.class));
         smsAuthenticationFilter.setAuthenticationSuccessHandler(authenticationSuccessHandler);
         smsAuthenticationFilter.setAuthenticationFailureHandler(authenticationFailureHandler);
-        
+
         SmsAuthenticationProvider smsAuthenticationProvider = new SmsAuthenticationProvider();
         smsAuthenticationProvider.setUserDetailService(userDetailService);
 
@@ -1026,7 +1026,7 @@ public class BrowserSecurityConfig extends WebSecurityConfigurerAdapter {
     private MyAuthenticationFailureHandler authenticationFailureHandler;
     @Autowired 
     private ValidateCodeFilter validateCodeFilter;
-    @Autowired	
+    @Autowired    
     private SmsCodeFilter smsCodeFilter;
     @Autowired
     private SmsAuthenticationConfig smsAuthenticationConfig;
@@ -1067,14 +1067,14 @@ protected void configure(HttpSecurity http) throws Exception {
 **`SessionRegistry`**包含了一些使用的操作Session的方法，比如：
 
 1. 踢出用户（让Session失效）：
-
+   
    ```
    String currentSessionId = request.getRequestedSessionId();
    sessionRegistry.getSessionInformation(sessionId).expireNow();
    ```
 
 2. 获取所有Session信息：
-
+   
    ```
    List<Object> principals = sessionRegistry.getAllPrincipals();
    ```
@@ -1098,8 +1098,8 @@ protected void configure(HttpSecurity http) throws Exception {
 
 ```
 <dependency> 
-	<groupId>org.springframework.session</groupId> 
-	<artifactId>spring-session-data-redis</artifactId>
+    <groupId>org.springframework.session</groupId> 
+    <artifactId>spring-session-data-redis</artifactId>
 </dependency>
 ```
 
@@ -1145,8 +1145,8 @@ protected void configure(HttpSecurity http) throws Exception {
        .and()
        .sessionManagement()
        .invalidSessionUrl("/session/invalid")
-       .maximumSessions(1)	// 最大session并发数
-       .expiredSessionStrategy(sessionExpiredStrategy)	// session过期策略
+       .maximumSessions(1)    // 最大session并发数
+       .expiredSessionStrategy(sessionExpiredStrategy)    // session过期策略
        //.....
 }
 ```
@@ -1160,7 +1160,7 @@ protected void configure(HttpSecurity http) throws Exception {
 .sessionManagement()
 .invalidSessionUrl("/session/invalid") 
 .maximumSessions(1)
-.maxSessionsPreventsLogin(true)		// added
+.maxSessionsPreventsLogin(true)        // added
 .expiredSessionStrategy(sessionExpiredStrategy)
 .and()
 ```
@@ -1182,7 +1182,7 @@ Spring Security默认的退出登录URL为`/logout`，退出登录后，Spring S
 .and()
     .logout()
     .logoutUrl("/signout")
-    .logoutSuccessUrl("/signout/success")	//需放行
+    .logoutSuccessUrl("/signout/success")    //需放行
     .deleteCookies("JSESSIONID")
 .and()
 ```
@@ -1196,7 +1196,7 @@ private MyLogOutSuccessHandler logOutSuccessHandler;
 .and()
     .logout()
     .logoutUrl("/signout")
-    // .logoutSuccessUrl("/signout/success")		//与logoutSuccessHandler互斥
+    // .logoutSuccessUrl("/signout/success")        //与logoutSuccessHandler互斥
     .logoutSuccessHandler(logOutSuccessHandler)
     .deleteCookies("JSESSIONID")
 .and()
@@ -1366,9 +1366,9 @@ public void writeBlog(Form form){
 
 常用的el表达式
 
-| 表达式                    | 描述                                                         |
-| ------------------------- | ------------------------------------------------------------ |
-| hasRole([role])           | 当前用户是否拥有指定角色。                                   |
+| 表达式                       | 描述                                            |
+| ------------------------- | --------------------------------------------- |
+| hasRole([role])           | 当前用户是否拥有指定角色。                                 |
 | hasAnyRole([role1,role2]) | 多个角色是一个以逗号进行分隔的字符串。如果当前用户拥有指定角色中的任意一个则返回true。 |
 
 @**PostAuthorize**
@@ -1379,7 +1379,7 @@ public void writeBlog(Form form){
 @PreAuthorize("hasRole(ROLE_USER)")
 @PostAuthorize("returnObject.user.userName == principal.username")
 public User getUserById(long id){
-    ...		
+    ...        
 }
 ```
 
@@ -1481,7 +1481,7 @@ public class CustomUrlDecisionManager implements AccessDecisionManager {
             //如果需要的权限是ROLE_LOGIN，说明当前请求的URL用户登陆后即可访问
             if ("ROLE_LOGIN".equals(needRole)){
                 if (authentication instanceof AnonymousAuthenticationToken){
-                 	throw new AccessDeniedException("尚未登录，请登录！");
+                     throw new AccessDeniedException("尚未登录，请登录！");
                 }else {
                     return;
                 }
@@ -1506,8 +1506,8 @@ public class CustomUrlDecisionManager implements AccessDecisionManager {
 
 ```
 httpSecurity.authorizeRequests()
-	.anyRequest()
-	.access("@roleChecker.check(authentication,request)");
+    .anyRequest()
+    .access("@roleChecker.check(authentication,request)");
 ```
 
 #### AuthorizationManager
@@ -1519,7 +1519,7 @@ httpSecurity.authorizeRequests()
 ```java
 @FunctionalInterface
 public interface AuthorizationManager<T> {
- 
+
  default void verify(Supplier<Authentication> authentication, T object) {
   AuthorizationDecision decision = check(authentication, object);
         // 授权决策没有经过允许就403
@@ -1539,7 +1539,7 @@ public interface AuthorizationManager<T> {
 在5.6中, 就可以这样去实现了
 
 ```java
-	httpSecurity.authorizeHttpRequests()
+    httpSecurity.authorizeHttpRequests()
                 .anyRequest()
                 .access((authenticationSupplier, requestAuthorizationContext) -> {
                     // 当前用户的权限信息 比如角色
@@ -1701,7 +1701,7 @@ public class ResourceServerConfig extends ResourceServerConfigurerAdapter {
     @Override
     public void configure(HttpSecurity http) throws Exception {
         http.formLogin()
-                .loginProcessingUrl("/login")	//配置登录页, 用于认证后获取令牌
+                .loginProcessingUrl("/login")    //配置登录页, 用于认证后获取令牌
                 .successHandler(authenticationSucessHandler) 
             .and()
                 .authorizeRequests() 
@@ -1732,7 +1732,7 @@ public class MyAuthenticationSucessHandler implements AuthenticationSuccessHandl
         if (header == null || !header.startsWith("Basic ")) {
             throw new UnapprovedClientAuthenticationException("请求头中无client信息");
         }
-		// base64解码
+        // base64解码
         String[] tokens = this.extractAndDecodeHeader(header, request);
         String clientId = tokens[0];
         String clientSecret = tokens[1];
@@ -1839,7 +1839,7 @@ public class RedisCodeService {
     public void remove(ServletWebRequest request, String mobile) throws Exception {
         redisTemplate.delete(key(request, mobile));
     }
-	// 根据设备id和手机号构造key
+    // 根据设备id和手机号构造key
     private String key(ServletWebRequest request, String mobile) throws Exception {
         String deviceId = request.getHeader("deviceId");
         if (StringUtils.isBlank(deviceId)) {
@@ -1907,12 +1907,12 @@ public class AuthorizationServerConfig extends AuthorizationServerConfigurerAdap
     @Override
     public void configure(ClientDetailsServiceConfigurer clients) throws Exception {
         clients.inMemory()
-                .withClient("test1") 	//不同的client_id来获取不同的令牌
-                .secret("test1111")	
-                .accessTokenValiditySeconds(3600)	//令牌有效时间
+                .withClient("test1")     //不同的client_id来获取不同的令牌
+                .secret("test1111")    
+                .accessTokenValiditySeconds(3600)    //令牌有效时间
                 .refreshTokenValiditySeconds(864000)//刷新令牌有效时间
-                .scopes("all", "a", "b", "c")		//限定scope
-                .authorizedGrantTypes("password")	//限定授权模式
+                .scopes("all", "a", "b", "c")        //限定scope
+                .authorizedGrantTypes("password")    //限定授权模式
             .and()
                 .withClient("test2")
                 .secret("test2222")
@@ -2094,7 +2094,7 @@ public class AuthorizationServerConfig extends AuthorizationServerConfigurerAdap
 @Configuration
 @EnableAuthorizationServer
 public class AuthorizationServerConfig extends AuthorizationServerConfigurerAdapter {
-	......
+    ......
     @Override
     public void configure(ClientDetailsServiceConfigurer clients) throws Exception {
         clients.inMemory()
@@ -2172,22 +2172,22 @@ public class SsoAuthorizationServerConfig extends AuthorizationServerConfigurerA
 
     //分配两个客户端,
     @Override
-	public void configure(ClientDetailsServiceConfigurer clients) throws Exception {
-	    clients.inMemory()
-        	    .withClient("app-a")
-        	    .secret(passwordEncoder.encode("app-a-1234"))
-        	    .authorizedGrantTypes("refresh_token","authorization_code")
-        	    .accessTokenValiditySeconds(3600)
-        	    .scopes("all")
-        	    .redirectUris("http://127.0.0.1:9090/app1/login")
-        	.and()
-        	    .withClient("app-b")
-        	    .secret(passwordEncoder.encode("app-b-1234"))
-        	    .authorizedGrantTypes("refresh_token","authorization_code")
-        	    .accessTokenValiditySeconds(7200)
-        	    .scopes("all")
-        	    .redirectUris("http://127.0.0.1:9091/app2/login");
-	}
+    public void configure(ClientDetailsServiceConfigurer clients) throws Exception {
+        clients.inMemory()
+                .withClient("app-a")
+                .secret(passwordEncoder.encode("app-a-1234"))
+                .authorizedGrantTypes("refresh_token","authorization_code")
+                .accessTokenValiditySeconds(3600)
+                .scopes("all")
+                .redirectUris("http://127.0.0.1:9090/app1/login")
+            .and()
+                .withClient("app-b")
+                .secret(passwordEncoder.encode("app-b-1234"))
+                .authorizedGrantTypes("refresh_token","authorization_code")
+                .accessTokenValiditySeconds(7200)
+                .scopes("all")
+                .redirectUris("http://127.0.0.1:9091/app2/login");
+    }
 
     @Override
     public void configure(AuthorizationServerEndpointsConfigurer endpoints) {
@@ -2324,19 +2324,19 @@ Shiro filterChain基于短路机制，即最先匹配原则，如：
 
 Shiro为我们实现的过滤器:
 
-| Filter Name       | Class                                                        | Description                                                  |
-| :---------------- | :----------------------------------------------------------- | :----------------------------------------------------------- |
-| anon              | [org.apache.shiro.web.filter.authc.AnonymousFilter](http://shiro.apache.org/static/current/apidocs/org/apache/shiro/web/filter/authc/AnonymousFilter.html) | 匿名拦截器，即不需要登录即可访问；一般用于静态资源过滤；示例`/static/**=anon` |
-| authc             | [org.apache.shiro.web.filter.authc.FormAuthenticationFilter](http://shiro.apache.org/static/current/apidocs/org/apache/shiro/web/filter/authc/FormAuthenticationFilter.html) | 基于表单的拦截器；如`/**=authc`，如果没有登录会跳到相应的登录页面登录 |
-| authcBasic        | [org.apache.shiro.web.filter.authc.BasicHttpAuthenticationFilter](http://shiro.apache.org/static/current/apidocs/org/apache/shiro/web/filter/authc/BasicHttpAuthenticationFilter.html) | Basic HTTP身份验证拦截器                                     |
-| logout            | [org.apache.shiro.web.filter.authc.LogoutFilter](http://shiro.apache.org/static/current/apidocs/org/apache/shiro/web/filter/authc/LogoutFilter.html) | 退出拦截器，主要属性：redirectUrl：退出成功后重定向的地址（/），示例`/logout=logout` |
-| noSessionCreation | [org.apache.shiro.web.filter.session.NoSessionCreationFilter](http://shiro.apache.org/static/current/apidocs/org/apache/shiro/web/filter/session/NoSessionCreationFilter.html) | 不创建会话拦截器，调用`subject.getSession(false)`不会有什么问题，但是如果`subject.getSession(true)`将抛出`DisabledSessionException`异常 |
-| perms             | [org.apache.shiro.web.filter.authz.PermissionsAuthorizationFilter](http://shiro.apache.org/static/current/apidocs/org/apache/shiro/web/filter/authz/PermissionsAuthorizationFilter.html) | 权限授权拦截器，验证用户是否拥有所有权限；属性和roles一样；示例`/user/**=perms["user:create"]` |
-| port              | [org.apache.shiro.web.filter.authz.PortFilter](http://shiro.apache.org/static/current/apidocs/org/apache/shiro/web/filter/authz/PortFilter.html) | 端口拦截器，主要属性`port(80)`：可以通过的端口；示例`/test= port[80]`，如果用户访问该页面是非80，将自动将请求端口改为80并重定向到该80端口，其他路径/参数等都一样 |
-| rest              | [org.apache.shiro.web.filter.authz.HttpMethodPermissionFilter](http://shiro.apache.org/static/current/apidocs/org/apache/shiro/web/filter/authz/HttpMethodPermissionFilter.html) | rest风格拦截器，自动根据请求方法构建权限字符串；示例`/users=rest[user]`，会自动拼出user:read,user:create,user:update,user:delete权限字符串进行权限匹配（所有都得匹配，isPermittedAll） |
-| roles             | [org.apache.shiro.web.filter.authz.RolesAuthorizationFilter](http://shiro.apache.org/static/current/apidocs/org/apache/shiro/web/filter/authz/RolesAuthorizationFilter.html) | 角色授权拦截器，验证用户是否拥有所有角色；示例`/admin/**=roles[admin]` |
-| ssl               | [org.apache.shiro.web.filter.authz.SslFilter](http://shiro.apache.org/static/current/apidocs/org/apache/shiro/web/filter/authz/SslFilter.html) | SSL拦截器，只有请求协议是https才能通过；否则自动跳转会https端口443；其他和port拦截器一样； |
-| user              | [org.apache.shiro.web.filter.authc.UserFilter](http://shiro.apache.org/static/current/apidocs/org/apache/shiro/web/filter/authc/UserFilter.html) | 用户拦截器，用户已经身份验证/记住我登录的都可；示例`/**=user` |
+| Filter Name       | Class                                                                                                                                                                                    | Description                                                                                                                          |
+|:----------------- |:---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |:------------------------------------------------------------------------------------------------------------------------------------ |
+| anon              | [org.apache.shiro.web.filter.authc.AnonymousFilter](http://shiro.apache.org/static/current/apidocs/org/apache/shiro/web/filter/authc/AnonymousFilter.html)                               | 匿名拦截器，即不需要登录即可访问；一般用于静态资源过滤；示例`/static/**=anon`                                                                                      |
+| authc             | [org.apache.shiro.web.filter.authc.FormAuthenticationFilter](http://shiro.apache.org/static/current/apidocs/org/apache/shiro/web/filter/authc/FormAuthenticationFilter.html)             | 基于表单的拦截器；如`/**=authc`，如果没有登录会跳到相应的登录页面登录                                                                                             |
+| authcBasic        | [org.apache.shiro.web.filter.authc.BasicHttpAuthenticationFilter](http://shiro.apache.org/static/current/apidocs/org/apache/shiro/web/filter/authc/BasicHttpAuthenticationFilter.html)   | Basic HTTP身份验证拦截器                                                                                                                    |
+| logout            | [org.apache.shiro.web.filter.authc.LogoutFilter](http://shiro.apache.org/static/current/apidocs/org/apache/shiro/web/filter/authc/LogoutFilter.html)                                     | 退出拦截器，主要属性：redirectUrl：退出成功后重定向的地址（/），示例`/logout=logout`                                                                             |
+| noSessionCreation | [org.apache.shiro.web.filter.session.NoSessionCreationFilter](http://shiro.apache.org/static/current/apidocs/org/apache/shiro/web/filter/session/NoSessionCreationFilter.html)           | 不创建会话拦截器，调用`subject.getSession(false)`不会有什么问题，但是如果`subject.getSession(true)`将抛出`DisabledSessionException`异常                          |
+| perms             | [org.apache.shiro.web.filter.authz.PermissionsAuthorizationFilter](http://shiro.apache.org/static/current/apidocs/org/apache/shiro/web/filter/authz/PermissionsAuthorizationFilter.html) | 权限授权拦截器，验证用户是否拥有所有权限；属性和roles一样；示例`/user/**=perms["user:create"]`                                                                    |
+| port              | [org.apache.shiro.web.filter.authz.PortFilter](http://shiro.apache.org/static/current/apidocs/org/apache/shiro/web/filter/authz/PortFilter.html)                                         | 端口拦截器，主要属性`port(80)`：可以通过的端口；示例`/test= port[80]`，如果用户访问该页面是非80，将自动将请求端口改为80并重定向到该80端口，其他路径/参数等都一样                                    |
+| rest              | [org.apache.shiro.web.filter.authz.HttpMethodPermissionFilter](http://shiro.apache.org/static/current/apidocs/org/apache/shiro/web/filter/authz/HttpMethodPermissionFilter.html)         | rest风格拦截器，自动根据请求方法构建权限字符串；示例`/users=rest[user]`，会自动拼出user:read,user:create,user:update,user:delete权限字符串进行权限匹配（所有都得匹配，isPermittedAll） |
+| roles             | [org.apache.shiro.web.filter.authz.RolesAuthorizationFilter](http://shiro.apache.org/static/current/apidocs/org/apache/shiro/web/filter/authz/RolesAuthorizationFilter.html)             | 角色授权拦截器，验证用户是否拥有所有角色；示例`/admin/**=roles[admin]`                                                                                      |
+| ssl               | [org.apache.shiro.web.filter.authz.SslFilter](http://shiro.apache.org/static/current/apidocs/org/apache/shiro/web/filter/authz/SslFilter.html)                                           | SSL拦截器，只有请求协议是https才能通过；否则自动跳转会https端口443；其他和port拦截器一样；                                                                              |
+| user              | [org.apache.shiro.web.filter.authc.UserFilter](http://shiro.apache.org/static/current/apidocs/org/apache/shiro/web/filter/authc/UserFilter.html)                                         | 用户拦截器，用户已经身份验证/记住我登录的都可；示例`/**=user`                                                                                                 |
 
 ### 认证
 
@@ -2350,7 +2350,7 @@ public class ShiroConfig {
       shiroFilterFactoryBean.setLoginUrl("/login");
       shiroFilterFactoryBean.setSuccessUrl("/index");
       shiroFilterFactoryBean.setUnauthorizedUrl("/403");
-      
+
       LinkedHashMap<String, String> filterChainDefinitionMap = new LinkedHashMap<>();
       //静态资源不拦截
       filterChainDefinitionMap.put("/css/**", "anon");
@@ -2364,18 +2364,18 @@ public class ShiroConfig {
       filterChainDefinitionMap.put("/", "anon");
       // 除上以外所有url都必须认证通过才可以访问，未通过认证自动访问LoginUrl
       filterChainDefinitionMap.put("/**", "authc");
-      
+
       shiroFilterFactoryBean.setFilterChainDefinitionMap(filterChainDefinitionMap);
       return shiroFilterFactoryBean;
    }
- 
+
    @Bean  
     public SecurityManager securityManager(){  
        DefaultWebSecurityManager securityManager =  new DefaultWebSecurityManager();
        securityManager.setRealm(shiroRealm());
        return securityManager;  
     }  
-   
+
    @Bean  
     public ShiroRealm shiroRealm(){  
        ShiroRealm shiroRealm = new ShiroRealm();  
@@ -2388,7 +2388,7 @@ realm
 
 ```java
 public class ShiroRealm extends AuthorizingRealm {
-	//标准的做法应该是Service层
+    //标准的做法应该是Service层
    @Autowired
    private UserMapper userMapper;
 
@@ -2424,42 +2424,42 @@ public class ShiroRealm extends AuthorizingRealm {
 @Controller
 public class LoginController {
 
-	@GetMapping("/login")
-	public String login() {
-		return "login";
-	}
+    @GetMapping("/login")
+    public String login() {
+        return "login";
+    }
 
-	@PostMapping("/login")
-	@ResponseBody
-	public ResponseBo login(String username, String password) {
-		password = MD5Utils.encrypt(username, password);
-		UsernamePasswordToken token = new UsernamePasswordToken(username, password);
-		Subject subject = SecurityUtils.getSubject();
-		try {
-			subject.login(token);
-			return ResponseBo.ok();
-		} catch (UnknownAccountException e) {
-			return ResponseBo.error(e.getMessage());
-		} catch (IncorrectCredentialsException e) {
-			return ResponseBo.error(e.getMessage());
-		} catch (LockedAccountException e) {
-			return ResponseBo.error(e.getMessage());
-		} catch (AuthenticationException e) {
-			return ResponseBo.error("认证失败！");
-		}
-	}
+    @PostMapping("/login")
+    @ResponseBody
+    public ResponseBo login(String username, String password) {
+        password = MD5Utils.encrypt(username, password);
+        UsernamePasswordToken token = new UsernamePasswordToken(username, password);
+        Subject subject = SecurityUtils.getSubject();
+        try {
+            subject.login(token);
+            return ResponseBo.ok();
+        } catch (UnknownAccountException e) {
+            return ResponseBo.error(e.getMessage());
+        } catch (IncorrectCredentialsException e) {
+            return ResponseBo.error(e.getMessage());
+        } catch (LockedAccountException e) {
+            return ResponseBo.error(e.getMessage());
+        } catch (AuthenticationException e) {
+            return ResponseBo.error("认证失败！");
+        }
+    }
 
-	@RequestMapping("/")
-	public String redirectIndex() {
-		return "redirect:/index";
-	}
+    @RequestMapping("/")
+    public String redirectIndex() {
+        return "redirect:/index";
+    }
 
-	@RequestMapping("/index")
-	public String index(Model model) {
-		User user = (User) SecurityUtils.getSubject().getPrincipal();
-		model.addAttribute("user", user);
-		return "index";
-	}
+    @RequestMapping("/index")
+    public String index(Model model) {
+        User user = (User) SecurityUtils.getSubject().getPrincipal();
+        model.addAttribute("user", user);
+        return "index";
+    }
 }
 ```
 
@@ -2478,7 +2478,7 @@ public class ShiroConfig {
       filterChainDefinitionMap.put("/**", "user");
       //...
    }
- 
+
    @Bean  
     public SecurityManager securityManager(){  
        DefaultWebSecurityManager securityManager =  new DefaultWebSecurityManager();
@@ -2493,13 +2493,13 @@ public class ShiroConfig {
     public LifecycleBeanPostProcessor lifecycleBeanPostProcessor() {
         return new LifecycleBeanPostProcessor();
     }
-   
+
    @Bean  
     public ShiroRealm shiroRealm(){  
        ShiroRealm shiroRealm = new ShiroRealm();  
        return shiroRealm;  
     }  
-   
+
    // cookie对象
    public SimpleCookie rememberMeCookie() {
       // 设置cookie名称，对应login.html页面的<input type="checkbox" name="rememberMe"/>
@@ -2508,7 +2508,7 @@ public class ShiroConfig {
       cookie.setMaxAge(86400);
       return cookie;
    }
-   
+
    public CookieRememberMeManager rememberMeManager() {
       CookieRememberMeManager cookieRememberMeManager = new CookieRememberMeManager();
       cookieRememberMeManager.setCookie(rememberMeCookie());
@@ -2674,14 +2674,14 @@ public class MyCustomRealm extends JdbcRealm {
 
 ```java
 public RedisManager redisManager() {
-	//可以另指定ip端口用户名密码信息
-	RedisManager redisManager = new RedisManager();
-	return redisManager;
+    //可以另指定ip端口用户名密码信息
+    RedisManager redisManager = new RedisManager();
+    return redisManager;
 }
 public RedisCacheManager cacheManager() {
-	RedisCacheManager redisCacheManager = new RedisCacheManager();
-	redisCacheManager.setRedisManager(redisManager());
-	return redisCacheManager;
+    RedisCacheManager redisCacheManager = new RedisCacheManager();
+    redisCacheManager.setRedisManager(redisManager());
+    return redisCacheManager;
 }
 ```
 
@@ -2729,7 +2729,7 @@ shiro-ehcache.xml, 具体配置可参见持久层Cache一节.
 ```yml
  spring:
    cache:
-	 ehcache:
+     ehcache:
        config: classpath:ehcache.xml
 ```
 
@@ -2758,9 +2758,9 @@ public SecurityManager securityManager(){
 
 ```xml
 <dependency>
-	<groupId>com.github.theborakompanioni</groupId>
-	<artifactId>thymeleaf-extras-shiro</artifactId>
-	<version>2.0.0</version>
+    <groupId>com.github.theborakompanioni</groupId>
+    <artifactId>thymeleaf-extras-shiro</artifactId>
+    <version>2.0.0</version>
 </dependency>
 ```
 
@@ -2768,29 +2768,29 @@ public SecurityManager securityManager(){
 <!DOCTYPE html>
 <!-- 使用Shiro标签需要给html标签添加xmlns:shiro="http://www.pollix.at/thymeleaf/shiro"-->
 <html 
-	xmlns:th="http://www.thymeleaf.org" 
-	xmlns:shiro="http://www.pollix.at/thymeleaf/shiro" >
+    xmlns:th="http://www.thymeleaf.org" 
+    xmlns:shiro="http://www.pollix.at/thymeleaf/shiro" >
 <head>
-	<meta charset="UTF-8">
-	<title>首页</title>
+    <meta charset="UTF-8">
+    <title>首页</title>
 </head>
 <style>
-	div {
-		border: 1px dashed #ddd;
-		padding: 10px;
-		margin: 10px 10px 10px 0px;
-	}
+    div {
+        border: 1px dashed #ddd;
+        padding: 10px;
+        margin: 10px 10px 10px 0px;
+    }
 </style>
 <body>
-	<p>你好！[[${user.userName}]]</p>
-	<p shiro:hasRole="admin">你的角色为超级管理员</p>
-	<p shiro:hasRole="test">你的角色为测试账户</p>
-	<div>
-		<a shiro:hasPermission="user:user" th:href="@{/user/list}">获取用户信息</a>
-		<a shiro:hasPermission="user:add" th:href="@{/user/add}">新增用户</a>
-		<a shiro:hasPermission="user:delete" th:href="@{/user/delete}">删除用户</a>
-	</div>
-	<a th:href="@{/logout}">注销</a>
+    <p>你好！[[${user.userName}]]</p>
+    <p shiro:hasRole="admin">你的角色为超级管理员</p>
+    <p shiro:hasRole="test">你的角色为测试账户</p>
+    <div>
+        <a shiro:hasPermission="user:user" th:href="@{/user/list}">获取用户信息</a>
+        <a shiro:hasPermission="user:add" th:href="@{/user/add}">新增用户</a>
+        <a shiro:hasPermission="user:delete" th:href="@{/user/delete}">删除用户</a>
+    </div>
+    <a th:href="@{/logout}">注销</a>
 </body>
 </html>
 ```
@@ -2818,15 +2818,15 @@ public class ShiroSessionListener implements SessionListener{
    @Override
    public void onStop(Session session) {
       sessionCount.decrementAndGet();
-      
+
    }
    @Override
    public void onExpiration(Session session) {
       sessionCount.decrementAndGet();
    }
    public int getSessionCount() {
-		return sessionCount.get();
-	}
+        return sessionCount.get();
+    }
 }
 ```
 
@@ -2838,21 +2838,21 @@ public class ShiroSessionListener implements SessionListener{
 @Configuration
 public class ShiroConfig {
     //...
-	@Bean
-	public SessionDAO sessionDAO() {
-		MemorySessionDAO sessionDAO = new MemorySessionDAO();
-		return sessionDAO;
-	}
-	//SessionDao通过org.apache.shiro.session.mgt.SessionManager进行管理
-	@Bean
-	public SessionManager sessionManager() {
-		DefaultWebSessionManager sessionManager = new DefaultWebSessionManager();
-		Collection<SessionListener> listeners = new ArrayList<SessionListener>();
-		listeners.add(new ShiroSessionListener());	//添加sessionListener
-		sessionManager.setSessionListeners(listeners);
-		sessionManager.setSessionDAO(sessionDAO());   //设置sessionDao
-		return sessionManager;
-	}
+    @Bean
+    public SessionDAO sessionDAO() {
+        MemorySessionDAO sessionDAO = new MemorySessionDAO();
+        return sessionDAO;
+    }
+    //SessionDao通过org.apache.shiro.session.mgt.SessionManager进行管理
+    @Bean
+    public SessionManager sessionManager() {
+        DefaultWebSessionManager sessionManager = new DefaultWebSessionManager();
+        Collection<SessionListener> listeners = new ArrayList<SessionListener>();
+        listeners.add(new ShiroSessionListener());    //添加sessionListener
+        sessionManager.setSessionListeners(listeners);
+        sessionManager.setSessionDAO(sessionDAO());   //设置sessionDao
+        return sessionManager;
+    }
 }
 ```
 
@@ -2870,9 +2870,8 @@ public RedisSessionDAO sessionDAO() {
 @Bean
 public SessionDAO sessionDAO() {
      return redisSessionDAO();
-   	//return new MemorySessionDAO();
+       //return new MemorySessionDAO();
    }
-  
 ```
 
 使用SessionDao:
@@ -2880,52 +2879,52 @@ public SessionDAO sessionDAO() {
 ```java
 @Service("sessionService")
 public class SessionServiceImpl implements SessionService {
-	//shiro提供的session访问
-	@Autowired
-	private SessionDAO sessionDAO;
+    //shiro提供的session访问
+    @Autowired
+    private SessionDAO sessionDAO;
 
-	//获取在线用户列表
-	@Override
-	public List<UserOnline> list() {
-		List<UserOnline> list = new ArrayList<>();
-		//获取所有session
-		Collection<Session> sessions = sessionDAO.getActiveSessions();
-		for (Session session : sessions) {
-			UserOnline userOnline = new UserOnline();
-			User user = new User();
-			SimplePrincipalCollection principalCollection = new SimplePrincipalCollection();
-			if (session.getAttribute(DefaultSubjectContext.PRINCIPALS_SESSION_KEY) == null) {
-				continue;
-			} else {
-				//通过session获取用户
-				principalCollection = (SimplePrincipalCollection) session
-						.getAttribute(DefaultSubjectContext.PRINCIPALS_SESSION_KEY);
-				user = (User) principalCollection.getPrimaryPrincipal();
-				userOnline.setUsername(user.getUserName());
-				userOnline.setUserId(user.getId().toString());
-			}
-			userOnline.setId((String) session.getId());
-			userOnline.setHost(session.getHost());
-			userOnline.setStartTimestamp(session.getStartTimestamp());
-			userOnline.setLastAccessTime(session.getLastAccessTime());
-			Long timeout = session.getTimeout();
-			if (timeout == 0l) {
-				userOnline.setStatus("离线");
-			} else {
-				userOnline.setStatus("在线");
-			}
-			userOnline.setTimeout(timeout);
-			list.add(userOnline);
-		}
-		return list;
-	}
-	//踢出用户
-	@Override
-	public boolean forceLogout(String sessionId) {
-		Session session = sessionDAO.readSession(sessionId);
-		session.setTimeout(0);
-		return true;
-	}
+    //获取在线用户列表
+    @Override
+    public List<UserOnline> list() {
+        List<UserOnline> list = new ArrayList<>();
+        //获取所有session
+        Collection<Session> sessions = sessionDAO.getActiveSessions();
+        for (Session session : sessions) {
+            UserOnline userOnline = new UserOnline();
+            User user = new User();
+            SimplePrincipalCollection principalCollection = new SimplePrincipalCollection();
+            if (session.getAttribute(DefaultSubjectContext.PRINCIPALS_SESSION_KEY) == null) {
+                continue;
+            } else {
+                //通过session获取用户
+                principalCollection = (SimplePrincipalCollection) session
+                        .getAttribute(DefaultSubjectContext.PRINCIPALS_SESSION_KEY);
+                user = (User) principalCollection.getPrimaryPrincipal();
+                userOnline.setUsername(user.getUserName());
+                userOnline.setUserId(user.getId().toString());
+            }
+            userOnline.setId((String) session.getId());
+            userOnline.setHost(session.getHost());
+            userOnline.setStartTimestamp(session.getStartTimestamp());
+            userOnline.setLastAccessTime(session.getLastAccessTime());
+            Long timeout = session.getTimeout();
+            if (timeout == 0l) {
+                userOnline.setStatus("离线");
+            } else {
+                userOnline.setStatus("在线");
+            }
+            userOnline.setTimeout(timeout);
+            list.add(userOnline);
+        }
+        return list;
+    }
+    //踢出用户
+    @Override
+    public boolean forceLogout(String sessionId) {
+        Session session = sessionDAO.readSession(sessionId);
+        session.setTimeout(0);
+        return true;
+    }
 }
 ```
 
@@ -3390,7 +3389,7 @@ SessionDao
 ```java
 public class RedisSessionDAO extends AbstractSessionDAO {
     private static Logger logger = LoggerFactory.getLogger(RedisSessionDAO.class);
-    
+
     private RedisManager redisManager;
 
     /**
@@ -3527,7 +3526,7 @@ public class RedisSessionDAO extends AbstractSessionDAO {
         redisCacheManager.setRedisManager(redisManager());
         return redisCacheManager;
     }
-    
+
     @Bean
     public SecurityManager securityManager() {
         DefaultWebSecurityManager securityManager = new DefaultWebSecurityManager();
@@ -3538,9 +3537,9 @@ public class RedisSessionDAO extends AbstractSessionDAO {
         securityManager.setSessionManager(sessionManager());
         return securityManager;
     }
-    
+
 //----------------------------------------------
-	@Bean
+    @Bean
     public SessionDAO sessionDAO() {
         RedisSessionDAO redisSessionDAO = new RedisSessionDAO();
         redisSessionDAO.setRedisManager(redisManager());

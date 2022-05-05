@@ -4,7 +4,7 @@
 
 Redis服务器所有数据库再redis.h的redisServer结构中, 每个数据库db为一个redis.h的redisDB结构:
 
-```
+```c
 struct redisServer{
 	// ...
 	redisDB *db;	//	数组, 指向所有数据库
@@ -23,7 +23,7 @@ typedef struct redisDB{
 
 Redis服务器为每个连接的客户端建立一个redis.h/redisClient结构, 保存客户端当前的状态信息, 如客户端的socket描述符, 客户端名字, 正在使用的数据库指针, 要执行的命令等, 输入输出缓冲区等:
 
-```
+```c
 struct redisServer{
 	list *client; //链表,保存所以客户端状态
 }
@@ -46,7 +46,10 @@ struct redisServer{
 2.服务器接收并处理客户端发来的命令请求set key value, 在数据库中进行操作, 并产生命令回复OK.
 
 ```
-因为客户端对socket进行了写入, 所以对于服务端, socket变为readable, 将调用命令请求处理器执行以下操作:① 读取socket中协议格式的命令请求, 保存到客户端状态的输入缓冲区中(就是一个sds);② 对输入缓冲区中的命令进行分析, 提取出命令请求中的命令参数以及参数个数分别保存到客户端状态的argv(set key value一共三个参数)和argc属性里.③ 调用命令执行器, 执行客户端指定的命令
+因为客户端对socket进行了写入, 所以对于服务端, socket变为readable, 将调用命令请求处理器执行以下操作:
+① 读取socket中协议格式的命令请求, 保存到客户端状态的输入缓冲区中(就是一个sds);
+② 对输入缓冲区中的命令进行分析, 提取出命令请求中的命令参数以及参数个数分别保存到客户端状态的argv(set key value一共三个参数)和argc属性里.
+③ 调用命令执行器, 执行客户端指定的命令
 ```
 
 3.服务器将命令回复OK发送给客户端
@@ -67,7 +70,7 @@ struct redisServer{
 
 1.查找命令实现
 
-```
+```c
 根据客户端状态的argv[0]参数, 在命令表中查找并保存到客户端状态的cmd属性里.
 命令表为一个字典, 键为命令名字, 值为一个redisCommand结构, 用于记录一个命令的实现信息:
 struct redisCommand{	
@@ -150,7 +153,7 @@ redisObject通过encoding属性设置对象所使用的编码，type属性设置
 
 执行命令前, Redis会先检查该key的值对象是否为执行命令锁需的类型, 如果是, 还会根据该key的值对象的编码来选择正确的命令实现(命令多态) 
 
-```
+```c
 typedef struct RedisObject { 
 	int4 type; // 4bits 
 	int4 encoding; // 4bits 
@@ -168,7 +171,7 @@ typedef struct RedisObject {
 
 其数据结构为带容量和长度的**字节**数组(可以存储二进制数据->位数组)的结构体.
 
-```
+```c
 struct sdshdr{	
 	int len;//已使用的字节数	
 	int free;//未使用的字节数	
@@ -230,7 +233,7 @@ hash 类似于 JDK1.8 前的 HashMap(数组 + 链表)。包括hashtable(字典)�
 
 当hash对象中键值对的键和值字符串长度都小于64字节且键值对数量小于512个时, redis会采用ziplist实现hash.可通过配置文件改变上限值. 
 
-```
+```c
 typedef struct dict {    
 	dictType *type;    
 	void *privdata;    dictht ht[2];    
@@ -343,8 +346,9 @@ skiplist中每个节点通过链表连接, 并包含一个后退指针指向前�
 
 相关命令:`setbit,getbit,bitcount,bitop` 
 
-```
-# bitop 对一个或多个保存二进制位的字符串 key 进行位元操作，并将结果保存到 destkey 上。# 支持 AND 、 OR 、 NOT 、 XOR 这四种操作中的任意一种参数BITOP operation destkey key [key ...]
+```xml
+# bitop 对一个或多个保存二进制位的字符串 key 进行位元操作，并将结果保存到 destkey 上。
+# 支持 AND 、 OR 、 NOT 、 XOR 这四种操作中的任意一种参数BITOP operation destkey key [key ...]
 ```
 
 应用场景: 适合需要保存状态信息（比如是否签到、是否登录...）并需要进一步对这些信息进行分析的场景。比如用户签到情况、活跃用户情况、用户行为统计（比如是否点赞过某个视频）。
@@ -673,7 +677,7 @@ RedisObject的lru属性记录了对象最后一次被命令程序访问的时间
 
 **LRU简单代码**
 
-```
+```java
 //注意, Node需要保存key, 用于删除时
 class Node {	
 	public int key, val;	

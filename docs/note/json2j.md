@@ -93,8 +93,6 @@ JsonInclude.Include.CUSTOM ?
 objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES,false);配置该objectMapper在反序列化时，忽略目标对象没有的属性。凡是使用该objectMapper反序列化时，都会拥有该特性。
 ```
 
-
-
 @JsonName
 
 指定json key命名规则
@@ -105,8 +103,6 @@ objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES,false);
 
 属性小写单词以下划线分隔
 
-
-
 @JsonUnwrapperd
 
 扁平化转换
@@ -114,7 +110,7 @@ objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES,false);
 ```java
 @Data
 public class Account {
-	@JsonUnwrapped
+    @JsonUnwrapped
     private Location location;
   @Data
   public static class Location {
@@ -143,23 +139,23 @@ public class Account {
 
 ```java
 public class UserSerializer extends JsonSerializer<User> {
-	@Override
-	public void serialize(User user, JsonGenerator generator, SerializerProvider provider)throws IOException, JsonProcessingException {
-		generator.writeStartObject();
-		generator.writeStringField("user-name", user.getUserName());
-		generator.writeEndObject();
-	}
+    @Override
+    public void serialize(User user, JsonGenerator generator, SerializerProvider provider)throws IOException, JsonProcessingException {
+        generator.writeStartObject();
+        generator.writeStringField("user-name", user.getUserName());
+        generator.writeEndObject();
+    }
 }
 
 public class UserDeserializer extends JsonDeserializer<User> {
-	@Override
-	public User deserialize(JsonParser parser, DeserializationContext context)throws IOException, JsonProcessingException {
-		JsonNode node = parser.getCodec().readTree(parser);
-		String userName = node.get("user-name").asText();
-		User user = new User();
-		user.setUserName(userName);
-		return user;
-	}
+    @Override
+    public User deserialize(JsonParser parser, DeserializationContext context)throws IOException, JsonProcessingException {
+        JsonNode node = parser.getCodec().readTree(parser);
+        String userName = node.get("user-name").asText();
+        User user = new User();
+        user.setUserName(userName);
+        return user;
+    }
 }
 ```
 
@@ -216,12 +212,12 @@ spring.jackson.generator.write-numbers-as-strings=true
 ```java
 @Configuration
 public class JacksonConfig {
-	@Bean
-	public ObjectMapper getObjectMapper(){
-		ObjectMapper mapper = new ObjectMapper();
-		mapper.setDateFormat(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"));
-		return mapper;
-	}
+    @Bean
+    public ObjectMapper getObjectMapper(){
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.setDateFormat(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"));
+        return mapper;
+    }
 }
 ```
 
@@ -232,68 +228,68 @@ public class JacksonConfig {
 ```java
 @JsonNaming(PropertyNamingStrategy.LowerCaseWithUnderscoresStrategy.class)
 public class User implements Serializable {
-	private static final long serialVersionUID = 6222176558369919436L;
-	public interface UserNameView {
-	};
-	//表示AllUserFieldView包括UserNameView
-	public interface AllUserFieldView extends UserNameView {
-	};
-	@JsonView(UserNameView.class)
-	private String userName;
-	@JsonView(AllUserFieldView.class)
-	private int age;
-	@JsonView(AllUserFieldView.class)
-	private String password;
-	@JsonView(AllUserFieldView.class)
-	private Date birthday;
+    private static final long serialVersionUID = 6222176558369919436L;
+    public interface UserNameView {
+    };
+    //表示AllUserFieldView包括UserNameView
+    public interface AllUserFieldView extends UserNameView {
+    };
+    @JsonView(UserNameView.class)
+    private String userName;
+    @JsonView(AllUserFieldView.class)
+    private int age;
+    @JsonView(AllUserFieldView.class)
+    private String password;
+    @JsonView(AllUserFieldView.class)
+    private Date birthday;
 }
 ```
 
 在controller方法上添加注解指定输出规则
 
 ```java
-	@JsonView(User.AllUserFieldView.class)  
-	@RequestMapping("getuser")
-	@ResponseBody
-	public User getUser() {
-		User user = new User();
-		user.setUserName("mrbird");
-		user.setAge(26);
-		user.setPassword("123456");
-		user.setBirthday(new Date());
-		return user;
-	}
-	
-	@JsonView(User.UserNameView.class)  
-	@RequestMapping("getuser")
-	@ResponseBody
-	public User getUser() {
-		User user = new User();
-		user.setUserName("mrbird");
-		//下面的不输出
-		user.setAge(26);
-		user.setPassword("123456");
-		user.setBirthday(new Date());
-		return user;
-	}
+    @JsonView(User.AllUserFieldView.class)  
+    @RequestMapping("getuser")
+    @ResponseBody
+    public User getUser() {
+        User user = new User();
+        user.setUserName("mrbird");
+        user.setAge(26);
+        user.setPassword("123456");
+        user.setBirthday(new Date());
+        return user;
+    }
+
+    @JsonView(User.UserNameView.class)  
+    @RequestMapping("getuser")
+    @ResponseBody
+    public User getUser() {
+        User user = new User();
+        user.setUserName("mrbird");
+        //下面的不输出
+        user.setAge(26);
+        user.setPassword("123456");
+        user.setBirthday(new Date());
+        return user;
+    }
 ```
 
 编程方式实现:
 
 ```java
-	@RequestMapping("getuser")
-	@ResponseBody
-	public User getUser() {
-		User user = new User();
-		user.setUserName("mrbird");
-		//下面的不输出
-		user.setAge(26);
-		user.setPassword("123456");
-		user.setBirthday(new Date());
-		MappingJacksonValue value = new MappingJacksonValue(user);
+    @RequestMapping("getuser")
+    @ResponseBody
+    public User getUser() {
+        User user = new User();
+        user.setUserName("mrbird");
+        //下面的不输出
+        user.setAge(26);
+        user.setPassword("123456");
+        user.setBirthday(new Date());
+        MappingJacksonValue value = new MappingJacksonValue(user);
         value.setSerializationView(User.UView.class);
-		return user;
-	}
+        return user;
+    }
 ```
 
 ### Json字符串
