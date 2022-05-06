@@ -26,19 +26,19 @@
 
 3.**一致性问题：**需要采用消息事务, 本地消息表等方式解决一致性问题.
 
-| 特性       | RabbitMQ  | RocketMQ | Kafka   | Pulsar  |
-| ---------- | --------- | -------- | ------- | ------- |
-| 单机吞吐量 | 万级      | 10 万级  | 20 万级 | 100万级 |
-| 消息可靠性 | 一般      | 很好     | 很好    | 很好    |
-| 可用性     | 一般      | 高       | 高      | 高      |
-| 持久化     | 内存/文件 | 磁盘     | 磁盘    | 磁盘    |
-| 事务       | 支持      | 支持     | 支持    | 支持    |
-| 功能丰富度 | 好        | 好       | 一般    | 一般    |
-| 架构先进性 | 一般      | 好       | 好      | 很好    |
-| 管理界面   | 好        | 好       | 一般    | 好      |
-| 推出时间   | 2007      | 2012     | 2012    | 2016    |
-| 文档       | 丰富      | 一般     | 丰富    | 一般    |
-| 社区活跃度 | 活跃      | 一般     | 活跃    | 活跃    |
+| 特性    | RabbitMQ | RocketMQ | Kafka | Pulsar |
+| ----- | -------- | -------- | ----- | ------ |
+| 单机吞吐量 | 万级       | 10 万级    | 20 万级 | 100万级  |
+| 消息可靠性 | 一般       | 很好       | 很好    | 很好     |
+| 可用性   | 一般       | 高        | 高     | 高      |
+| 持久化   | 内存/文件    | 磁盘       | 磁盘    | 磁盘     |
+| 事务    | 支持       | 支持       | 支持    | 支持     |
+| 功能丰富度 | 好        | 好        | 一般    | 一般     |
+| 架构先进性 | 一般       | 好        | 好     | 很好     |
+| 管理界面  | 好        | 好        | 一般    | 好      |
+| 推出时间  | 2007     | 2012     | 2012  | 2016   |
+| 文档    | 丰富       | 一般       | 丰富    | 一般     |
+| 社区活跃度 | 活跃       | 一般       | 活跃    | 活跃     |
 
 ## 消息服务规范
 
@@ -112,7 +112,7 @@ MQ如何实现可靠性投递?
 
 ## Kafka
 
-### 集群
+### 高可用
 
 Kafka通过zk维护成员关系, 每个broker都有唯一id(设置/自动生成), 启动时通过创建**临时节点**把id注册到zk的/brekers/ids路径. kafka组件订阅该路径, 当有broker加入或退出时, 可得到通知.
 
@@ -174,33 +174,31 @@ kafkaTemplate.send(topic, o).get();
 
 当消费者拉取到了分区的某个消息之后，消费者会自动提交了 offset。可能出现刚自动提交完, 消费者处理出错。
 
-**解决办法也比较粗暴，我们手动关闭自动提交 offset，每次在真正消费完消息之后再自己手动提交 offset 。** 但是,  这样会带来消息被重新消费的问题。比如你刚刚消费完消息之后，还没提交 offset，结果自己挂掉了，那么这个消息理论上就会被消费两次。
+**可手动关闭自动提交 offset，每次在真正消费完消息之后再自己手动提交 offset。** 
 
 3.对于kafka
 
 假如 leader 副本所在的 broker 突然挂掉，那么就要从 follower 副本重新选出一个 leader ，但是 leader 的数据还有一些没有被 follower 副本的同步的话，就会造成消息丢失。
 
-**设置 acks = all**
+**设置 acks = all** (Producer)
 
-解决办法就是我们设置  **acks = all**。acks 是 Kafka 生产者(Producer)  很重要的一个参数。
+acks 的默认值即为1，代表我们的消息被leader副本接收之后就算被成功写。当配置 **acks = all** 代表则所有副本都要接收到该消息之后该消息才算真正被成功写。
 
-acks 的默认值即为1，代表我们的消息被leader副本接收之后就算被成功发送。当我们配置 **acks = all** 代表则所有副本都要接收到该消息之后该消息才算真正成功被发送。
+**设置 replication.factor >= 3**(Topic)
 
-**设置 replication.factor >= 3**
-
-为了保证 leader 副本与 follower 副本能同步消息，可为 topic 设置 **replication.factor >= 3**。这样就可以保证每个 分区(partition) 至少有 3 个副本。虽然造成了数据冗余，但是带来了数据的安全性。
+为了保证 leader 副本与 follower 副本能同步消息，可为 topic 设置 replication.factor >= 3。这样就可以保证每个 分区(partition) 至少有 3 个副本。虽然造成了数据冗余，但是带来了数据的安全性。
 
 **设置 min.insync.replicas > 1**
 
-一般情况下我们还需要设置 **min.insync.replicas> 1** ，这样配置代表消息至少要被写入到 2 个副本才算是被成功发送。**min.insync.replicas** 的默认值为 1 ，在实际生产中应尽量避免默认值 1。
+代表消息至少要被写入到 2 个副本才算是被成功发送。min.insync.replicas 的默认值为 1 ，在实际生产中应尽量避免默认值 1。
 
-但是，为了保证整个 Kafka 服务的高可用性，你需要确保 **replication.factor > min.insync.replicas** 假如两者相等的话，只要是有一个副本挂掉，整个分区就无法正常工作了。一般推荐设置成 **replication.factor = min.insync.replicas + 1**。
+但是，为了保证整个 Kafka 服务的高可用性，你需要确保 replication.factor > min.insync.replicas 假如两者相等的话，只要是有一个副本挂掉，整个分区就无法正常工作了。一般推荐设置成 replication.factor = min.insync.replicas + 1。
 
 **设置 unclean.leader.election.enable = false**
 
-> **Kafka 0.11.0.0版本开始 unclean.leader.election.enable 参数的默认值由原来的true 改为false**
+> Kafka 0.11.0.0版本开始 unclean.leader.election.enable 参数的默认值由原来的true 改为false
 
-消息会被发送到 leader 副本，然后 follower 副本才能从 leader 副本中拉取消息进行同步。多个 follower 副本之间的消息同步情况不一样，当配置了 **unclean.leader.election.enable = false**  的话，当 leader 副本发生故障时就不会从  follower 副本中和 leader 同步程度达不到要求的副本中选择出  leader ，这样降低了消息丢失的可能性。
+消息会被发送到 leader 副本，然后 follower 副本才能从 leader 副本中拉取消息进行同步。多个 follower 副本之间的消息同步情况不一样，当配置了 unclean.leader.election.enable = false  的话，当 leader 副本发生故障时就不会从  follower 副本中和 leader 同步程度达不到要求的副本中选择出  leader ，这样降低了消息丢失的可能性。
 
 ### 磁盘顺序读写
 
@@ -217,8 +215,6 @@ kafka中的partition分区(类似其他MQ产品的消息队列) , 每个partitio
 Q:但是partition中的数据被消费完后要删除不会破坏顺序关系吗?
 
 A:kafka不实时删除数据 , 基于时间或分区大小等策略对数据统一批量删除 , 比起用完直接删效率高不少.
-
-
 
 **页缓存**
 
@@ -282,18 +278,6 @@ commitlog多个文件(方便查找消息)通过其保存的第一个消息和最
 
 通过key, 可查找到消息的offset然后到commitlog中提取数据.
 
-
-
-
-
-
-
-  
-
-
-
-
-
 ### 高可用
 
 生产高可用拓扑:NameServer 2-3个 , 采用多主多从方案.
@@ -352,8 +336,6 @@ RocketMQ架构模型中会有多个Borker为某个topic提供服务，一个topi
 
 当发送端需要发送消息时，如果发送端中缓存了topic的路由信息，并包含了消息队列,则直接返回该路由信息,如果没有缓存或没有消息队列，则向NameServer查询该topic的路由信息，查询到路由消息之后，采用指定的队列选择策略选择相应的queue发送消息，默认是采用轮询策略，发送成功则返回, 收到异常则根据相应的策略进行重试，可以根据发送端感知到的Broker的时延、上次发送失败的Broker信息和发送端配置的是否重试不同Broker的参数以及发送端设置的最大超时时间等等策略来灵活地实现不同等级的消息发送可靠性保证。重试策略可以有效的保证消息发送成功的概率，最终提高消息发送的可靠性。
 
-
-
 **MQ存储端**
 
 在RocketMQ的消息存储结构中: 
@@ -367,15 +349,15 @@ RocketMQ架构模型中会有多个Borker为某个topic提供服务，一个topi
 目前RocketMQ存储模型使用本地磁盘进行存储，数据写入为producer -> direct memory -> pagecache -> 磁盘，数据读取如果pagecache有数据则直接从pagecache读，否则需要先从磁盘加载到pagecache中。
 
 > Pagecache的刷盘策略有:
->
+> 
 > **同步刷盘**: 
->
-> ​	消息写入内存的 PageCache后，立刻通知刷盘线程刷盘，然后等待刷盘完成，刷盘线程执行完成后唤醒等待的线程，返回消息写成功的状态。这种方式可以保证数据绝对安全，但是吞吐量不大。
->
+> 
+> ​    消息写入内存的 PageCache后，立刻通知刷盘线程刷盘，然后等待刷盘完成，刷盘线程执行完成后唤醒等待的线程，返回消息写成功的状态。这种方式可以保证数据绝对安全，但是吞吐量不大。
+> 
 > **异步刷盘**（默认）
->
-> ​	消息写入到内存的 PageCache中，就立刻给客户端返回写操作成功，当 PageCache中的消息积累到一定的量时，触发一次写操作，或者定时等策略将 PageCache中的消息写入到磁盘中。这种方式吞吐量大，性能高，但是 PageCache中的数据可能丢失，不能保证数据绝对的安全。
->
+> 
+> ​    消息写入到内存的 PageCache中，就立刻给客户端返回写操作成功，当 PageCache中的消息积累到一定的量时，触发一次写操作，或者定时等策略将 PageCache中的消息写入到磁盘中。这种方式吞吐量大，性能高，但是 PageCache中的数据可能丢失，不能保证数据绝对的安全。
+> 
 > 实际应用中要结合业务场景，合理设置刷盘方式，尤其是同步刷盘的方式，由于频繁的触发磁盘写动作，会明显降低性能。
 
 Broker端CommitLog采用顺序写，可以大大提高写入效率，同时采用不同的刷盘模式提供不同的数据可靠性保证，此外采用了ConsumeQueue中间结构来存储偏移量信息，实现消息的分发。由于ConsumeQueue结构固定且大小有限，在实际情况中，大部分的ConsumeQueue 能够被全部读入内存，可以达到内存读取的速度。此外为了保证CommitLog和ConsumeQueue的一致性， CommitLog里存储了Consume Queues 、Message Key、Tag等所有信息，即使ConsumeQueue丢失，也可以通过 commitLog完全恢复出来，这样只要保证commitLog数据的可靠性，就可以保证Consume Queue的可靠性。
@@ -390,8 +372,6 @@ RocketMQ存储端采用本地磁盘进行CommitLog消息数据的存储，不可
 - 主从之间的数据复制
 
 如果设置为每条消息都强制刷盘、主从复制，那么性能无疑会降低；如果不这样设置，就会有一定的可能性丢失消息。
-
-
 
 **消费端**
 
@@ -416,8 +396,6 @@ RockerMQ默认提供了至少消费一次的消费语义来保证消息的可靠
 
 回溯消费是指Consumer已经消费成功的消息，或者之前消费业务逻辑有问题，现在需要重新消费。要支持此功能，则Broker存储端在向Consumer消费端投递成功消息后，消息仍然需要保留。重新消费一般是按照时间维度，例如由于Consumer系统故障，恢复后需要重新消费1小时前的数据。RocketMQ Broker提供了一种机制，可以按照时间维度来回退消费进度，这样就可以保证只要发送成功的消息，只要消息没有过期，消息始终是可以消费到的。
 
-
-
 ### 事务消息保证一致性
 
 先写库还是先发消息?
@@ -438,12 +416,12 @@ RockerMQ默认提供了至少消费一次的消费语义来保证消息的可靠
 TransactionMQProducer producer = new TransactionMQProducer("transaction_producer_group");
 //用于异步回查本地事务状态的线程
 ExecutorService cachedThreadPool = Executors.newCachedThreadPool(new ThreadFactory(){
-	@Override 	//指定ThreadFactory仅用于设置名称方便测试
-	public Thread newThread(Runnable r){
-		Thread thread = new Thread(r);
-		thread.setName("check-thread");
-		return thread;
-	}
+    @Override     //指定ThreadFactory仅用于设置名称方便测试
+    public Thread newThread(Runnable r){
+        Thread thread = new Thread(r);
+        thread.setName("check-thread");
+        return thread;
+    }
 });
 //绑定线程池
 producer.setExecutorService(cachedThreadPool);
@@ -464,31 +442,31 @@ TransactionListener执行本地事务代码与回查代码:
 
 ```
 public class OrderTransactionListenerImpl implements TransactionListener{
-	//具体执行本地业务逻辑代码 msg.getkeys() 可获得业务id
-	@Override
-	public LocalTransactionState executeLocalTransaction(Message msg,Object arg){
-		try{
-			orderDao.insert(msg.getkeys(),xxx); //参数从消息和附带参数中获取
-			orderDetailDao.insert(msg.getkeys(),xxx);
-			//...
-			connection.commit();  //提交;
-			return LocalTransactionState.COMMIT_MESSAGE;   //提交消息
-		}catch(Exception e){
-			connection.rollback();  //回滚
-			return LocalTransactionState.ROLLBACK_MESSAGE;	//回滚消息
-		}
-	}
-	//回查逻辑 验证本地事务是否执行成功
-	@Override
-	public LocalTransactionState checkLocalTransaction(MessageExt msg){
-		Order order = orderDao.selectById(msg.getkeys());
-		OrderDetail orderDetail = orderDetailDao.selectById(msg.getkeys());
-		if(order ! = null && orderDetail != null){
-			return LocalTransactionState.COMMIT_MESSAGE;   //提交消息
-		}else{
-			return LocalTransactionState.ROLLBACK_MESSAGE;	//回滚消息
-		}
-	}
+    //具体执行本地业务逻辑代码 msg.getkeys() 可获得业务id
+    @Override
+    public LocalTransactionState executeLocalTransaction(Message msg,Object arg){
+        try{
+            orderDao.insert(msg.getkeys(),xxx); //参数从消息和附带参数中获取
+            orderDetailDao.insert(msg.getkeys(),xxx);
+            //...
+            connection.commit();  //提交;
+            return LocalTransactionState.COMMIT_MESSAGE;   //提交消息
+        }catch(Exception e){
+            connection.rollback();  //回滚
+            return LocalTransactionState.ROLLBACK_MESSAGE;    //回滚消息
+        }
+    }
+    //回查逻辑 验证本地事务是否执行成功
+    @Override
+    public LocalTransactionState checkLocalTransaction(MessageExt msg){
+        Order order = orderDao.selectById(msg.getkeys());
+        OrderDetail orderDetail = orderDetailDao.selectById(msg.getkeys());
+        if(order ! = null && orderDetail != null){
+            return LocalTransactionState.COMMIT_MESSAGE;   //提交消息
+        }else{
+            return LocalTransactionState.ROLLBACK_MESSAGE;    //回滚消息
+        }
+    }
 }
 ```
 
@@ -533,14 +511,12 @@ Rocket提供了**回查机制**解决此问题, 此时我们定义的监听器�
 具体为实现MessageListenerOrderly, 为每一个队列分配唯一的线程进行连接消费.
 
 > MessageListenerOrderly只保证同一队列顺序消费, 不同队列不保证顺序消费
->
+> 
 > 如果要实现消息全局顺序消费, 可在生产者端固定将所有消息发送到一个队列即可(全程单线程消费, 效率差)
 
 > 有序消费只支持集群模式(clustering), 不支持广播模式(broadcasting: 一个队列所有消息分发给全部消费者)
 
 ## RabbitMQ
-
-
 
 ![图1-RabbitMQ 的整体模型架构](picture/96388546.jpg)
 
@@ -558,11 +534,7 @@ RabbitMQ 中通过 **Binding(绑定)** 将 **Exchange(交换器)** 与 **Queue(�
 
 生产者将消息发送给交换器时，需要一个RoutingKey,当 BindingKey 和 RoutingKey 相匹配时，消息会被路由到对应的队列中。在绑定多个队列到同一个交换器的时候，这些绑定允许使用相同的 BindingKey。BindingKey 并不是在所有的情况下都生效，它依赖于交换器类型，比如fanout类型的交换器就会无视，而是将消息路由到所有绑定到该交换器的队列中。 
 
-
-
 **Broker（消息中间件的服务节点）**![消息队列的运转过程](picture/67952922.jpg)
-
-
 
  **Exchange Types(交换器类型)**
 
@@ -581,11 +553,12 @@ direct 类型常用在处理有优先级的任务，根据任务的优先级把�
 也是将消息路由到 BindingKey 和 RoutingKey 相匹配的队列中，但这里的匹配规则有些不同，它约定：
 
 - RoutingKey 为一个点号“．”分隔的字符串（被点号“．”分隔开的每一段独立的字符串称为一个单词），如 “com.rabbitmq.client”、“java.util.concurrent”、“com.hidden.client”;
-- BindingKey 和 RoutingKey 一样也是点号“．”分隔的字符串；
-- BindingKey 中可以存在两种特殊字符串`*`和`#`，用于做模糊匹配，其中`*`用于匹配一个单词，`#`用于匹配多个单词(可以是零个)。
-- 
 
- ④ headers(不推荐)
+- BindingKey 和 RoutingKey 一样也是点号“．”分隔的字符串；
+
+- BindingKey 中可以存在两种特殊字符串`*`和`#`，用于做模糊匹配，其中`*`用于匹配一个单词，`#`用于匹配多个单词(可以是零个)。
+
+- ④ headers(不推荐)
 
 headers 类型的交换器不依赖于路由键的匹配规则来路由消息，而是根据发送的消息内容中的 headers 属性进行匹配。在绑定队列和交换器时指定一组键值对，当发送消息到交换器时，RabbitMQ会获取到该消息的 headers（也是一个键值对的形式)，对比其中的键值对是否完全匹配队列和交换器绑定时指定的键值对，如果完全匹配则消息会路由到该队列，否则不会路由到该队列。headers 类型的交换器性能会很差，而且也不实用，基本上不会看到它的存在。
 
@@ -599,8 +572,6 @@ Work Queue特别适合在集群环境中做异步处理，能最大程序发挥�
 
 比如短信发送场景, 通过MQ将短信发送给多个短信服务实例
 
-
-
 **发布订阅模式**
 
 ●发布/订阅模式中，生产者不再直接与队列绑定，而是将数据发送至“交换机Exchange”
@@ -613,15 +584,11 @@ Work Queue特别适合在集群环境中做异步处理，能最大程序发挥�
 
 如中国气象局提供“天气预报”送入交换机，网易、新浪、百度、搜狐等门户接入通过队列绑定到该交换机，自动获取气象局推送的气象数据。
 
-
-
 **路由模式(Routing)**
 
 ●路由（Routing）模式是在发布订阅模式基础上的变种。
 
 ●发布订阅模式是无条件将所有消息分发给所有消费者队列。路由模式则是Exchange根据Routing Key有条件的将数据筛选(精准匹配)后发给消费者队列。
-
-
 
 **主题模式(Topic)**
 
@@ -636,8 +603,6 @@ Work Queue特别适合在集群环境中做异步处理，能最大程序发挥�
 
 > 从执行效率上, 肯定是路由模式效率更高 ,能用路由模式尽量使用路由模式解决.
 
-
-
 **远程调用模式(RPC)**
 
 用于同步通信 , 无生产者消费者 , 使用两个队列实现.  
@@ -647,7 +612,7 @@ Work Queue特别适合在集群环境中做异步处理，能最大程序发挥�
 server处理完之后, rabbitmq自动将处理结果发送到队列2中 , client再从中接收处理.
 
 > 在整个一来一回的过程中 ,  client处于阻塞状态.
->
+> 
 > 有替代方案 ,Dubbo  ,所以几乎不使用
 
 ### 保证消息可靠性
@@ -657,54 +622,49 @@ server处理完之后, rabbitmq自动将处理结果发送到队列2中 , client
 **生产者:**
 
 1. 事务消息 : 使用 RabbitMQ 提供的事务功能，就是生产者发送数据之前开启 RabbitMQ 事务channel.txSelect，然后发送消息，如果消息没有成功被 RabbitMQ 接收到，那么生产者会收到异常报错，此时就可以回滚事务channel.txRollback，然后重试发送消息；如果收到了消息，那么可以提交事务channel.txCommit。
-
+   
    > 缺点:RabbitMQ 事务机制是**同步**的，提交一个事务之后会阻塞在，严重降低性能。目前基本不使用.
 
 2. confirm模式: 发送方将信道设置成confirm (确认)模式, 一旦这样设置，这个信道上所有发布的消息都会被指定一个唯一的ID，消息被投递到所匹配的队列后，rabbitmq会发送一个包含消息唯一ID的确认信息给生产者，使生产者知道消息送达。
+   
+   > RabbitMQ可在消费者发送一条或多条消息后调用channel.waitForConfirms等待服务端confirm; 也可以通过channel.addConfirmListener方法添加监听器异步回调confirm
+
+     
 
 **MQ:**
 
-RabbitMQ收到消息后将这个消息暂时存在了内存中，那这就会有个问题，如果RabbitMQ挂了，那重启后数据就丢失了，所以相关的数据应该持久化到硬盘中，这样就算RabbitMQ重启后也可以到硬盘中取数据恢复。
+RabbitMQ收到消息后将这个消息暂时存在了内存中，此时如果RabbitMQ挂了，那重启后数据就丢失了，所以相关的数据应该持久化到硬盘中，这样就算RabbitMQ重启后也可以到硬盘中取数据恢复。
 
-因为message消息到达RabbitMQ后先是到exchange交换机中，然后路由给queue队列，最后发送给消费端。
-
-所以需要给exchange、queue和message都进行持久化：
+因为message消息到达RabbitMQ后先是到exchange交换机中，然后路由给queue队列，最后发送给消费端。所以需要给exchange、queue和message都进行持久化：
 
 exchange持久化：
 
 ```
-//第三个参数true表示这个exchange持久化
+//第三个参数true表示这个exchange持久化(元数据)
 channel.exchangeDeclare(EXCHANGE_NAME, "direct", true);
 ```
 
 queue持久化：
 
 ```
-//第二个参数true表示这个queue持久化
+//第二个参数true表示这个queue持久化(元数据)
 channel.queueDeclare(QUEUE_NAME, true, false, false, null)
-message持久化：
 ```
+
+Message持久化 : 
 
 ```
 //第三个参数MessageProperties.PERSISTENT_TEXT_PLAIN表示这条消息持久化
 channel.basicPublish(EXCHANGE_NAME, ROUTING_KEY, MessageProperties.PERSISTENT_TEXT_PLAIN, message.getBytes(StandardCharsets.UTF_8));
 ```
 
-> 为了防止mq消息持久化时宕机导致丢失, 还可以做一些消息补偿机制, 比如 **消息入库**
->
-> 在发送端首先发送消息前先将消息保存到数据库中，有一个状态字段status=0，表示生产端将消息发送给了RabbitMQ但还没收到确认；在生产端收到确认后将status设为1，表示RabbitMQ已收到消息。并设置一个定时器，定时检索消息表，将status=0并且超过固定时间后（可能消息刚发出去还没来得及确认这边定时器刚好检索到这条status=0的消息，所以给个时间）还没收到确认的消息取出重发（第二种情况下这里会造成消息重复，消费者端要做幂等性），可能重发还会失败，所以可以做一个最大重发次数，超过就做另外的处理。
-
 **消费者:**
 
-因为RabbitMQ的自动ack机制，即默认RabbitMQ在消息发出后就立即将这条消息删除，而不管消费端是否接收到，是否处理完，导致消费端消息丢失时RabbitMQ自己又没有这条消息了。
-
-所以就需要将自动ack机制改为手动ack机制。
+因为RabbitMQ的自动ack机制，即默认RabbitMQ在消息发出后就立即将这条消息删除(内存, 磁盘)，而不管消费端是否接收到，是否处理完，导致消费端消息丢失时RabbitMQ自己又没有这条消息了。所以就需要将自动ack机制改为手动ack机制。
 
 ```
 channel.basicAck(delivery.getEnvelope().getDeliveryTag(), false);
 ```
-
-
 
 ### 死信队列解决消息积压
 
@@ -717,8 +677,6 @@ channel.basicAck(delivery.getEnvelope().getDeliveryTag(), false);
 -->
 
 BorrowSale前台解决办法：依赖RabbitMQ的“**死信队列**”特性，将死信消息通过RabbitMQ的**死信交换机**自动送达死信队列中，BorrowSal前台通过绑定**死信队列**接收到死信消息，1小时后重新发送，等待闲时由信审系统进行处理。这样便实现了在不增加资源的前提下，对信审系统资源进行“削峰填谷”。
-
-
 
 **什么是死信**？
 
@@ -738,30 +696,20 @@ BorrowSale前台解决办法：依赖RabbitMQ的“**死信队列**”特性，�
 
 > 死信队列和死信交换机其实与标准队列和交换机队列没有本质区别 , 只不过是专门用来处理死信的
 
-
-
 **配置死信**
 
 ![image-20211209002643462](picture/image-20211209002643462.png)
-
-
-
-
-
-
-
-
 
 ## Push与Pull
 
 ![image-20211209204721354](picture/image-20211209204721354.png)
 
-|            | **Push**模式                                                 | Pull模式                                                    |
-| ---------- | ------------------------------------------------------------ | ----------------------------------------------------------- |
-| 实时性     | 较好，通过网络管道准实时发送                                 | 较差，取决于定时轮询时间                                    |
-| 服务器状态 | 有状态，需持久化粉丝动态队列                                 | 无状态，根据请求实时查询                                    |
-| 风险项     | 大V动态的并发“**写扩散**”问题  大量动态队列持久化造成磁盘高ＩＯ | 大量粉丝准点“**读扩散**”问题  大V粉丝准点并发查询搞垮服务器 |
-| 应用场景   | 微信                                                         | 微博(早期)                                                  |
+|       | **Push**模式                           | Pull模式                             |
+| ----- | ------------------------------------ | ---------------------------------- |
+| 实时性   | 较好，通过网络管道准实时发送                       | 较差，取决于定时轮询时间                       |
+| 服务器状态 | 有状态，需持久化粉丝动态队列                       | 无状态，根据请求实时查询                       |
+| 风险项   | 大V动态的并发“**写扩散**”问题  大量动态队列持久化造成磁盘高ＩＯ | 大量粉丝准点“**读扩散**”问题  大V粉丝准点并发查询搞垮服务器 |
+| 应用场景  | 微信                                   | 微博(早期)                             |
 
 **写扩散（Push）优化**
 
@@ -789,7 +737,11 @@ BorrowSale前台解决办法：依赖RabbitMQ的“**死信队列**”特性，�
 
 •粉丝量大于X，Pull模式
 
+## 重复消费与幂等性
 
+使用MQ都有可能存在重复消费问题, 如Kafka对每个消息都有一个offset, 当consumer消费完消息之后, 会定期提交自己的已消费过的消息的offset. 但如果发送重启, 宕机前到上一次提交中的消息就会被重启消费.
+
+因此, 需要根据不同业务考虑幂等性问题
 
 ## 本地消息表保障最终一致性
 

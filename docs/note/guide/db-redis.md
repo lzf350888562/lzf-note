@@ -1,4 +1,4 @@
-#  Redis
+# Redis
 
 > Redis一直都是多线程程序, 只是只有一个线程来执行用户命令, 其他线程执行后台任务. 即使6.0以后, 也仅增加了多线程的I/O读写.
 
@@ -6,16 +6,16 @@ Redis服务器所有数据库再redis.h的redisServer结构中, 每个数据库d
 
 ```c
 struct redisServer{
-	// ...
-	redisDB *db;	//	数组, 指向所有数据库
-	int dbnum;		// 	数据库数量
-	//...
+    // ...
+    redisDB *db;    //    数组, 指向所有数据库
+    int dbnum;        //     数据库数量
+    //...
 }
 
 typedef struct redisDB{
-	// ...
-	dict *dict;		//	所有键值对,见数据类型
-	//...
+    // ...
+    dict *dict;        //    所有键值对,见数据类型
+    //...
 }redisDB;
 ```
 
@@ -25,7 +25,7 @@ Redis服务器为每个连接的客户端建立一个redis.h/redisClient结构, 
 
 ```c
 struct redisServer{
-	list *client; //链表,保存所以客户端状态
+    list *client; //链表,保存所以客户端状态
 }
 ```
 
@@ -73,15 +73,15 @@ struct redisServer{
 ```c
 根据客户端状态的argv[0]参数, 在命令表中查找并保存到客户端状态的cmd属性里.
 命令表为一个字典, 键为命令名字, 值为一个redisCommand结构, 用于记录一个命令的实现信息:
-struct redisCommand{	
-	char* name; // 命令的名字	
-	redisCommandProc* proc; // 指向命令的实现函数	
-	int arity; //命令的参数个数	
-	char *sflags;	// 标识,记录命令的属性, 字符串形式	
-	int flags;	// sflags的二进制分析结构,自动生成, 服务器实际检验的是flags而不是sflags, 因为二进制检查通过&^~更方便	
-	long long calls; //服务器总共执行了多少次该命令	
-	long long milliseconds; //服务器执行该命令总耗时	
-	//...
+struct redisCommand{    
+    char* name; // 命令的名字    
+    redisCommandProc* proc; // 指向命令的实现函数    
+    int arity; //命令的参数个数    
+    char *sflags;    // 标识,记录命令的属性, 字符串形式    
+    int flags;    // sflags的二进制分析结构,自动生成, 服务器实际检验的是flags而不是sflags, 因为二进制检查通过&^~更方便    
+    long long calls; //服务器总共执行了多少次该命令    
+    long long milliseconds; //服务器执行该命令总耗时    
+    //...
 }
 ```
 
@@ -155,11 +155,11 @@ redisObject通过encoding属性设置对象所使用的编码，type属性设置
 
 ```c
 typedef struct RedisObject { 
-	int4 type; // 4bits 
-	int4 encoding; // 4bits 
-	int24 lru; // 24bits 
-	int32 refcount; // 4bytes  
-	void *ptr; // 8bytes，64-bit system
+    int4 type; // 4bits 
+    int4 encoding; // 4bits 
+    int24 lru; // 24bits 
+    int32 refcount; // 4bytes  
+    void *ptr; // 8bytes，64-bit system
 } robj;
 ```
 
@@ -172,10 +172,10 @@ typedef struct RedisObject {
 其数据结构为带容量和长度的**字节**数组(可以存储二进制数据->位数组)的结构体.
 
 ```c
-struct sdshdr{	
-	int len;//已使用的字节数	
-	int free;//未使用的字节数	
-	char buf[];//字节数组,保存字符串
+struct sdshdr{    
+    int len;//已使用的字节数    
+    int free;//未使用的字节数    
+    char buf[];//字节数组,保存字符串
 };
 ```
 
@@ -235,34 +235,34 @@ hash 类似于 JDK1.8 前的 HashMap(数组 + 链表)。包括hashtable(字典)�
 
 ```c
 typedef struct dict {    
-	dictType *type;    
-	void *privdata;    dictht ht[2];    
-	long rehashidx; 
-	/* rehashing not in progress if rehashidx == -1 */    
-	int iterators; 
-	/* number of iterators currently running */
+    dictType *type;    
+    void *privdata;    dictht ht[2];    
+    long rehashidx; 
+    /* rehashing not in progress if rehashidx == -1 */    
+    int iterators; 
+    /* number of iterators currently running */
 } dict;
 typedef struct dictht {    
-	//指针数组，这个hash的桶    
-	dictEntry **table;    
-	//元素个数    
-	unsigned long size;    
-	unsigned long sizemask;    
-	unsigned long used;
+    //指针数组，这个hash的桶    
+    dictEntry **table;    
+    //元素个数    
+    unsigned long size;    
+    unsigned long sizemask;    
+    unsigned long used;
 } dictht;
 //dictEntry的真正存储key->value的地方
 typedef struct dictEntry {    
-	// 键    
-	void *key;    
-	// 值    
-	union {        
-		// 指向具体redisObject        
-		void *val;        
-		uint64_t u64;        
-		int64_t s64;    
-	} v;    
-	// 指向下个哈希表节点，形成链表    
-	struct dictEntry *next;
+    // 键    
+    void *key;    
+    // 值    
+    union {        
+        // 指向具体redisObject        
+        void *val;        
+        uint64_t u64;        
+        int64_t s64;    
+    } v;    
+    // 指向下个哈希表节点，形成链表    
+    struct dictEntry *next;
 } dictEntry;
 ```
 
@@ -281,9 +281,9 @@ rehash过程:
 5、将ht[0]释放，然后将ht[1]设置成ht[0]，最后为ht[1]分配一个空白哈希表。
 
 > 当Hash表中的元素个数等于table指针第一维数组的长度(桶数)的时候，就会开始两倍扩容.
->
+> 
 > 再bgsave时为了减少内存页的过多分离，redis不会去扩容。但如果hash表的元素个数已经到达了第一维数组长度的5倍的时候，就会强制扩容，不管你是否在持久化。
->
+> 
 > 当元素个数低于数组长度的10%，开始缩容并且缩容不考虑是否在做redis持久化。
 
 ziplist插入键值对时先推入key到ziplist末尾, 再推入value到ziplist末尾. 因此同一键值对紧挨存储, 后添加的键值对放在尾部.
@@ -327,15 +327,15 @@ skiplist中每个节点通过链表连接, 并包含一个后退指针指向前�
 ```
 > zadd myZset 3.0 value1 2.0 value2 1.0 value3  #插入值和其权重
 (integer) 3
-> zcard myZset 									#查看元素数量
+> zcard myZset                                     #查看元素数量
 (integer) 3
-> zscore myZset value1 							#查看某个值的权重
+> zscore myZset value1                             #查看某个值的权重
 "3"
 > zrange  myZset 0 -1         #顺序输出某个范围区间的元素，0 -1 表示输出所有元素
 1) "value3"
 2) "value2"
 3) "value1"
-> zrevrange  myZset 0 1 						#逆序输出
+> zrevrange  myZset 0 1                         #逆序输出
 1) "value1"
 2) "value2"
 ```
@@ -401,16 +401,16 @@ save 60 10000        #在60秒(1分钟)之后，如果至少有10000个key发生
 Redis服务器会根据save选项设置redisServer结构中的saveparams属性, 并且还提供dirty和lastsave属性分别记录距离上一次成功执行SAVE或BGSAVE后服务器进行了多少次修改 和 上一次执行的时间
 
 ```c
-struct redisServer{	
-	//...	
-	struct saveparam *saveparams; // save条件数组	
-	long long dirty;	// 计数器	
-	time_t lastsave;	// 上一次执行保存的时间	
-	//...
+struct redisServer{    
+    //...    
+    struct saveparam *saveparams; // save条件数组    
+    long long dirty;    // 计数器    
+    time_t lastsave;    // 上一次执行保存的时间    
+    //...
 };
-struct saveparam{	
-	time_t seconds;	// 秒数	
-	int changes;	// 修改数
+struct saveparam{    
+    time_t seconds;    // 秒数    
+    int changes;    // 修改数
 };
 ```
 
@@ -421,9 +421,9 @@ struct saveparam{
 Redis服务器中的周期性操作函数serverCron默认每隔100ms执行一次检查save条件是否满足, 遍历saveparams数组所有条件, 任一满足则执行.
 
 > Redis生成RDB文件有两个命令:
->
+> 
 > 1.SAVE: 由服务器进程执行保存工作(会阻塞服务器)
->
+> 
 > 2.BGSAVE:由子进程执行保存工作
 
 **触发机制**
@@ -457,30 +457,26 @@ rdb保存的文件是dump.rdb, 一个完整RDB文件包含五个部分:
 3.databases: 各个数据库中的键值对数据. 如果各个数据库没有内容, 则为空.
 
 > databases部分中每个非空数据库又分为三个部分:
->
+> 
 > 1.SELECTDB: 常量, 表示接下来的内容为数据库号码, 1字节
->
+> 
 > 2.db_number: 数据库号码, 1/2/5字节, 服务器读入该部分后, 会调用SELECT命令切换数据库
->
+> 
 > 3.key_value_pairs: 数据库中所有键值对数据, 如果key存在过期时间, 也会一同保存.
->
+> 
 > 在不带过期时间下key_value_pairs由三部分组成:
->
+> 
 > TYPE, key和value, 其中TYPE表示value的类型, 1字节. 
->
+> 
 > 服务器读入rdb键值对时会根据TYPE来解析value.
->
+> 
 > 如果带过期时间, 会在头部增加EXPIREIMTE_MS和ms. 前者标识接下来的内容为过期时间, 1字节; ms为8字节带符号整数, 毫秒UNIX时间戳, 为键值对的过期时间.
->
+> 
 > 具体的不同类型value结构见《Redis设计与实现》
 
 4.EOF: 常量, 标识文件正文内容(所有数据库的键值对)的结束, 1字节.
 
 5.check_sum: 前面四部分计算后的校验和, 是8字节无符号整数. 务器在载入 RDB 文件时， 会将载入数据所计算出的校验和与 `check_sum` 所记录的校验和进行对比， 以此来检查 RDB 文件是否有出错或者损坏的情况出现。
-
-
-
-
 
 ### AOF
 
@@ -503,25 +499,24 @@ AOF持久化功能分为三个阶段:
 如果一个事件循环中执行了写命令，Redis 就会将该命令写入到**内存缓存** `server.aof_buf` 中(redis单线程串行写入)，
 
 ```
-struct redisServer{	//...	sdf aof_buf; 	//	aof缓冲区	//...}
+struct redisServer{    //...    sdf aof_buf;     //    aof缓冲区    //...}
 ```
 
 然后再根据 `appendfsync` 配置来决定何时将其同步到硬盘中的 AOF 文件(fsync命令, 独立线程**异步**刷回, 真正的磁盘IO, 耗时!)。
 
 > Redis服务器进程就是一个事件循环, 伪代码如下:
->
+> 
 > ```python
 > def eventLoop():
-> 	while True:  
-> 	# 处理文件事件，接收命令请求以及发送命令回复  
-> 	# 处理命令请求时可能会有新内容被追加到 aof_buf 缓冲区中  
-> 	processFileEvents()  
-> 	# 处理时间事件  
-> 	processTimeEvents()  
-> 	# 考虑是否要将 aof_buf 中的内容写入和保存到 AOF 文件里面, 由appdendfsync选项决定 
-> 	flushAppendOnlyFile()
+>     while True:  
+>     # 处理文件事件，接收命令请求以及发送命令回复  
+>     # 处理命令请求时可能会有新内容被追加到 aof_buf 缓冲区中  
+>     processFileEvents()  
+>     # 处理时间事件  
+>     processTimeEvents()  
+>     # 考虑是否要将 aof_buf 中的内容写入和保存到 AOF 文件里面, 由appdendfsync选项决定 
+>     flushAppendOnlyFile()
 > ```
->
 
 在 Redis 的配置文件中存在三种不同的 AOF 持久化方式，它们分别是：
 
@@ -533,7 +528,7 @@ appendfsync everysec  #每个事件循环判断距离上次同步aof文件是否
 AOF 日志在长期的运行过程中会变的无比庞大，数据库**重启时(空的redis实例)需要加载 AOF 日志进行指令重放(顺序执行所有指令)**，这个时间就会无比漫长。 所以需要定期进行 AOF 重写，给 AOF 日志进行瘦身。
 
 > AOF重写(瘦身):  bgrewriteaof 指令
->
+> 
 > 其原理为**开辟一个子进程**对内存进行遍历转换成一系列 Redis 的操作指令，序列化到一个新的 AOF 日志文件中。 序列化完毕后再将操作期间发生的**增量 AOF 日志**(先写到AOF重写缓冲区)追加到这个新的 AOF 日志文件中，追加完毕后就立即原子覆盖旧的 AOF 文件。(减少冗余命令)
 
 **Redis4.0混合持久化**
@@ -668,7 +663,7 @@ Redis 提供 6 种数据淘汰策略：
 在Redis中它采用了近似LRU的实现，它随机采样5个(可设置)Key，淘汰掉其中空闲时间最长的那个。近似LRU实现起来更简单、成本更低，在效果上接近严格LRU。它的缺点是存在一定的几率淘汰掉最近被访问的Key
 
 > 样本数越多效果越接近严格LRU, 代价为一些额外的CPU开销
->
+> 
 > Redis3.0使用10样本非常接近严格LRU
 
 RedisObject的lru属性记录了对象最后一次被命令程序访问的时间, OBJECT IDLETIME 命令可以打印出给定键的空转时长， 空转时长就是通过将当前时间减去键的值对象的 `lru` 时间.  
@@ -679,56 +674,54 @@ RedisObject的lru属性记录了对象最后一次被命令程序访问的时间
 
 ```java
 //注意, Node需要保存key, 用于删除时
-class Node {	
-	public int key, val;	
-	public Node next, prev;	
-	public Node(int k, int v) {		
-		this.key = k;		
-		this.val = v;	
-	}
-}
-class LRUCache {	
-	private HashMap<Integer, Node> map;	
-	private Queue<Node> cache;	
-	private int cap;	
-	public LRUCache(int capacity) {		
-		this.cap = capacity;		
-		map = new HashMap<>();		
-		cache = new LinkedList<>();	
-	}	
-	public int get(int key) {		
-		if (!map.containsKey(key))			
-			return -1;		
-		int val = map.get(key).val;		
-		// 利⽤ put ⽅法把该数据提前		
-		put(key, val);		
-		return val;	
-		
+class Node {    
+    public int key, val;    
+    public Node next, prev;    
+    public Node(int k, int v) {        
+        this.key = k;        
+        this.val = v;    
     }
-	public void put(int key, int val) {		
-		// 先把新节点 x 做出来		
-		Node x = new Node(key, val);		
-		if (map.containsKey(key)) {			
-			// 删除旧的节点，新的插到头部			
-			cache.remove(map.get(key));			
-			cache.addFirst(x);			
-			// 更新 map 中对应的数据			
-			map.put(key, x);		
-		} else {			
-			if (cap == cache.size()) {				
-				// 删除链表最后⼀个数据				
-				Node last = cache.removeLast();				
-				map.remove(last.key);			
-			}			
-			// 直接添加到头部			
-			cache.addFirst(x);			
-			map.put(key, x);		
-		}	
-	}
+}
+class LRUCache {    
+    private HashMap<Integer, Node> map;    
+    private Queue<Node> cache;    
+    private int cap;    
+    public LRUCache(int capacity) {        
+        this.cap = capacity;        
+        map = new HashMap<>();        
+        cache = new LinkedList<>();    
+    }    
+    public int get(int key) {        
+        if (!map.containsKey(key))            
+            return -1;        
+        int val = map.get(key).val;        
+        // 利⽤ put ⽅法把该数据提前        
+        put(key, val);        
+        return val;    
+
+    }
+    public void put(int key, int val) {        
+        // 先把新节点 x 做出来        
+        Node x = new Node(key, val);        
+        if (map.containsKey(key)) {            
+            // 删除旧的节点，新的插到头部            
+            cache.remove(map.get(key));            
+            cache.addFirst(x);            
+            // 更新 map 中对应的数据            
+            map.put(key, x);        
+        } else {            
+            if (cap == cache.size()) {                
+                // 删除链表最后⼀个数据                
+                Node last = cache.removeLast();                
+                map.remove(last.key);            
+            }            
+            // 直接添加到头部            
+            cache.addFirst(x);            
+            map.put(key, x);        
+        }    
+    }
 }
 ```
-
-
 
 ## 缓存穿透
 
@@ -781,8 +774,6 @@ class LRUCache {
 1.定时异步重建布隆过滤器.
 
 2.计数Bloom Filter(记录该位被几个数据引用).
-
-
 
 **实现**
 
@@ -854,7 +845,7 @@ Redis v4.0 之后有了 Module（模块/插件） 功能，Redis Modules 让 Red
 
 **缓存在同一时间大面积的失效，后面的请求都直接落到了数据库上，造成数据库短时间内承受大量请求。** 
 
-比如缓存服务宕机不可用, 可以	
+比如缓存服务宕机不可用, 可以    
 
 1. 采用 Redis 集群，避免单机出现问题整个缓存服务都没办法使用。
 2. 限流，避免同时处理大量的请求。
@@ -914,7 +905,7 @@ Redis v4.0 之后有了 Module（模块/插件） 功能，Redis Modules 让 Red
 **如果offset之后的数据存在于复制积压缓冲区中**, 则主服务器将对从服务器执行部分重同步操作: 向从服务器发送`+CONTINUE`回复, 表示数据同步将以部分重同步模式来进行, 随后主服务器将复制积压缓冲区offset之后的所有数据都发送给从服务器. 而从服务器在接收到`+CONTINUE`回复后, 只要继续接收主服务器发来的数据完成同步.
 
 > 复制积压缓冲区大小可根据从服务器重连主服务器的平均时间(秒)和主服务器平均每秒产生的写命令数据量决定, 缓冲区大小不能低于二者之和, 这样才能保证大部分断线情况都能用部分重同步来处理.
->
+> 
 > 可通过配置repl-backlog-size选项修改
 
 3.服务器运行ID: 自动生成.
@@ -946,10 +937,10 @@ Redis v4.0 之后有了 Module（模块/插件） 功能，Redis Modules 让 Red
 1.从服务器将ip和端口保存到redisServer的masterhost和masterport属性中.
 
 ```
-struct redisServer{	
-	//...	
-	char *masterhost;	
-	int masterport;
+struct redisServer{    
+    //...    
+    char *masterhost;    
+    int masterport;
 }
 ```
 
@@ -992,7 +983,7 @@ SLAVEOF为异步命令, 设置完属性后, 从服务器向客户端返回OK, �
 主服务器接收到命令后, 将端口号保存在其对应客户端状态的slave_listening_port属性中
 
 ```
-struct redisClient{	//...	int slave_listening_port;}
+struct redisClient{    //...    int slave_listening_port;}
 ```
 
 该端口唯一的作用为在主服务器执行`INFO replication`命令时打印从服务器的端口号:
@@ -1033,7 +1024,7 @@ min-slaves-to-write 3min-slaves-max-lag 10
 
 如果因为网络故障, 主服务器传播给从服务器的写命令丢失, 则当从服务器向主服务器发送REPLCONF ACK时, **主服务器发现从服务器因写命令丢失而停滞的复制偏移量小于自己的复制偏移量时**, 会根据从服务器的复制偏移量在复制积压缓冲区里找到缺失数据补发给从服务器.
 
->补发与部分重同步原理非常类似, 但条件不同, 区别在于是否断线重连.
+> 补发与部分重同步原理非常类似, 但条件不同, 区别在于是否断线重连.
 
 > 心跳检测也是2.8以后才新增的, 2.8以前传播过程中如果丢失命令, 主从服务器永远也不会注意到, 所以此举大大提高了主从数据一致性.
 
@@ -1179,8 +1170,6 @@ min-slaves-to-write: 主库能进行数据同步的最少从库数量(主要).
 
 min-slaves-max-lag: 主从库进行数据复制时, 从库给主库发送ACK消息的最大延迟(见[心跳检测](#心跳检测))
 
-
-
 ## Cluster
 
 Redis Cluster是Redis分布式数据库方案：即Redis Cluster中有多个节点，每个节点都负责进行数据读写操作, 且每个节点之间会进行通信。
@@ -1254,33 +1243,33 @@ Redis服务器启动时根据cluster-enable配置是否为yes决定是否开启�
 **clusterNode** 保存一个节点的当前状态, 每个节点都使用一个clusterNode记录自己状态, 并为集群中所有其他节点(包括主从)都创建一个clusterNode:
 
 ```c
-struct clusterNode{	
-	mstime_t ctime;//创建节点的时间	
-	char name[REDIS_CLUSTER_NAMELEN];//节点名称	
-	int flags;//节点标识,标识角色(主从)与状态(在线下线)	
-	uint64_t configEpoch;//当前配置纪元,用于故障转移	
-	char ip[REDIS_IP_STR_LEN];//ip地址	
-	int port;//端口	
-	clusterLink *link;//连接节点所需的信息	
-	unsiged char slots[16384/8];//记录负责的槽	
-	int numslots;//记录负责的槽数量	
-	struct clusterNode *slaveof;//如果是从节点,则指向主节点	
-	int numslaves;//如果是主节点,则表示从节点数量	
-	struct clusterNode **slaves;//数组,如果是主节点,每个元素指向一个从节点	
-	list *fail_reports;//链表, 记录所有其他节点对该节点的下线报告	
-	//...
+struct clusterNode{    
+    mstime_t ctime;//创建节点的时间    
+    char name[REDIS_CLUSTER_NAMELEN];//节点名称    
+    int flags;//节点标识,标识角色(主从)与状态(在线下线)    
+    uint64_t configEpoch;//当前配置纪元,用于故障转移    
+    char ip[REDIS_IP_STR_LEN];//ip地址    
+    int port;//端口    
+    clusterLink *link;//连接节点所需的信息    
+    unsiged char slots[16384/8];//记录负责的槽    
+    int numslots;//记录负责的槽数量    
+    struct clusterNode *slaveof;//如果是从节点,则指向主节点    
+    int numslaves;//如果是主节点,则表示从节点数量    
+    struct clusterNode **slaves;//数组,如果是主节点,每个元素指向一个从节点    
+    list *fail_reports;//链表, 记录所有其他节点对该节点的下线报告    
+    //...
 }
 ```
 
 **clusterNode** 保存连接节点所需的有关信息, 如套接字描述符, 输入缓冲区和输出缓冲区:
 
 ```c
-typedef struct clusterLink{	
-	mstime_t ctime;//连接的创建时间	
-	int fd;//TCP 套接字描述符	
-	sds sdnbuf;//输出缓冲区,保存发送给其他节点的消息	
-	sds rcvbuf;//输入缓冲区,保存接收自其他节点的消息	
-	struct clusterNode *node;//与这个连接相关联的节点
+typedef struct clusterLink{    
+    mstime_t ctime;//连接的创建时间    
+    int fd;//TCP 套接字描述符    
+    sds sdnbuf;//输出缓冲区,保存发送给其他节点的消息    
+    sds rcvbuf;//输入缓冲区,保存接收自其他节点的消息    
+    struct clusterNode *node;//与这个连接相关联的节点
 }clusterLink;
 ```
 
@@ -1288,12 +1277,12 @@ typedef struct clusterLink{
 
 ```c
 typedef struct clusterState{
-	clusterNode *myself;//指向当前节点的指针	
-	uint64_t currentEpoch;//集群当前的配置纪元	
-	int state;//集群当前状态:在线下线	
-	int size;//集群中至少处理着一个槽的节点数量	
-	dict *nodes;//集群节点名单,包括myself节点,键为节点名称,值为键对应的节点的clusterNode结构		clusterNode *slots[16384];//记录槽的指派信息	
-	zskiplist *slots_to_keys;//记录槽与键之间的关系
+    clusterNode *myself;//指向当前节点的指针    
+    uint64_t currentEpoch;//集群当前的配置纪元    
+    int state;//集群当前状态:在线下线    
+    int size;//集群中至少处理着一个槽的节点数量    
+    dict *nodes;//集群节点名单,包括myself节点,键为节点名称,值为键对应的节点的clusterNode结构        clusterNode *slots[16384];//记录槽的指派信息    
+    zskiplist *slots_to_keys;//记录槽与键之间的关系
 };
 ```
 
@@ -1330,23 +1319,23 @@ clusterState结构中的slots是一个clusterNode数组,记录了集群中所有
 **CLUSTER ADDSLOTS**实现伪代码:
 
 ```python
-def CLUSTER_ADDSLOTS(*all_input_slots)：	
-	# 遍历所有输入槽，检查它们是否都是未指派槽	
-	for i in all_input_slots：		
-		# 如果有哪怕一个槽已经被指派给了某个节点		
-		# 那么向客户端返回错误，并终止命令执行	    
-		if clusterstate.slots[i]！= NULL：			
-			reply_error()			
-			return	
-		# 如果所有输入槽都是未指派槽	
-		# 那么再次遍历所有输入槽，将这些槽指派给当前节点	
-		for i in all_input_slots:		
-			# 设置clusterState结构的slots数组		
-			# 将 slots[i]的指针指向代表当前节点的 clusterNode 结构		
-			clusterstate.slots[i] = clusterstate.myself		
-			# 访问代表当前节点的 clusterNode 结构的 slots 数组		
-			# 将数组在索引ⅰ上的二进制位设置为 1		
-			setslotBit(clusterState.myself.slots, i)
+def CLUSTER_ADDSLOTS(*all_input_slots)：    
+    # 遍历所有输入槽，检查它们是否都是未指派槽    
+    for i in all_input_slots：        
+        # 如果有哪怕一个槽已经被指派给了某个节点        
+        # 那么向客户端返回错误，并终止命令执行        
+        if clusterstate.slots[i]！= NULL：            
+            reply_error()            
+            return    
+        # 如果所有输入槽都是未指派槽    
+        # 那么再次遍历所有输入槽，将这些槽指派给当前节点    
+        for i in all_input_slots:        
+            # 设置clusterState结构的slots数组        
+            # 将 slots[i]的指针指向代表当前节点的 clusterNode 结构        
+            clusterstate.slots[i] = clusterstate.myself        
+            # 访问代表当前节点的 clusterNode 结构的 slots 数组        
+            # 将数组在索引ⅰ上的二进制位设置为 1        
+            setslotBit(clusterState.myself.slots, i)
 ```
 
 ### 在集群中执行命令
@@ -1391,9 +1380,9 @@ Redis集群的重新分片由Redis集群管理软件redis-trib负责执行的. R
 clusterState结构的importing_slots_from数组记录了当前节点正在从其他节点导入的槽, 如果importing_slots_from[i]不为NULL, 则表示当前节点正在从其指向的clusterNode结构代表的节点导入槽i:
 
 ```c
-typedef struct clusterState{	
-	clusterNode *importing_slots_from[16384];	
-	//...
+typedef struct clusterState{    
+    clusterNode *importing_slots_from[16384];    
+    //...
 }
 ```
 
@@ -1404,9 +1393,9 @@ typedef struct clusterState{
 clusterState结构的migrating_slots_to数组记录了当前节点正在迁移至其他节点的槽, 如果migrating_slots_to[i]不为NULL, 则表示当前节点正在将槽i迁移至其指向的clusterNode**结构代表的节点**:
 
 ```c
-typedef struct clusterState{	
-	clusterNode *migrating_slots_to[16384];	
-	//...
+typedef struct clusterState{    
+    clusterNode *migrating_slots_to[16384];    
+    //...
 }
 ```
 
@@ -1461,9 +1450,9 @@ Redis集群模式分为master和slave节点, slave节点复制master节点, 在m
 每个下线报告由一个clusterNodeFailReport结构表示:
 
 ```c
-struct clusterNodeFailReport{	
-	struct clusterNode *node;//发送报告目标节点下线的节点	
-	mstime_t time;//最后一次上面节点收到下线报告的时间, 如果与当前时间相差太久将过期
+struct clusterNodeFailReport{    
+    struct clusterNode *node;//发送报告目标节点下线的节点    
+    mstime_t time;//最后一次上面节点收到下线报告的时间, 如果与当前时间相差太久将过期
 } ;
 ```
 
@@ -1497,56 +1486,56 @@ struct clusterNodeFailReport{
 一个消息有一个cluster.h/clusterMsg结构表示, 接受者可根据currentEpoch、sender、myslots等记录发送者**节点信息的属性对自己的clusterState.nodes字典里对应的clusterNode结构进行更新**.其中clusterMsgData结构的data属性记录消息正文:
 
 ```c
-typedef struct {	
-	// 消息的长度（包括这个消息头的长度和消息正文的长度）	
-	uint32_t totlen;	
-	// 消息的类型	
-	uint16_t type;	
-	// 消息正文包含的节点信息数量	
-	// 只在发送MEET、PING、PONG这三种Gossip协议消息时使用	
-	uintl6_t count;	
-	// 发送者所处的配置纪元	
-	uint64_t currentEpoch;	
-	// 如果发送者是一个主节点，那么这里记录的是发送者的配置纪元	
-	// 如果发送者是一个从节点。那么这里记录的是发送者正在复制的主节点的配置纪元	
-	uint64_t configEpoch;	 
-	// 发送者的名字（ID）	
-	char sender[REDIS_CLUSTER_NAMELEN];	
-	// 发送者目前的槽指派信息	
-	unsigned char myslots[REDIS_CLUSTER_SLOTS/8];	
-	// 如果发送者是一个从节点，那么这里记录的是发送者正在复制的主节点的名字	
-	// 如果发送者是一个主节点，那么这里记录的是REDIS_NODE_NULL_NAME	
-	//（一个40字节长，值全为0的字节数组）	
-	char slaveof[REDIS_CLUSTER_NAMELEN];	
-	// 发送者的端口号	
-	uint16_t port;	
-	// 发送者的标识值	
-	uint16_t flags;	
-	// 发送者所处集群的状态	
-	unsigned char state;	
-	// 消息的正文（或者说，内容）	
-	union clusterMsgData data;
+typedef struct {    
+    // 消息的长度（包括这个消息头的长度和消息正文的长度）    
+    uint32_t totlen;    
+    // 消息的类型    
+    uint16_t type;    
+    // 消息正文包含的节点信息数量    
+    // 只在发送MEET、PING、PONG这三种Gossip协议消息时使用    
+    uintl6_t count;    
+    // 发送者所处的配置纪元    
+    uint64_t currentEpoch;    
+    // 如果发送者是一个主节点，那么这里记录的是发送者的配置纪元    
+    // 如果发送者是一个从节点。那么这里记录的是发送者正在复制的主节点的配置纪元    
+    uint64_t configEpoch;     
+    // 发送者的名字（ID）    
+    char sender[REDIS_CLUSTER_NAMELEN];    
+    // 发送者目前的槽指派信息    
+    unsigned char myslots[REDIS_CLUSTER_SLOTS/8];    
+    // 如果发送者是一个从节点，那么这里记录的是发送者正在复制的主节点的名字    
+    // 如果发送者是一个主节点，那么这里记录的是REDIS_NODE_NULL_NAME    
+    //（一个40字节长，值全为0的字节数组）    
+    char slaveof[REDIS_CLUSTER_NAMELEN];    
+    // 发送者的端口号    
+    uint16_t port;    
+    // 发送者的标识值    
+    uint16_t flags;    
+    // 发送者所处集群的状态    
+    unsigned char state;    
+    // 消息的正文（或者说，内容）    
+    union clusterMsgData data;
 } clusterMsg;
 ```
 
 clusterMsg.data属性指向联合体cluster.h/clusterMsgData:
 
 ```c
-union clusterMsgData {	
-	// MEET、PING、PONG消息的正文	
-	struct {		
-		// 每条MEET、PING、PONG消息都包含两个clusterMsgDataGossip结构				
-		clusterMsgDataGossip gossip[1];	
-    } ping;	
-		// FAIL消息的正文	
-	struct {		
-		clusterMsgDataFail about;	
-	} fail;	
-	// PUBLISH消息的正文	
-	struct {		
-		clusterMsgDataPublish msg;	
-	} publish;	
-	// 其他消息的正文消息的正文：
+union clusterMsgData {    
+    // MEET、PING、PONG消息的正文    
+    struct {        
+        // 每条MEET、PING、PONG消息都包含两个clusterMsgDataGossip结构                
+        clusterMsgDataGossip gossip[1];    
+    } ping;    
+        // FAIL消息的正文    
+    struct {        
+        clusterMsgDataFail about;    
+    } fail;    
+    // PUBLISH消息的正文    
+    struct {        
+        clusterMsgDataPublish msg;    
+    } publish;    
+    // 其他消息的正文消息的正文：
 };
 ```
 
@@ -1557,19 +1546,19 @@ Redis集群的各个节点通过Gossip协议来交换各自关于不同节点的
 每次发送消息时, 发送者从自己的已知节点列表中随机选出两个节点(主或从都可), 并将这两个被选中节点的信息分别保存到两个clusterMsgDataGossip结构中:
 
 ```c
-typedef struct {	
-	// 节点的名字	
-	char nodename [REDIS_CLUSTER_NAMELEN];	
-	// 最后一次向该节点发送PING消息的时间戮	
-	uint32_t ping_sent;	
-	// 最后一次从该节点接收到 PONG 消息的时间戳	
-	uint32_t pong_received;	
-	// 节点的IP地址	
-	char ip[16];	
-	// 节点的端口号	
-	uint16_t port;	
-	// 节点的标识值	
-	uintl6_t flags;
+typedef struct {    
+    // 节点的名字    
+    char nodename [REDIS_CLUSTER_NAMELEN];    
+    // 最后一次向该节点发送PING消息的时间戮    
+    uint32_t ping_sent;    
+    // 最后一次从该节点接收到 PONG 消息的时间戳    
+    uint32_t pong_received;    
+    // 节点的IP地址    
+    char ip[16];    
+    // 节点的端口号    
+    uint16_t port;    
+    // 节点的标识值    
+    uintl6_t flags;
 } clusterMsgDataGossip;
 ```
 
@@ -1589,8 +1578,8 @@ FAIL消息正文由cluster.h/clusterMsgDataFail结构表示:
 
 ```c
 //只包含一个nodename属性记录已下线节点名称
-typedef struct {	
-	char nodename[REDIS_CLUSTER_NAMELEN];
+typedef struct {    
+    char nodename[REDIS_CLUSTER_NAMELEN];
 }clusterMsgDataFail;
 ```
 
@@ -1601,16 +1590,14 @@ typedef struct {
 PUBLISH消息正文由cluster.h/clusterMsgDataPublish结构表示:
 
 ```c
-typedef struct {	
-	uint32_t channel_len;	// channel参数长度	
-	uint32_t message_len;	// message参数长度	
-	// 8字节是为了对齐其他长度, 实际长度由内容决定	
-	// 保存了channel参数和message参数	
-	unsigned char bulk_data[8];
+typedef struct {    
+    uint32_t channel_len;    // channel参数长度    
+    uint32_t message_len;    // message参数长度    
+    // 8字节是为了对齐其他长度, 实际长度由内容决定    
+    // 保存了channel参数和message参数    
+    unsigned char bulk_data[8];
 }
 ```
-
-
 
 ## Scan
 
@@ -1627,24 +1614,24 @@ keys命令用来查找key, 并支持正则, 但是其存在缺点:
 ```
 # 第一次遍历cursor从0开始 最大返回1000条 将返回结果的第一个整数作为下一次遍历的cursor, 直到返回0127.0.0.1:6379> scan 0 match key99* count 1000
 1) "13976"
-2) 	1) "key9911" 	
-	2) "key9974" 	
-	3) "key9994" 	
-	4) "key9910" 	
-	...
+2)     1) "key9911"     
+    2) "key9974"     
+    3) "key9994"     
+    4) "key9910"     
+    ...
 127.0.0.1:6379> scan 13976 match key99* count 1000
 1) "1996"
-2) 	1) "key9982" 	
-	2) "key9997" 	
-	3) "key9963" 	
-	4) "key996" 	
-	...
+2)     1) "key9982"     
+    2) "key9997"     
+    3) "key9963"     
+    4) "key996"     
+    ...
 127.0.0.1:6379> scan 1996 match key99* count 1000
 1) "12594"
-2) 	1) "key9939" 	
-	2) "key9941" 		
-	3) "key9967" 	
-	...
+2)     1) "key9939"     
+    2) "key9941"         
+    3) "key9967"     
+    ...
 127.0.0.1:6379> scan 11687 match key99* count 1000
 1) "0"
 ```
@@ -1664,9 +1651,9 @@ scan 的遍历顺序非常特别。它不是从第一维数组的第 0 位一直
 详细见《Redis深度历险》
 
 >  另外,scan命令可以用来扫描大key, 步骤为将scan扫描出来的每一个 key，使用 type 指令获得 key 的类型，然后使用相应数据结构的 size 或者 len 方法来得到 它的大小, 最后统计出大key.
->
+> 
 >  上面这个过程需要编写脚本, 繁琐, redis-cli提供了对应的指令:
->
+> 
 >  redis-cli -h 127.0.0.1 -p 7001 –-bigkeys
 
 ## 发布与订阅
@@ -1678,9 +1665,9 @@ scan 的遍历顺序非常特别。它不是从第一维数组的第 0 位一直
 Redis将所有频道的订阅关系都保存在redisServer.pubsub_channels字典中, 键为被订阅的频道名, 值为记录所有订阅频道的客户端链表:
 
 ```c
-struct redisServer{	
-	dict *pubsub_channels;	
-	//...
+struct redisServer{    
+    dict *pubsub_channels;    
+    //...
 };
 ```
 
@@ -1695,13 +1682,13 @@ struct redisServer{
 Redis将所有模式的订阅关系都保存在redisServer.pubsub_patterns链表中, 每个节点包含一个pubsubPattern结构, 记录被订阅的模式和订阅该模式的客户端:
 
 ```c
-struct redisServer{	
-	list *pubsub_patterns;	
-	//...
+struct redisServer{    
+    list *pubsub_patterns;    
+    //...
 };
-typedef struct pubsubPattern{	
-	redisClient *client;	
-	robj *pattern;
+typedef struct pubsubPattern{    
+    redisClient *client;    
+    robj *pattern;
 }pubsubPattern;
 ```
 
@@ -1752,17 +1739,17 @@ MULTI命令的执行标志事务的开始, 服务器通过修改客户端状态�
 事务队列保存在每个客户端状态的mstate属性里; 事务状态包含一个事务队列和一个已入队命令的计数器; 事务队列为一个multiCmd类型的数组, 数组中每个multiCmd结构保存一个已入队命令相关信息, 包括指向命令实现函数的指针、命令的参数以及参数的数量:
 
 ```c
-typedef struct redisClient{	
-	multiState mstate;	//...
+typedef struct redisClient{    
+    multiState mstate;    //...
 }redisClient;
-typedef struct multiState{	
-	multiCmd *commands;//事务队列 FIFO	
-	int count;//事务队列的长度
+typedef struct multiState{    
+    multiCmd *commands;//事务队列 FIFO    
+    int count;//事务队列的长度
 }multiState;
-typedef struct multiCmd{	
-	robj **argv;//命令参数	
-	int argvc;//参数数量	
-	struct redisCommand *cmd;//命令实现函数指针
+typedef struct multiCmd{    
+    robj **argv;//命令参数    
+    int argvc;//参数数量    
+    struct redisCommand *cmd;//命令实现函数指针
 }multiCmd;
 ```
 
@@ -1781,8 +1768,8 @@ WATCH命令是一个乐观锁, 可以在EXEC执行前监视任一数量的数据
 每个Redis数据库都保存着一个watched_keys字典, 键为某个被watch命令监视的数据库键, 值为一个记录了所有监视该键的客户端链表:
 
 ```c
-typedef struct redisDb{	
-	dict *watched_keys;
+typedef struct redisDb{    
+    dict *watched_keys;
 }redisDb;
 ```
 
@@ -1881,7 +1868,7 @@ Redis服务器创建并修改Lua环境的步骤:
 8）**将完成修改的Lua环境保存到服务器状态redisServer的 lua 属性中**，等待执行服务器传来的Lua脚本。
 
 > 因为Redis使用串行化方式执行Redis命令, 所以在任何时间点, 最多只有一个脚本能够被放进Lua环境理运行.
->
+> 
 > 这也是为什么只需要一个Lua环境即可.
 
 **Lua环境协作组件**
@@ -1902,9 +1889,9 @@ Redis服务器创建并修改Lua环境的步骤:
 2）lua_scripts字典: 键为某个Lua脚本的SHA1校验和, 值为SHA1校验和对应的Lua脚本, **用于实现SCRIPT EXISTS命令和脚本复制功能**.
 
 ```c
-struct redisServer{	
-	dict *lua_scripts;	
-	//...
+struct redisServer{    
+    dict *lua_scripts;    
+    //...
 };
 ```
 
@@ -1923,11 +1910,11 @@ EVAL <script> <numkeys> [key ...] [arg ...]
 ①当客户端向服务器发送EVAL命令时, 服务器根据客户端给定的Lua脚本, 在Lua环境中**定义一个与该脚本相应的Lua函数**. 其中, Lua函数的名字由`f_`加上脚本的SHA1校验和组成, 函数体为脚本本身.
 
 > 使用函数来保存客户端传来的脚本的好处有:
->
+> 
 > 一.执行脚本的步骤非常简单, 只需要调用与脚本向对于的函数即可.
->
+> 
 > 二.利用函数的局部性来让Lua环境保存整洁, 减少垃圾回收的工作量, 避免了使用全局变量
->
+> 
 > 三.EVALSHA通过脚本的SHA1校验和调用Lua函数来执行脚本.
 
 ②将脚本保存到lua_scripts字典(见[环境](#环境)), 键位SHA1校验和, 值为脚本本身.
@@ -1994,9 +1981,9 @@ EVALSHA <sha1> <numkeys> [key ...] [arg ...]
 master通过服务器状态的repl_scriptcache_dict字典记录自己已经将哪些脚本转播给了slave, 键为Lua脚本SHA1校验和, 值全部都为NULL:
 
 ```c
-struct redisServer{	
-	dict *repl_scriptcache_dict;	
-	//...
+struct redisServer{    
+    dict *repl_scriptcache_dict;    
+    //...
 };
 ```
 
@@ -2017,13 +2004,13 @@ SORT命令可对list、set和zset键进行排序.
 SORT命令**为每个被排序的键都创建一个与键长度(元素个数)相同的数组**, 每个项都是一个redisSortObject, 根据SORT命令所携带的选项的不同, redisSortObject结构的方式也不同:
 
 ```C
-typedef struct _redisSortObject{	
-	robj *obj;//指向被排序键的值的元素	
-	//权重
-	union{ 		
-		double score;//排序数字值时使用	
-		robj *cmpobj;//排序带有BY选项的字符串值时使用	
-	}u;
+typedef struct _redisSortObject{    
+    robj *obj;//指向被排序键的值的元素    
+    //权重
+    union{         
+        double score;//排序数字值时使用    
+        robj *cmpobj;//排序带有BY选项的字符串值时使用    
+    }u;
 }redisSortObject;
 ```
 
@@ -2173,16 +2160,16 @@ BITOP NOT not-result bitarray
 服务器状态中与慢查询日志功能相关的属性有:
 
 ```c
-struct redisServer{	
-	// 下一条慢查询日志的id	
-	long long slowlog_entry_id;	
-	// 保存了所有慢查询日志的链表	
-	list *slowlog;	
-	// slowlog-log-slower-than选项的值	
-	long long slowlog_log_slower_than;	
-	// slowlog-max-len选项的值	
-	unsigned long slowlog_max_len;	
-	//...
+struct redisServer{    
+    // 下一条慢查询日志的id    
+    long long slowlog_entry_id;    
+    // 保存了所有慢查询日志的链表    
+    list *slowlog;    
+    // slowlog-log-slower-than选项的值    
+    long long slowlog_log_slower_than;    
+    // slowlog-max-len选项的值    
+    unsigned long slowlog_max_len;    
+    //...
 };
 ```
 
@@ -2191,12 +2178,12 @@ slowlog_entry_id初始值为0, 没创建一条新的慢查询日志时, 该属�
 slowlog链表中每个节点保存一个slowlogEntry结构, 记录慢查询日志:
 
 ```c
-typedef struct slowlogEntry{	
-	long long id;// 唯一标识	
-	time_t time;// 命令执行时的时间,unix时间戳	
-	long long duration;// 执行命令消耗的时间,微秒	
-	robj **argv;// 命令与参数	
-	int argc;// 命令与参数的数量
+typedef struct slowlogEntry{    
+    long long id;// 唯一标识    
+    time_t time;// 命令执行时的时间,unix时间戳    
+    long long duration;// 执行命令消耗的时间,微秒    
+    robj **argv;// 命令与参数    
+    int argc;// 命令与参数的数量
 }slowlogEntry;
 ```
 
@@ -2216,51 +2203,51 @@ slowlogPushEntryIfNeeded(argv, argc, before-after)
 其中slowlogPushEntryIfNeeded函数需要根据执行时长是否超过slowlog-log-slower-than选项设置的值来判断是否添加日志, 并且需要根据慢查询日志的长度是否超过slowlog-max-len选项设置的值来判断是否删除旧日志:
 
 ```python
-void slowlogPushEntryIfNeeded(robj **argv, int argc, long long duration) (	
-	// 慢查询功能未开启，直接返回	
-	if (server.slowlog_log_slower_than < 0) return;	
-	// 如果执行时间超过服务器设置的上限，那么将命令添加到慢查询日志	
-	if (duration >= server.slowlog_log_slower_than)		
-		// 新日志添加到链表表头并将redisServer.slowlog_entry_id加一			
-		listAddNodeHead(server.slowlog,slowlogCreateEntry(argv,argc,duration));		
-		// 如果日志数量过多，那么进行删除		
-		while (listLength(server.slowlog) > server.slowlog_max_len)					 	      		listDelNode(server.slowlog,listLast(server.slowlog));
+void slowlogPushEntryIfNeeded(robj **argv, int argc, long long duration) (    
+    // 慢查询功能未开启，直接返回    
+    if (server.slowlog_log_slower_than < 0) return;    
+    // 如果执行时间超过服务器设置的上限，那么将命令添加到慢查询日志    
+    if (duration >= server.slowlog_log_slower_than)        
+        // 新日志添加到链表表头并将redisServer.slowlog_entry_id加一            
+        listAddNodeHead(server.slowlog,slowlogCreateEntry(argv,argc,duration));        
+        // 如果日志数量过多，那么进行删除        
+        while (listLength(server.slowlog) > server.slowlog_max_len)                                       listDelNode(server.slowlog,listLast(server.slowlog));
 ```
 
 **日志查阅命令SLOWLOG GET**
 
 ```python
-def SLOWLOG GET(number=None):	
-	# 用户没有给定number参数	
-	# 那么打印服务器包含的全部慢查询日志	
-	if number is None：		
-		number = SLOWLOG_LEN()	
-		# 遍历服务器中的慢查询日志	
-		for login redisServer.slowlog:		
-			if number <= 0:			
-				# 打印的日志数量已经足够，跳出循环			
-				break		
-			else:			
-				# 继续打印，将计数器的值减一			
-				number -= 1		
-				# 打印日志		
-				printLog(log)
+def SLOWLOG GET(number=None):    
+    # 用户没有给定number参数    
+    # 那么打印服务器包含的全部慢查询日志    
+    if number is None：        
+        number = SLOWLOG_LEN()    
+        # 遍历服务器中的慢查询日志    
+        for login redisServer.slowlog:        
+            if number <= 0:            
+                # 打印的日志数量已经足够，跳出循环            
+                break        
+            else:            
+                # 继续打印，将计数器的值减一            
+                number -= 1        
+                # 打印日志        
+                printLog(log)
 ```
 
 **查看日志数量命令SLOWLOG LEN**
 
 ```python
-def SLOWLOG LEN():	# slowlog 链表的长度就是慢查询日志的条目数量	
-	return len(redisServer.slowlog)
+def SLOWLOG LEN():    # slowlog 链表的长度就是慢查询日志的条目数量    
+    return len(redisServer.slowlog)
 ```
 
 **清除慢查询日志命令SLOWLOG RESET**
 
 ```python
-def SLOWLOG_RESET():	# 遍历服务器中的所有慢查询日志	
-	for log in redisServer.slowlog：		
-		# 删除日志		
-		deleteLog(log)
+def SLOWLOG_RESET():    # 遍历服务器中的所有慢查询日志    
+    for log in redisServer.slowlog：        
+        # 删除日志        
+        deleteLog(log)
 ```
 
 ## 监视器
