@@ -1,7 +1,5 @@
 # Java
 
-
-
 ## 设计模式
 
 ### 代理模式
@@ -170,10 +168,10 @@ public class Singleton {
     private static Singleton instance;  
     private Singleton (){}  
     public static (synchronized) Singleton getInstance() {  
-    	if (instance == null) {  
-        	instance = new Singleton();  
-    	}  
-    	return instance;  
+        if (instance == null) {  
+            instance = new Singleton();  
+        }  
+        return instance;  
     }  
 }
 ```
@@ -201,9 +199,9 @@ public class Singleton {
     public static Singleton getSingleton() {  
     if (singleton == null) {  
         synchronized (Singleton.class) {  
-        	if (singleton == null) {  
-           	 	singleton = new Singleton();  
-        	}  
+            if (singleton == null) {  
+                    singleton = new Singleton();  
+            }  
         }  
     }  
     return singleton;  
@@ -220,11 +218,11 @@ public class Singleton {
 ```java
 public class Singleton {  
     private static class SingletonHolder {  
-    	private static final Singleton INSTANCE = new Singleton();  
+        private static final Singleton INSTANCE = new Singleton();  
     }  
     private Singleton (){}  
     public static final Singleton getInstance() {  
-    	return SingletonHolder.INSTANCE;  
+        return SingletonHolder.INSTANCE;  
     }  
 }
 ```
@@ -257,16 +255,16 @@ public enum Singleton {
 
 重排序后，两个线程发生了以下调用：
 
-| Time | Thread A                  | Thread B                                  |
-| :--- | :------------------------ | :---------------------------------------- |
-| T1   | 检查到`singleton`为空     |                                           |
-| T2   | 获取锁                    |                                           |
-| T3   | 再次检查到`singleton`为空 |                                           |
-| T4   | 为`singleton`分配内存空间 |                                           |
-| T5   | 将`singleton`指向内存空间 |                                           |
-| T6   |                           | 检查到`singleton`不为空                   |
-| T7   |                           | 访问`singleton`（此时对象还未完成初始化） |
-| T8   | 初始化`singleton`         |                                           |
+| Time | Thread A           | Thread B                   |
+|:---- |:------------------ |:-------------------------- |
+| T1   | 检查到`singleton`为空   |                            |
+| T2   | 获取锁                |                            |
+| T3   | 再次检查到`singleton`为空 |                            |
+| T4   | 为`singleton`分配内存空间 |                            |
+| T5   | 将`singleton`指向内存空间 |                            |
+| T6   |                    | 检查到`singleton`不为空          |
+| T7   |                    | 访问`singleton`（此时对象还未完成初始化） |
+| T8   | 初始化`singleton`     |                            |
 
 在这种情况下，T7时刻线程B对`uniqueSingleton`的访问，访问的是一个**初始化未完成**的对象。
 
@@ -467,7 +465,7 @@ public class BFactory implements AbatractFactory {
 ```
 
 > 抽象工厂模式分离了接口和实现 , 并使得使切换产品族变得容易.
->
+> 
 > 但缺点是不太容易扩展新的产品:  每给产品族添加新产品时，就要在抽象工厂中添加新产品创建方法，同时要给所有的具体工厂增加接口。
 
 ### 装饰模式
@@ -482,13 +480,13 @@ public class BFactory implements AbatractFactory {
 - ConcreteDecorator：具体装饰类
 
 > - 优点：比继承更加灵活（继承是耦合度很大的静态关系），可以动态的为对象增加职责，可以通过使用不同的装饰器组合为对象扩展N个新功能，而不会影响到对象本身。
->
+> 
 > - 缺点：当一个对象的装饰器过多时，会产生很多的装饰类小对象和装饰组合策略，增加系统复杂度，增加代码的阅读理解成本。
 
 > 适用场景:
->
+> 
 > - 适合需要通过配置（如：diamond）来动态增减对象功能的场景。
->
+> 
 > - 适合一个对象需要N种功能排列组合的场景（如果用继承，会使子类数量爆炸式增长）, 如InputStream.
 
 > 注意: 一个装饰类的接口必须与被装饰类的接口保持相同，对于客户端来说无论是装饰之前的对象还是装饰之后的对象都可以一致对待。
@@ -558,7 +556,7 @@ public static void main(String[] args){
 ```
 
 > 与JDK动态代理类似.
->
+> 
 > 区别: 代理模式的访问控制主要在于对目标可的透明访问, 而装饰模式由客户端对目标类对象进行增强.
 
 ### 策略模式
@@ -572,7 +570,7 @@ public static void main(String[] args){
 - ConcreteStrategy: 具体策略类
 
 > - 优点：策略模式提供了对“开闭原则”的完美支持，用户可以在不修改原有系统的基础上选择算法或行为。干掉复杂难看的if-else。
->
+> 
 > - 缺点：调用时，必须提前知道都有哪些策略模式类，才能自行决定当前场景该使用何种策略。
 
 > 适用场景: 一个系统需要动态地在几种可替换算法中选择一种。不希望使用者关心算法细节，将具体算法封装进策略类中。
@@ -645,7 +643,7 @@ public static void main(String[] args){
 - ConcreteObserver：具体观察者
 
 > - 优点：将复杂的串行处理逻辑变为单元化的独立处理逻辑，被观察者只是按照自己的逻辑发出消息，不用关心谁来消费消息，每个观察者只处理自己关心的内容。逻辑相互隔离带来简单清爽的代码结构。
->
+> 
 > - 缺点：观察者较多时，可能会花费一定的开销来发消息，但这个消息可能仅一个观察者消费。
 
 > 适用场景: 适用于一对多的的业务场景，一个对象发生变更，会触发N个对象做相应处理的场景。例如：订单调度通知，任务状态变化等。
@@ -655,13 +653,13 @@ public static void main(String[] args){
 ```java
 abstract class Subject{
     protected List<Observer> observerList = new ArrayList<Observer>();   
-    public void add(Observer observer){  		//增加观察者方法
+    public void add(Observer observer){          //增加观察者方法
         observers.add(observer);
     }    
-    public void remove(Observer observer){   	//删除观察者方法
+    public void remove(Observer observer){       //删除观察者方法
         observers.remove(observer);
     }   
-    public abstract void notify(); 				//通知观察者方法
+    public abstract void notify();                 //通知观察者方法
 }
 ```
 
@@ -672,7 +670,7 @@ class ConcreteSubject extends Subject{
    private Integer state;
    public void setState(Integer state){
         this.state = state;  
-        notify();				// 状态改变通知观察者
+        notify();                // 状态改变通知观察者
     }
     public void notify(){
         System.out.println("具体目标状态发生改变...");
@@ -733,10 +731,10 @@ public static void main(String[] args){
 
  JDK1.8 以后的 `HashMap` 在解决哈希冲突时有了较大的变化，当链表长度大于阈值（默认为 8,这个阈值为表示链表或红黑树大小的阈值,是常量）（将链表转换成红黑树前会判断，如果当前数组的长度小于 64，那么会选择先进行数组扩容，而不是转换为红黑树）时，将链表转化为红黑树，以减少搜索时间.
 
-| 名称            | 用途                                                         |
-| --------------- | ------------------------------------------------------------ |
-| initialCapacity | HashMap 初始容量                                             |
-| loadFactor      | 负载因子,控制数组存放数据的疏密程度                          |
+| 名称              | 用途                                  |
+| --------------- | ----------------------------------- |
+| initialCapacity | HashMap 初始容量                        |
+| loadFactor      | 负载因子,控制数组存放数据的疏密程度                  |
 | threshold       | 当前 HashMap 所能容纳键值对数量的最大值，超过这个值，则需扩容 |
 
 默认情况下，HashMap 初始容量是16，负载因子为 0.75.
@@ -806,7 +804,7 @@ hashCode(key2) ^ (hashCode(key2) >>> 16)
 
 ```
 if(p.hash == hash &&
-	((k = p.key) == key || (key != null && key.equals(k))))
+    ((k = p.key) == key || (key != null && key.equals(k))))
 ```
 
 死链条:在JDK1.8之前，HashMap在并发场景下扩容时存在一个bug，形成死链，导致get该位置元素的时候，会死循环，使CPU利用率高居不下。这也说明了HashMap不适于用在高并发的场景，高并发应该优先考虑JUC中的ConcurrentHashMap。然而，精益求精的JDK开发者们并没有选择绕过问题，而是选择直面问题并解决它。在JDK1.8之中，引入了高低位链表（双端链表）。
@@ -834,13 +832,13 @@ tableSizeFor根据输入容量大小cap来计算最终哈希桶数组的容量�
 
 ```
 static final int tableSizeFor(int cap){
-	int n = cap -1;
-	n |= n >>> 1;
-	n |= n >>> 2;
-	n |= n >>> 4;
-	n |= n >>> 8;
-	n |= n >>> 16;
-	return (n < 0) ? 1 : (n >= MAXIMUM_CAPACITY) ? MAXIMUM_CAPACITY : n + 1;
+    int n = cap -1;
+    n |= n >>> 1;
+    n |= n >>> 2;
+    n |= n >>> 4;
+    n |= n >>> 8;
+    n |= n >>> 16;
+    return (n < 0) ? 1 : (n >= MAXIMUM_CAPACITY) ? MAXIMUM_CAPACITY : n + 1;
 }
 ```
 
@@ -918,7 +916,7 @@ BitMap通常用来去重 & 取两个集合的交集或并集等.
 我们的应用程序实际上只是发起了 IO 操作的调用而已，具体 IO 的执行是由操作系统的内核来完成的。
 
 > 当应用程序发起 I/O 调用后，会经历两个步骤：
->
+> 
 > 1. 内核等待 I/O 设备准备好数据
 > 2. 内核将数据从内核空间拷贝到用户空间。
 
@@ -954,8 +952,6 @@ AIO 即 NIO 2。Java 7 中引入了 NIO 的改进版 NIO 2,它是异步 IO 模�
 
 异步 IO 是基于**事件和回调**机制实现的，也就是应用操作之后会直接返回，不会堵塞在那里，当后台处理完成，操作系统会通知相应的线程进行后续的操作。
 
-
-
 ### Java NIO
 
 Java NIO三大组件: Channel,Buffer,Selector
@@ -976,28 +972,28 @@ ServerSocketChannel serverSocketChannel = ServerSocketChannel.open();
 Selector selector = Selector.open();
 serverSocketChannel.socket().bind(new InetSocketAddress(6666));
 serverSocketChannel.configureBlocking(false); //设置为非阻塞
-serverSocketChannel.register(selector, SelectionKey.OP_ACCEPT);	//注册channel关注accept事件
-while (true) {								//循环等待客户端连接
-	if(selector.select(1000) == 0) {		//没有事件发生
-		System.out.println("服务器等待了1秒，无连接");
-		continue;
-	}
-	Set<SelectionKey> selectionKeys = selector.selectedKeys();
-	Iterator<SelectionKey> keyIterator = selectionKeys.iterator();
-	while(keyIterator.hasNext()){
-		SelectionKey key = keyIterator.next();
-		if(key.isAcceptable()) { 			//发生accept事件,即有新的客户端连接
-			SocketChannel socketChannel = serverSocketChannel.accept();
-			socketChannel.configureBlocking(false);	//设置为非阻塞
+serverSocketChannel.register(selector, SelectionKey.OP_ACCEPT);    //注册channel关注accept事件
+while (true) {                                //循环等待客户端连接
+    if(selector.select(1000) == 0) {        //没有事件发生
+        System.out.println("服务器等待了1秒，无连接");
+        continue;
+    }
+    Set<SelectionKey> selectionKeys = selector.selectedKeys();
+    Iterator<SelectionKey> keyIterator = selectionKeys.iterator();
+    while(keyIterator.hasNext()){
+        SelectionKey key = keyIterator.next();
+        if(key.isAcceptable()) {             //发生accept事件,即有新的客户端连接
+            SocketChannel socketChannel = serverSocketChannel.accept();
+            socketChannel.configureBlocking(false);    //设置为非阻塞
             //注册channel,关注read事件,指定Buffer
-			socketChannel.register(selector,SelectionKey.OP_READ,ByteBuffer.allocate(1024));
-        if(key.isReadable())				//发生read事件,即内核数据准备就绪
-			SocketChannel channel = (SocketChannel)key.channel();	
-			ByteBuffer buffer = (ByteBuffer)key.attachment();		
-			channel.read(buffer);
-			System.out.println(new String(buffer.array()));
+            socketChannel.register(selector,SelectionKey.OP_READ,ByteBuffer.allocate(1024));
+        if(key.isReadable())                //发生read事件,即内核数据准备就绪
+            SocketChannel channel = (SocketChannel)key.channel();    
+            ByteBuffer buffer = (ByteBuffer)key.attachment();        
+            channel.read(buffer);
+            System.out.println(new String(buffer.array()));
         }
-       keyIterator.remove();			//手动移除selectionKey,防止重复操作
+       keyIterator.remove();            //手动移除selectionKey,防止重复操作
     }
 }
 
@@ -1006,8 +1002,8 @@ SocketChannel socketChannel = SocketChannel.open();
 socketChannel.configureBlocking(false);
 InetSocketAddress inetSocketAddress = new InetSocketAddress("127.0.0.1", 6666);
 if (!socketChannel.connect(inetSocketAddress)) {
-	while (!socketChannel.finishConnect()) {
-		//未连接, 不会阻塞，可以做其它工作 ..
+    while (!socketChannel.finishConnect()) {
+        //未连接, 不会阻塞，可以做其它工作 ..
     }
 }
 String str = "Hello World",
@@ -1030,15 +1026,15 @@ ServerSocket serverSocket = serverSocketChannel.socket();
 serverSocket.bind(address);
 ByteBuffer byteBuffer = ByteBuffer.allocate(4096);
 while (true) {
-	SocketChannel socketChannel = serverSocketChannel.accept();
-	int readcount = 0;
-	while (-1 != readcount) {
-		try {
-			readcount = socketChannel.read(byteBuffer);
-		}catch (Exception ex) {
-			break;
-		}
-		byteBuffer.rewind(); //position = 0
+    SocketChannel socketChannel = serverSocketChannel.accept();
+    int readcount = 0;
+    while (-1 != readcount) {
+        try {
+            readcount = socketChannel.read(byteBuffer);
+        }catch (Exception ex) {
+            break;
+        }
+        byteBuffer.rewind(); //position = 0
     }
 }
 
@@ -1079,8 +1075,6 @@ Handler 会完成 Read→业务处理→Send 的完整业务流程.
 优点：模型简单, 无线程通信竞争.
 缺点：因为是单线程, 无法发挥多核CPU优势, Handler在处理某个连接上的业务时, 整个进程无法处理其他连接事件, 性能瓶颈显著;不可靠, 如果线程终止或死循环, 导致整个通信模块不可用.
 
-
-
 2.单Reactor多线程
 
 在单Reactor单线程基础上进行改进:
@@ -1091,8 +1085,6 @@ handler 收到响应后，通过 send 将结果返回给 client.
 
 优点：可以充分的利用多核 cpu 的处理能力.
 缺点：需要处理多线程数据共享问题;  reactor 依旧以单线程方式处理所有的事件的监听和分发，在高并发场景容易出现性能瓶颈.
-
-
 
 3.主从Reactor多线程.
 
@@ -1106,8 +1098,6 @@ Subreactor 将连接加入到连接队列进行监听,并创建handler进行后�
 缺点：实现复杂.
 
 应用场景广泛,  如Nginx主从Reactor多线程模型, Memcached主从多线程, Netty主从多线程模型.
-
-
 
 #### **Netty模型**
 
@@ -1197,11 +1187,11 @@ ByteBuf不同于NIO中的ByteBuffer对象, 其不需要通过flip反转, 底层�
 
 结合capacity可将buffer分为:
 
-0 -- readerIndex							已读区域
+0 -- readerIndex                            已读区域
 
-readerIndex -- writerIndex		  可读区域
+readerIndex -- writerIndex          可读区域
 
-writerIndex -- capacity 				 可写区域
+writerIndex -- capacity                  可写区域
 
 > ByteBuf也支持零拷贝
 
@@ -1220,8 +1210,6 @@ writerIndex -- capacity 				 可写区域
 比如在网络传输过程(网络安全由应用程序自己规定)中, 传输的序列化后的二进制流金额数据被注入攻击修改.
 
 而基于HTTP的RESTFul风格传输的话, 数据采用json传递, 可使用https的SSL加密传输 ,可保证过程的安全.
-
-
 
 另外,  还有NIO的ByteBuffer序列化方式(ObjectEn/Decoder) , 在序列化执行效率上面 , 与java序列化差距不大.
 
@@ -1242,9 +1230,9 @@ Protobuf以message方式来管理数据, 具有高性能和高可靠性以及跨
 通过protobuf编译器编译类描述的.proto文件可以生成.java文件:
 
 ```protobuf
-syntax = "proto3"; 								//版本
-option java_outer_classname = "StudentPOJO"; 	//外部类名与文件名
-message Student { 								//内部类 为真正发送的对象
+syntax = "proto3";                                 //版本
+option java_outer_classname = "StudentPOJO";     //外部类名与文件名
+message Student {                                 //内部类 为真正发送的对象
 int32 id = 1; // 属性 名字id 类型int32(protobuf类型) 1表示属性序号，不是值
 string name =2;
 }
