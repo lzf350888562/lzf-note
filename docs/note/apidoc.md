@@ -30,12 +30,12 @@ public class Swagger2 {
                 .select()
                  //为当前包下controller生成API文档
                 .apis(RequestHandlerSelectors.basePackage("com.example.demo.controller")
-				//为有@Api注解的Controller生成API文档
-				//.apis(RequestHandlerSelectors.withClassAnnotation(Api.class))
-				//为有@ApiOperation注解的方法生成API文档
-				//.apis(RequestHandlerSelectors.withMethodAnnotation(ApiOperation.class))
-				// 扫描所有 
-				//.apis(RequestHandlerSelectors.any())
+                //为有@Api注解的Controller生成API文档
+                //.apis(RequestHandlerSelectors.withClassAnnotation(Api.class))
+                //为有@ApiOperation注解的方法生成API文档
+                //.apis(RequestHandlerSelectors.withMethodAnnotation(ApiOperation.class))
+                // 扫描所有 
+                //.apis(RequestHandlerSelectors.any())
                 .paths(PathSelectors.any())
                 .build();
                 // 统一前缀
@@ -67,7 +67,7 @@ class UserEntity{
     private String password;
     @ApiModelProperty("用户手机")
     private String mobile;
-	// getter
+    // getter
 }
 ```
 
@@ -82,16 +82,16 @@ class UserEntity{
     private String password;
     @ApiModelProperty("用户手机")
     private String mobile;
-	// gette
+    // gette
 }
 ```
 
 ### token传递
 
 ```java
-	 @Bean
+     @Bean
     public Docket createRestApi() {
- 		return new Docket(DocumentationType.SWAGGER_2)
+         return new Docket(DocumentationType.SWAGGER_2)
                 .apiInfo(apiInfo())
                 .select()
                 .apis(RequestHandlerSelectors.withClassAnnotation(Api.class))
@@ -229,11 +229,11 @@ https://github.com/SpringForAll/spring-boot-starter-swagger
 ```java
 @Bean
 public UiConfiguration uiConfiguration(SwaggerPropertes swaggerPropertes){
-	return UiConfigurationBuilder.builder()
-		.xxx(xxx)
-		.tagsSorter(swaggerPropertes.getUiConfig().getTagsSorter())
-		.xxx(xxx)
-		.build();
+    return UiConfigurationBuilder.builder()
+        .xxx(xxx)
+        .tagsSorter(swaggerPropertes.getUiConfig().getTagsSorter())
+        .xxx(xxx)
+        .build();
 }
 ```
 
@@ -259,11 +259,11 @@ swagger.ui-config.tags-sorter=alpha
 ```java
 @Bean
 public UiConfiguration uiConfiguration(SwaggerPropertes swaggerPropertes){
-	return UiConfigurationBuilder.builder()
-		.xxx(xxx)
-		.operationSorter(swaggerPropertes.getUiConfig().getOperationSorter)
-		.xxx(xxx)
-		.build();
+    return UiConfigurationBuilder.builder()
+        .xxx(xxx)
+        .operationSorter(swaggerPropertes.getUiConfig().getOperationSorter)
+        .xxx(xxx)
+        .build();
 }
 ```
 
@@ -383,14 +383,14 @@ public class DemoApplicationTests {
     <artifactId>asciidoctor-maven-plugin</artifactId>
     <version>1.5.6</version>
     <configuration>
-   	    <sourceDirectory>src/docs/asciidoc/generated</sourceDirectory>
-   	    <outputDirectory>src/docs/asciidoc/html</outputDirectory>
-   	    <backend>html</backend>
-   	    <sourceHighlighter>coderay</sourceHighlighter>
-   	    <attributes>
+           <sourceDirectory>src/docs/asciidoc/generated</sourceDirectory>
+           <outputDirectory>src/docs/asciidoc/html</outputDirectory>
+           <backend>html</backend>
+           <sourceHighlighter>coderay</sourceHighlighter>
+           <attributes>
             <toc>left</toc>
-  	    </attributes>
-  	</configuration>
+          </attributes>
+      </configuration>
 </plugin>
 ```
 

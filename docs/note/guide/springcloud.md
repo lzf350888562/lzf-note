@@ -54,6 +54,20 @@ public boolean doRecover(Throwable e,int a)throws ArithmeticException{
 
 数据库等持久化方法的调用状态, 并通过定时任务定期检查数据库, 对未成功的任务进行重试
 
+## Dubbo
+
+分布式服务框架, 工作流程为: provider 向注册中心去注册; consumer 从注册中心订阅服务，注册中心会通知 consumer 注册好的服务; consumer 调用 provider; consumer 和 provider 都异步通知监控中心.
+
+初始化时, consumer会从注册中心将provider的地址等信息拉取到本地缓存, 因此, 注册中心挂了已缓存的服务之间可以继续通信.
+
+Dubbo支持多种通信协议, 包括`dubbo://`、`hessian://`、`http://`等等.
+
+默认为dobbo协议, 即`dubbo://`, 为单一长连接, 进行NIO异步通信, 使用Hessian二进制序列化. 适用于数据传输量小, 并发量高, 且consumer远大于provider的情况.
+
+Dubbo支持多种序列化协议, 包括hession、Java二进制序列化、json等.
+
+Dubbo支持多种负载均衡策略, 包括RandomLoadBalance(可加权重)、RoundRobinLoadBalance、LeastActiveLoadBalance(优先分发给效率高的provider)、ConsistentHashLoadBalance(根据请求参数分发到不同provider). 另外还包含多种容错策略,  如Failover Cluster模式(重试其他机器).
+
 ## SpringCloud Gateway
 
 网关是所有微服务的门户，路由转发仅仅是最基本的功能，除此之外还有其他的一些功能，比如：**认证**、**鉴权**、**熔断**、**限流**、**日志监控**等

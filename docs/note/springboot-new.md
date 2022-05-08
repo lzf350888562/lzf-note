@@ -40,11 +40,11 @@ public AjaxResult add(@Validated @RequestBody SysDept dept){
 }
 
 public class SysDept{
-	@NotBlank(message = "部门名称不能为空")
+    @NotBlank(message = "部门名称不能为空")
     @Size(min = 0, max = 30, message = "部门名称长度不能超过30个字符")
     private String deptName;
-	//或者
-	@NotBlank(message = "部门名称不能为空")
+    //或者
+    @NotBlank(message = "部门名称不能为空")
     @Size(min = 0, max = 30, message = "部门名称长度不能超过30个字符")
     public String getDeptName(){
         return deptName;
@@ -52,24 +52,24 @@ public class SysDept{
 }
 ```
 
-| 注解名称                   | 功能                                                         |
-| -------------------------- | ------------------------------------------------------------ |
-| @Null                      | 检查该字段为空                                               |
-| @NotNull                   | 不能为null                                                   |
-| @NotBlank                  | 不能为空，常用于检查空字符串                                 |
-| @NotEmpty                  | 不能为空，多用于检测list是否size是0                          |
-| @Max                       | 该字段的值只能小于或等于该值                                 |
-| @Min                       | 该字段的值只能大于或等于该值                                 |
-| @Past                      | 检查该字段的日期是在过去                                     |
-| @Future                    | 检查该字段的日期是否是属于将来的日期                         |
-| @Email                     | 检查是否是一个有效的email地址                                |
-| @Pattern(regex=,flag=)     | 被注释的元素必须符合指定的正则表达式                         |
-| @Range(min=,max=,message=) | 被注释的元素必须在合适的范围内                               |
+| 注解名称                       | 功能                                       |
+| -------------------------- | ---------------------------------------- |
+| @Null                      | 检查该字段为空                                  |
+| @NotNull                   | 不能为null                                  |
+| @NotBlank                  | 不能为空，常用于检查空字符串                           |
+| @NotEmpty                  | 不能为空，多用于检测list是否size是0                   |
+| @Max                       | 该字段的值只能小于或等于该值                           |
+| @Min                       | 该字段的值只能大于或等于该值                           |
+| @Past                      | 检查该字段的日期是在过去                             |
+| @Future                    | 检查该字段的日期是否是属于将来的日期                       |
+| @Email                     | 检查是否是一个有效的email地址                        |
+| @Pattern(regex=,flag=)     | 被注释的元素必须符合指定的正则表达式                       |
+| @Range(min=,max=,message=) | 被注释的元素必须在合适的范围内                          |
 | @Size(min=, max=)          | 检查该字段的size是否在min和max之间，可以是字符串、数组、集合、Map等 |
-| @Length(min=,max=)         | 检查所属的字段的长度是否在min和max之间,只能用于字符串        |
-| @AssertTrue                | 用于boolean字段，该字段只能为true                            |
-| @AssertFalse               | 该字段的值只能为false                                        |
-| @Future                    | 该字段的值必须时一个将来的日期                               |
+| @Length(min=,max=)         | 检查所属的字段的长度是否在min和max之间,只能用于字符串           |
+| @AssertTrue                | 用于boolean字段，该字段只能为true                   |
+| @AssertFalse               | 该字段的值只能为false                            |
+| @Future                    | 该字段的值必须时一个将来的日期                          |
 
 > 当输入不能满足条件是，就会抛出异常，通常由统一由异常中心处理.
 
@@ -92,7 +92,7 @@ public interface UpdateAction {
 public class UserAO {
     @NotNull(groups = UpdateAction.class, message = "id不能为空")
     private Long id;
-    
+
     @NotBlank
     private String name;
     @NotNull
@@ -126,7 +126,7 @@ public class UserAO {
     private String name;
     @NotNull
     private Integer age;
-    
+
     @Valid
     private Phone phone;
 }
@@ -235,21 +235,21 @@ public class Task {
 @SpringBootApplication
 @EnableAsync
 public class Application {
-	public static void main(String[] args) {
-		SpringApplication.run(Application.class, args);
-	}
+    public static void main(String[] args) {
+        SpringApplication.run(Application.class, args);
+    }
 }
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @SpringApplicationConfiguration(classes = Application.class)
 public class ApplicationTests {
-	@Autowired
-	private Task task;
-	@Test
-	public void test() throws Exception {
-		task.doTaskOne();
-		task.doTaskTwo();
-	}
+    @Autowired
+    private Task task;
+    @Test
+    public void test() throws Exception {
+        task.doTaskOne();
+        task.doTaskTwo();
+    }
 }
 ```
 
@@ -286,20 +286,20 @@ public class Task {
 ```java
 @Test
 public void test() throws Exception {
-	long start = System.currentTimeMillis();
+    long start = System.currentTimeMillis();
 
-	Future<String> task1 = task.doTaskOne();
-	Future<String> task2 = task.doTaskTwo();
+    Future<String> task1 = task.doTaskOne();
+    Future<String> task2 = task.doTaskTwo();
 
-	while(true) {
-		if(task1.isDone() && task2.isDone()) {
-			// 二个任务都调用完成，退出循环等待
-			break;
-		}
-		Thread.sleep(1000);
-	}
-	long end = System.currentTimeMillis();
-	System.out.println("任务全部完成，总耗时：" + (end - start) + "毫秒");
+    while(true) {
+        if(task1.isDone() && task2.isDone()) {
+            // 二个任务都调用完成，退出循环等待
+            break;
+        }
+        Thread.sleep(1000);
+    }
+    long end = System.currentTimeMillis();
+    System.out.println("任务全部完成，总耗时：" + (end - start) + "毫秒");
 }
 ```
 
@@ -312,14 +312,14 @@ public void test() throws Exception {
 public class HelloController {
     @Autowired
     private AsyncTasks asyncTasks;
-        
+
     @GetMapping("/hello")
     public String hello() {
         // 将可以并行的处理逻辑，拆分成三个异步任务同时执行
         CompletableFuture<String> task1 = asyncTasks.doTaskOne();
         CompletableFuture<String> task2 = asyncTasks.doTaskTwo();
         CompletableFuture<String> task3 = asyncTasks.doTaskThree();
-        
+
         CompletableFuture.allOf(task1, task2, task3).join();
         return "Hello World";
     }
@@ -332,9 +332,9 @@ public class HelloController {
 
 ```java
 public static class Pool{
-	private int queueCapacity = Integer.MAX_VALUE; //缓冲队列的容量
-	private int maxSize = Integer.MAX_VALUE; //允许的最大线程数
-	//...
+    private int queueCapacity = Integer.MAX_VALUE; //缓冲队列的容量
+    private int maxSize = Integer.MAX_VALUE; //允许的最大线程数
+    //...
 }
 ```
 
@@ -653,19 +653,19 @@ SampleClass sample = (SampleClass) enhancer.create();
 这几个通知的顺序在不同的Spring版本中有所不同：
 
 1. Spring4.x
-
+   
    - 正常情况：环绕前置  —->  @Before —-> 目标方法 —-> 环绕返回  -->环绕最终(finally)—-> @After —-> @AfterReturning
    - 异常情况：环绕前置  —-> @Before —-> 目标方法 —-> 环绕异常  -->环绕最终(finally)—-> @After —-> @AfterThrowing
 
 2. Spring5.x
-
+   
    - 正常情况：环绕前置  —-> @Before —-> 目标方法 —-> @AfterReturning —-> @After  —-> 环绕返回  -->环绕最终(finally)
    - 异常情况：环绕前置  —-> @Before —-> 目标方法 —-> @AfterThrowing —-> @After  —-> 环绕异常  -->环绕最终(finally)
-
+   
    在有多个切面时,可以通过@Order或Ordered接口指定顺序.
-
+   
    基于注解的方式实现AOP需要在配置类中添加注解@EnableAspectJAutoProxy
-
+   
    ```java
    // exposeProxy = true表示通过aop框架暴露该代理对象到AOP上下文(Thr中,AopContext能够访问
    //(通过AopContext的ThreadLocal实现)
@@ -674,15 +674,15 @@ SampleClass sample = (SampleClass) enhancer.create();
    //应用场景,当想在serivce没有@Transactional的方法中调用带有@Transactional注解的方法时,要使@Transactional生效时,使用this.xxx调用的不是代理之后的方法,而下面的方式可以调用代理方法
    ((T) AopContext.currentProxy()).xxx;
    ```
-
+   
    因为spring采用动态代理机制来实现事务控制，而动态代理(jdk代理,因为service实现了接口)最终都是要调用原始对象的，而原始对象在去调用方法时，是不会再触发代理了.
-
+   
    可通过注解的proxyTargetClass=true指定使用cglib代理方式.
-
-   >注意: SpringBoot2.x开始为了避免使用JDK代理出现的各种问题, 如在非@Transaction方法中调用@Transaction方法事务不会生效、只能通过接口自动注入等问题, 默认使用的AOP实现为CGLIB!!!
+   
+   > 注意: SpringBoot2.x开始为了避免使用JDK代理出现的各种问题, 如在非@Transaction方法中调用@Transaction方法事务不会生效、只能通过接口自动注入等问题, 默认使用的AOP实现为CGLIB!!!
 
 > pointcut表达式支持更直观的操作, 如
->
+> 
 > ```
 > @Pointcut("com.xyz.myapp.CommonPointcuts.dataAccessOperation() && args(account,..)")
 > private void accountDataAccessOperation(Account account) {}
@@ -692,11 +692,11 @@ SampleClass sample = (SampleClass) enhancer.create();
 >  // ...
 > }
 > ```
->
+> 
 > args（account,..） 部分有两个用途。首先，它将匹配限制为仅那些方法执行，其中方法至少采用一个参数，并且传递给该参数的是 Account 的实例。其次，它通过 account 参数使实际的 Account 对象可用于advice。
->
+> 
 > 又或者
->
+> 
 > ```
 > @Before("com.xyz.lib.Pointcuts.anyPublicMethod() && @annotation(auditable)")
 > public void audit(Auditable auditable) {

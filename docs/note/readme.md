@@ -2,17 +2,13 @@
 
 [advanced-java](https://doocs.github.io/advanced-java) 分布式 高并发 高可用 微服务试题
 
-[git30days](https://hub.fastgit.org/doggy8088/Learn-Git-in-30-days)
+[git30days](https://github.com/doggy8088/Learn-Git-in-30-days)
 
-[github漫游指南](https://hub.fastgit.org/kevhan/github)
+[github漫游指南](https://github.com/kevhan/github)
 
-[技术图谱](https://hub.fastgit.org/xingshaocheng/architect-awesome)
-
-[spring源码讲解](https://hub.fastgit.org/seaswalker/spring-analysis)
+[技术图谱](https://github.com/xingshaocheng/architect-awesome)
 
 [docker从入门到实践](https://vuepress.mirror.docker-practice.com/)
-
-[MySQL](https://leviathan.vip/)
 
 # Dev
 
