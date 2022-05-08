@@ -115,11 +115,11 @@ public class AnnotationDesc {
 @Configuration
 @EnableConfigurationProperties
 public class SpringBootPlusConfig {
-	@Bean
-	@ConfigurationProperties(prefix = "yyzx.properties")
-	public AnnotationDesc annotationDesc() {
-		return new AnnotationDesc();
-	}
+    @Bean
+    @ConfigurationProperties(prefix = "yyzx.properties")
+    public AnnotationDesc annotationDesc() {
+        return new AnnotationDesc();
+    }
 }
 ```
 
@@ -149,7 +149,7 @@ public class SpringBootPlusConfig {
 ```java
 public class CustomEnvironmentPostProcessor implements EnvironmentPostProcessor {
     private final Properties properties = new Properties();
-  
+
     private String[] profiles = {
             "custom.properties",
     };
@@ -205,15 +205,15 @@ public class JsonPropertySourceLocator implements PropertySourceLocator {
         return new MapPropertySource("myJson", mapPropertySource(resource));
     }
 
-	//读取resource转换为map
-	private Map<String, Object> mapPropertySource(Resource resource) {
+    //读取resource转换为map
+    private Map<String, Object> mapPropertySource(Resource resource) {
 
         Map<String, Object> result = new HashMap<>();
         // 获取json格式的Map
         Map<String, Object> fileMap = JSONObject.parseObject(readFile(resource), Map.class);
         // 组装嵌套json
         processorMap("", result, fileMap);
-	}
+    }
 }
 ```
 
@@ -254,14 +254,14 @@ springboot 2.x引入Binder用于对象与多个属性的绑定:
 MailPropertiesC propertiesC = Binder.get(environment) //首先要绑定配置器
     //再将属性绑定到对象上
     .bind( "kaka.cream.mail-c", Bindable.of(MailPropertiesC.class) ).get(); //再获取实例
-    
+
 //绑定Map
 Map<String,Object> propMap = Binder.get(environment)
     .bind( "fish.jdbc.datasource",Bindable.mapOf(String.class, Object.class) ).get();
-    
+
 //绑定List
 List<String> list = Binder.get(environment)
-    .bind( "kaka.cream.list",Bindable.listOf(String.class) ).get();	
+    .bind( "kaka.cream.list",Bindable.listOf(String.class) ).get();    
 ```
 
 ## 事件模型
@@ -507,7 +507,7 @@ public class WebConfig {
 还有其他规则可查看FilterType源码, 其中
 
 > 在Java 8之前,  可以使用`@ComponentScans`来配置多个`@ComponentScan`以实现多扫描规则配置; 
->
+> 
 > 在Java 8开始后,  `@ComponentScan`被新增的`@Repeatable(ComponentScans.class)`注解标注, 表示`@ComponentScan`可重复利用.
 
 #### 自定义扫描策略
@@ -558,7 +558,7 @@ public class WebConfig {
 
 1. `ConditionContext`：上下文信息. 如conditionContext.getBeanFactory(), conditionContext.getClassLoader(), conditionContext.getEnvironment() conditionContext.getRegistry() ;
 
-1. `AnnotatedTypeMetadata`：注解信息.如((StandardMethodMetadata)metadata).getMethodName()可获取方法名.
+2. `AnnotatedTypeMetadata`：注解信息.如((StandardMethodMetadata)metadata).getMethodName()可获取方法名.
 
 ```java
 public class MyCondition implements Condition {
@@ -586,16 +586,16 @@ context.getRegistry().containsBeanDefinition("xxx")
 
 其他由@Conditional衍生的条件注册注解:
 
-| **Conditions**               | **描述**                              |
-| ---------------------------- | ------------------------------------- |
-| @ConditionalOnBean           | 在存在某个bean的时候                  |
-| @ConditionalOnMissingBean    | 不存在某个bean的时候                  |
-| @ConditionalOnClass          | 当前classpath可以找到某个类型的类时   |
-| @ConditionalOnMissingClass   | 当前classpath不可以找到某个类型的类时 |
-| @ConditionalOnResource       | 当前classpath是否存在某个资源文件     |
-| @ConditionalOnProperty       | 当前jvm是否包含某个系统属性为某个值   |
-| @ConditionalOnWebApplication | 当前spring context是否是web应用程序   |
-| @ConditionalOnExpression     | SpEL                                  |
+| **Conditions**               | **描述**                     |
+| ---------------------------- | -------------------------- |
+| @ConditionalOnBean           | 在存在某个bean的时候               |
+| @ConditionalOnMissingBean    | 不存在某个bean的时候               |
+| @ConditionalOnClass          | 当前classpath可以找到某个类型的类时     |
+| @ConditionalOnMissingClass   | 当前classpath不可以找到某个类型的类时    |
+| @ConditionalOnResource       | 当前classpath是否存在某个资源文件      |
+| @ConditionalOnProperty       | 当前jvm是否包含某个系统属性为某个值        |
+| @ConditionalOnWebApplication | 当前spring context是否是web应用程序 |
+| @ConditionalOnExpression     | SpEL                       |
 
 当@ConditionalOnBean和@ConditionalOnMissingBean放置在@Bean方法上时，目标类型默认为该方法的返回类型，如下面的示例所示：
 
@@ -715,7 +715,7 @@ public class MyImportBeanDefinitionRegistrar implements ImportBeanDefinitionRegi
 @Component
 public class PersonBeanRegiser implements BeanFactoryAware {
     private BeanFactory beanFactory;
-    
+
     @Override
     public void setBeanFactory(BeanFactory beanFactory) throws BeansException {
         this.beanFactory = beanFactory;
@@ -726,7 +726,7 @@ public class PersonBeanRegiser implements BeanFactoryAware {
         BeanDefinitionBuilder builder = BeanDefinitionBuilder.genericBeanDefinition(Person.class);
         builder.addPropertyValue("name", "张三");
         builder.addPropertyValue("age", 20);
-		// ioc容器DefaultListableBeanFactory实际上就是BeanDefinitionRegistry
+        // ioc容器DefaultListableBeanFactory实际上就是BeanDefinitionRegistry
         BeanDefinitionRegistry registry = (BeanDefinitionRegistry) this.beanFactory;
         registry.registerBeanDefinition("person", builder.getBeanDefinition());
     }   
@@ -884,4 +884,3 @@ org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
 ```
 
 当启动类被`@EnableAutoConfiguration`标注后(springboot主启动类注解自带),`AutoConfigurationImportSelector`会去尝试注册这些指定配置类的Bean, 这些Bean注册方法通常带有条件注解`@ComditionOnXXX`, 比如限制在包含某个类的时候才进行注册, 这也是为什么ioc实际注册的配置类并不是全部spring.factories下的内容, 这是SpringBoot实现自动装配的关键.
-

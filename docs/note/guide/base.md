@@ -729,7 +729,7 @@ public static void main(String[] args){
 
 ### HashMap
 
- JDK1.8 以后的 `HashMap` 在解决哈希冲突时有了较大的变化，当链表长度大于阈值（默认为 8,这个阈值为表示链表或红黑树大小的阈值,是常量）（将链表转换成红黑树前会判断，如果当前数组的长度小于 64，那么会选择先进行数组扩容，而不是转换为红黑树）时，将链表转化为红黑树，以减少搜索时间.
+ JDK1.8 的 `HashMap` 当链表长度大于阈值（默认为 8,这个阈值为表示链表或红黑树大小的阈值,是常量）时，将链表转化为红黑树（将链表转换成红黑树前会判断，如果当前数组的长度小于 64，那么会选择先进行数组扩容，而不是转换为红黑树），以减少搜索时间.
 
 | 名称              | 用途                                  |
 | --------------- | ----------------------------------- |
@@ -742,6 +742,14 @@ public static void main(String[] args){
 `threshold = capacity * loadFactor`
 
 > `HashMap` 可以存储 null 的 key 和 value，但 null 作为键只能有一个，null 作为值可以有多个
+
+**初始化与懒加载**
+
+当new一个新的HashMap的时候，不会立即对哈希数组进行初始化，只会设置负载因子. 而是在首次put元素的时候，通过resize()方法进行初始化。
+
+resize()中会设置默认的初始化容量DEFAULT_INITIAL_CAPACITY为16，扩容的阈值为0.75*16 = 12，即哈希桶数组中元素达到12个便进行扩容操作。
+
+最后创建容量为16的Node数组，并赋值给成员变量哈希桶table，即完成了HashMap的初始化操作。
 
 **自动扩容**
 
@@ -757,57 +765,13 @@ public static void main(String[] args){
 
 - 哈希桶数组中某个位置的节点为普通节点时，则执行链表扩容操作，在JDK1.8中，为了避免之前版本中并发扩容所导致的死链问题(头插法)，引入了高低位链表辅助进行扩容操作。
 
-**初始化与懒加载**
+**哈希计算**(避免冲突)
 
-初始化的时候只会设置默认的负载因子，并不会进行其他初始化的操作，在首次使用的时候才会进行初始化。
+JDK并没有直接使用Object的native方法返回的hashCode作为最终的哈希值，而是进行了二次加工(再哈希)。与ConcurrentHashMap的核心的计算逻辑类似，都是使用key对应的hashCode与其hashCode右移16位的结果进行异或操作(扰动函数，目的是将高位的特征融入到低位之中，降低哈希冲突的概率)。
 
-当new一个新的HashMap的时候，不会立即对哈希数组进行初始化，而是在首次put元素的时候，通过resize()方法进行初始化。
+**拉链表**(解决冲突)
 
-resize()中会设置默认的初始化容量DEFAULT_INITIAL_CAPACITY为16，扩容的阈值为0.75*16 = 12，即哈希桶数组中元素达到12个便进行扩容操作。
-
-最后创建容量为16的Node数组，并赋值给成员变量哈希桶table，即完成了HashMap的初始化操作。
-
-**哈希计算**
-
-哈希表以哈希命名，足以说明哈希计算在该数据结构中的重要程度。而在实现中，JDK并没有直接使用Object的native方法返回的hashCode作为最终的哈希值，而是进行了二次加工。
-
-该二次加工hash与ConcurrentHashMap有一点不同,  核心的计算逻辑相同，都是使用key对应的hashCode与其hashCode右移16位的结果进行异或操作。此处，将高16位与低16位进行异或的操作称之为扰动函数，目的是将高位的特征融入到低位之中，降低哈希冲突的概率。
-
-举个例子来理解下扰动函数的作用：
-
-```
-hashCode(key1) = 0000 0000 0000 1111 0000 0000 0000 0010
-hashCode(key2) = 0000 0000 0000 0000 0000 0000 0000 0010
-```
-
-若HashMap容量为4，在不使用扰动函数的情况下，key1与key2的hashCode注定会冲突（后两位相同，均为01）。
-
-经过扰动函数处理后，可见key1与key2 hashcode的后两位不同，上述的哈希冲突也就避免了。
-
-```
-hashCode(key1) ^ (hashCode(key1) >>> 16)
-0000 0000 0000 1111 0000 0000 0000 1101
-
-hashCode(key2) ^ (hashCode(key2) >>> 16)
-0000 0000 0000 0000 0000 0000 0000 0010
-```
-
-这种增益会随着HashMap容量的减少而增加。《An introduction to optimising a hashing strategy》文章中随机选取了哈希值不同的352个字符串，当HashMap的容量为2^9时，使用扰动函数可以减少10%的碰撞，可见扰动函数的必要性。
-
-此外，ConcurrentHashMap中经过扰乱函数处理之后，需要与HASH_BITS做与运算，HASH_BITS为0x7ffffff，即只有最高位为0，这样运算的结果使hashCode永远为正数。在ConcurrentHashMap中，预定义了几个特殊节点的hashCode，如：MOVED、TREEBIN、RESERVED，它们的hashCode均定义为负值。因此，将普通节点的hashCode限定为正数，也就是为了防止与这些特殊节点的hashCode产生冲突。
-
-> 通过哈希运算，可以将不同的输入值映射到指定的区间范围内，随之而来的是**哈希冲突**问题。考虑一个极端的case，假设所有的输入元素经过哈希运算之后，都映射到同一个哈希桶中，那么查询的复杂度将不再是O(1)，而是O(n)，相当于线性表的顺序遍历。因此，哈希冲突是影响哈希计算性能的重要因素之一。哈希冲突如何解决呢？主要从两个方面考虑，一方面是避免冲突，另一方面是在冲突时合理地解决冲突，尽可能提高查询效率。前者在上面的章节中已经进行介绍，即通过扰动函数来增加hashCode的随机性，避免冲突。针对后者，HashMap中给出了两种方案：拉链表与红黑树。
-
-①**拉链表**
-
-在JDK1.8之前，HashMap中是采用拉链表的方法来解决冲突，即当计算出的hashCode对应的桶上已经存在元素，但两者key不同时，会基于桶中已存在的元素拉出一条链表，将新元素链到已存在元素的前面。当查询存在冲突的哈希桶时，会顺序遍历冲突链上的元素。同一key的判断逻辑如下，先判断hash值是否相同，再比较key的地址或值是否相同。
-
-```
-if(p.hash == hash &&
-    ((k = p.key) == key || (key != null && key.equals(k))))
-```
-
-死链条:在JDK1.8之前，HashMap在并发场景下扩容时存在一个bug，形成死链，导致get该位置元素的时候，会死循环，使CPU利用率高居不下。这也说明了HashMap不适于用在高并发的场景，高并发应该优先考虑JUC中的ConcurrentHashMap。然而，精益求精的JDK开发者们并没有选择绕过问题，而是选择直面问题并解决它。在JDK1.8之中，引入了高低位链表（双端链表）。
+在JDK1.8之前，采用拉链表的方法来解决冲突，即当计算出的hashCode对应的桶上已经存在元素，但两者key不同时，会基于桶中已存在的元素拉出一条链表，将新元素链到已存在元素的前面。但在并发场景下扩容时存在一个bug，形成死链，导致get该位置元素的时候，会死循环，使CPU利用率高居不下，应该优先考虑JUC中的ConcurrentHashMap。然而JDK开发者们并没有选择绕过问题，而是选择直面问题并解决它。在JDK1.8之中，引入了高低位链表（双端链表）。
 
 什么是高低位链表呢？在扩容时，哈希桶数组buckets会扩容一倍，以容量为8的HashMap为例，原有容量8扩容至16，将[0, 7]称为低位，[8, 15]称为高位，低位对应loHead、loTail，高位对应hiHead、hiTail。
 
@@ -818,11 +782,9 @@ if(p.hash == hash &&
 
 ![](picture/高低链表.jpg)
 
-②**红黑树**
+**红黑树**
 
-在JDK1.8之中，HashMap引入了红黑树来处理哈希冲突问题，而不再是拉链表。那么为什么要引入红黑树来替代链表呢？虽然链表的插入性能是O(1)，但查询性能确是O(n)，当哈希冲突元素非常多时，这种查询性能是难以接受的。因此，在JDK1.8中，如果冲突链上的元素数量大于8，并且哈希桶数组的长度大于64时，会使用红黑树代替链表来解决哈希冲突，此时的节点会被封装成TreeNode而不再是Node（TreeNode其实继承了Node，以利用多态特性），使查询具备O(logn)的性能。
-
-这里简单地回顾一下红黑树，它是一种平衡的二叉树搜索树，类似地还有AVL树。两者核心的区别是AVL树追求“绝对平衡”，在插入、删除节点时，成本要高于红黑树，但也因此拥有了更好的查询性能，适用于读多写少的场景。然而，对于HashMap而言，读写操作其实难分伯仲，因此选择红黑树也算是在读写性能上的一种折中。
+在JDK1.8中，如果冲突链上的元素数量大于8，并且哈希桶数组的长度大于64时，会使用红黑树代替链表来解决哈希冲突，此时的节点会被封装成TreeNode而不再是Node（TreeNode其实继承了Node，以利用多态特性），使查询具备O(logn)的性能。
 
 **位运算相关**
 
@@ -907,7 +869,7 @@ BitMap通常用来去重 & 取两个集合的交集或并集等.
 
 ## IO
 
-**io模型**
+**IO模型**
 
 为了保证操作系统的稳定性和安全性，一个进程的地址空间划分为 **用户空间（User space）** 和 **内核空间（Kernel space ）** 。
 
@@ -1043,7 +1005,7 @@ SocketChannel socketChannel = SocketChannel.open();
 socketChannel.connect(new InetSocketAddress("localhost", 8000));
 String filename = "xxx.xx";
 FileChannel fileChannel = new FileInputStream(filename).getChannel();
-longstartTime=System.currentTimeMillis();
+long startTime=System.currentTimeMillis();
 long transferCount = fileChannel.transferTo(0, fileChannel.size(), socketChannel);
 System.out.println("发送的总的字节数=" + transferCount + " 耗时：" + (System.currentTimeMillis()-startTime));
 fileChannel.close();
@@ -1099,7 +1061,7 @@ Subreactor 将连接加入到连接队列进行监听,并创建handler进行后�
 
 应用场景广泛,  如Nginx主从Reactor多线程模型, Memcached主从多线程, Netty主从多线程模型.
 
-#### **Netty模型**
+#### Netty模型
 
 Netty主要对主从Reactor多线程模型进行了改造:
 

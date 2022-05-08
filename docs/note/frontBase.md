@@ -56,7 +56,7 @@ function updateEmailValue(e) {
 
 ```
 exports.add=function(a,b){
-	return a+b;
+    return a+b;
 }
 ```
 
@@ -92,11 +92,11 @@ console.log('Server running at http://127.0.0.1:8888/');
 ```
 var http = require('http');
 http.createServer(function (request, response) {
-	response.writeHead(200, {'Content-Type': 'text/plain'});
-	for(var i=0;i<10;i++){
-		response.write('Hello World\n');
-	}
-	response.end('');
+    response.writeHead(200, {'Content-Type': 'text/plain'});
+    for(var i=0;i<10;i++){
+        response.write('Hello World\n');
+    }
+    response.end('');
 }).listen(8888);
 // 终端打印如下信息
 console.log('Server running at http://127.0.0.1:8888/')
@@ -111,20 +111,18 @@ var http = require("http");
 var url = require("url");
 //创建服务，监听8888端口
 http.createServer(function (request, response) {
-	response.writeHead(200, {"Content-Type":"text/plain"});
-	var params = url.parse(request.url, true).query;
-	for (var key in params) {
-		response.write( key + " = " + params[key]);
-		response.write("\n");
-	}
-	response.end("");
+    response.writeHead(200, {"Content-Type":"text/plain"});
+    var params = url.parse(request.url, true).query;
+    for (var key in params) {
+        response.write( key + " = " + params[key]);
+        response.write("\n");
+    }
+    response.end("");
 }).listen(8888);
 console.log("Server running at http://127.0.0.1:8888 ")
 ```
 
 访问 http://127.0.0.1:8888?id=123&name=itcast
-
-
 
 # 部分引入和部分获取
 
@@ -166,7 +164,6 @@ export function getHome(params) {
 
 ```
       const { data, data: { list } } = await search({ pageNumber: this.page, goodsCategoryId: categoryId, keyword: this.keyword, orderBy: this.orderBy })
-
 ```
 
 # 加密解密
@@ -197,16 +194,14 @@ export function decrypt(txt) {
 }
 ```
 
-
-
 # cookie-localstorage-sessionstorage
 
-| 特性           | Cookie                                                       | localStorage                                                | sessionStorage                               |
-| -------------- | ------------------------------------------------------------ | ----------------------------------------------------------- | -------------------------------------------- |
-| 数据的生命期   | 一般由服务器生成，可设置失效时间。如果在浏览器端生成Cookie，默认是关闭浏览器后失效 | 除非被清除，否则永久保存                                    | 仅在当前会话下有效，关闭页面或浏览器后被清除 |
-| 存放数据大小   | 4K左右                                                       | 一般为5MB                                                   |                                              |
-| 与服务器端通信 | 每次都会携带在HTTP头中，如果使用cookie保存过多数据会带来性能问题 | 仅在客户端（即浏览器）中保存，不参与和服务器的通信          |                                              |
-| 易用性         | 需要程序员自己封装，源生的Cookie接口不友好                   | 源生接口可以接受，亦可再次封装来对Object和Array有更好的支持 |                                              |
+| 特性      | Cookie                                       | localStorage                        | sessionStorage         |
+| ------- | -------------------------------------------- | ----------------------------------- | ---------------------- |
+| 数据的生命期  | 一般由服务器生成，可设置失效时间。如果在浏览器端生成Cookie，默认是关闭浏览器后失效 | 除非被清除，否则永久保存                        | 仅在当前会话下有效，关闭页面或浏览器后被清除 |
+| 存放数据大小  | 4K左右                                         | 一般为5MB                              |                        |
+| 与服务器端通信 | 每次都会携带在HTTP头中，如果使用cookie保存过多数据会带来性能问题        | 仅在客户端（即浏览器）中保存，不参与和服务器的通信           |                        |
+| 易用性     | 需要程序员自己封装，源生的Cookie接口不友好                     | 源生接口可以接受，亦可再次封装来对Object和Array有更好的支持 |                        |
 
 应用场景
 
@@ -231,10 +226,6 @@ Cookies.get("username");
 Cookies.set(TokenKey, token)
 ```
 
-
-
-
-
 # 图片
 
 ## file-saver图片下载
@@ -251,8 +242,8 @@ saveAs(this.picture.url, this.pictureName);
 
 ```
 <div id="previewBox" ref="previewBox">
-	<div class="preview" ref="preview" />
-	<div :style="textStyle">{{ textConfig.inputText }}</div>
+    <div class="preview" ref="preview" />
+    <div :style="textStyle">{{ textConfig.inputText }}</div>
 </div>
 
  <vue-cropper
@@ -268,7 +259,7 @@ saveAs(this.picture.url, this.pictureName);
 />
 
 
-		//合成图片并下载
+        //合成图片并下载
       html2canvas(document.getElementById('previewBox'), {
         useCORS: true,
       }).then((canvas) => {
@@ -280,7 +271,7 @@ saveAs(this.picture.url, this.pictureName);
 处理函数
 
 ```
-	flipX() {
+    flipX() {
       const dom = this.$refs.flipX;
       let scale = dom.getAttribute('data-scale');
       scale = scale ? -scale : -1;
@@ -311,8 +302,6 @@ saveAs(this.picture.url, this.pictureName);
     }
 ```
 
-
-
 # 网页中加入播放器
 
 **Aplayer**官网文档：https://aplayer.js.org/#/
@@ -329,32 +318,32 @@ saveAs(this.picture.url, this.pictureName);
 ```
 <!DOCTYPE html>
 <html>
-	<head>
-		<meta charset="utf-8" />
-		<title></title>	
-	<!-- require APlayer -->
-	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/aplayer/dist/APlayer.min.css">
-	<script src="https://cdn.jsdelivr.net/npm/aplayer/dist/APlayer.min.js"></script>
-	<!-- require MetingJS -->
-	<script src="https://cdn.jsdelivr.net/npm/meting@2.0.1/dist/Meting.min.js"></script>
-	</head>
-	<body>
+    <head>
+        <meta charset="utf-8" />
+        <title></title>    
+    <!-- require APlayer -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/aplayer/dist/APlayer.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/aplayer/dist/APlayer.min.js"></script>
+    <!-- require MetingJS -->
+    <script src="https://cdn.jsdelivr.net/npm/meting@2.0.1/dist/Meting.min.js"></script>
+    </head>
+    <body>
 
 <meting-js 
-	server="netease" 
-	type="playlist" 
-	id="60198"
-	fixed="true" 
-	autoplay="true"
-	loop="all"
-	order="random"
-	preload="auto"
-	list-folded="ture"
-	list-max-height="500px"
-	lrc-type="1">
+    server="netease" 
+    type="playlist" 
+    id="60198"
+    fixed="true" 
+    autoplay="true"
+    loop="all"
+    order="random"
+    preload="auto"
+    list-folded="ture"
+    list-max-height="500px"
+    lrc-type="1">
 </meting-js>
 
-	</body>
+    </body>
 </html>
 解析:
  解析：server="netease" type="playlist" id="60198"
@@ -365,25 +354,25 @@ server指音乐平台，netease指网易云音乐， type类型，playlist列表
 
 详细参数
 
-| 选项                        | 默认        | 描述                                                         |
-| --------------------------- | ----------- | ------------------------------------------------------------ |
-| id(编号)                    | **require** | 歌曲ID /播放列表ID /专辑ID /搜索关键字                       |
-| server(平台)                | **require** | 音乐平台：`netease`，`tencent`，`kugou`，`xiami`，`baidu`    |
-| type（类型）                | **require** | `song`，`playlist`，`album`，`search`，`artist`              |
-| auto（支持类种 类）         | options     | 音乐链接，支持：`netease`，`tencent`，`xiami`                |
-| fixed（固定模式）           | `false`     | 启用固定模式，默认`false`                                    |
-| mini（迷你模式）            | `false`     | 启用迷你模式,默认`false`                                     |
-| autoplay（自动播放）        | `false`     | 音频自动播放，默认`false`                                    |
-| theme(主题颜色)             | `#2980b9`   | 默认`#2980b9`                                                |
-| loop（循环）                | `all`       | 播放器循环播放，值：“all”，one”，“none”                      |
-| order(顺序)                 | `list`      | 播放器播放顺序，值：“list”，“random”                         |
-| preload(加载)               | `auto`      | 值：“none”，“metadata”，“'auto”                              |
-| volume（声量）              | `0.7`       | 默认音量，请注意播放器会记住用户设置，用户自己设置音量后默认音量将不起作用 |
-| mutex（限制）               | `true`      | 防止同时播放多个玩家，在该玩家开始播放时暂停其他玩家         |
-| lrc-type（歌词）            | `0`         | 歌词显示                                                     |
+| 选项                    | 默认          | 描述                                               |
+| --------------------- | ----------- | ------------------------------------------------ |
+| id(编号)                | **require** | 歌曲ID /播放列表ID /专辑ID /搜索关键字                        |
+| server(平台)            | **require** | 音乐平台：`netease`，`tencent`，`kugou`，`xiami`，`baidu` |
+| type（类型）              | **require** | `song`，`playlist`，`album`，`search`，`artist`      |
+| auto（支持类种 类）          | options     | 音乐链接，支持：`netease`，`tencent`，`xiami`              |
+| fixed（固定模式）           | `false`     | 启用固定模式，默认`false`                                 |
+| mini（迷你模式）            | `false`     | 启用迷你模式,默认`false`                                 |
+| autoplay（自动播放）        | `false`     | 音频自动播放，默认`false`                                 |
+| theme(主题颜色)           | `#2980b9`   | 默认`#2980b9`                                      |
+| loop（循环）              | `all`       | 播放器循环播放，值：“all”，one”，“none”                      |
+| order(顺序)             | `list`      | 播放器播放顺序，值：“list”，“random”                        |
+| preload(加载)           | `auto`      | 值：“none”，“metadata”，“'auto”                      |
+| volume（声量）            | `0.7`       | 默认音量，请注意播放器会记住用户设置，用户自己设置音量后默认音量将不起作用            |
+| mutex（限制）             | `true`      | 防止同时播放多个玩家，在该玩家开始播放时暂停其他玩家                       |
+| lrc-type（歌词）          | `0`         | 歌词显示                                             |
 | list-folded（列表折叠）     | `false`     | 指示列表是否应该首先折叠                                     |
-| list-max-height（最大高度） | `340px`     | 列出最大高度                                                 |
-| storage-name（储存名称）    | `metingjs`  | 存储播放器设置的localStorage键                               |
+| list-max-height（最大高度） | `340px`     | 列出最大高度                                           |
+| storage-name（储存名称）    | `metingjs`  | 存储播放器设置的localStorage键                            |
 
 注意:有些歌曲列表id无法获取,比如网易云的我喜欢的音乐需要登录才能获取.
 
@@ -444,8 +433,6 @@ instance.destroy()
 instance = null
 ```
 
-
-
 # ajax
 
 Ajax 是一种在无需重新加载整个网页的情况下，能够更新部分网页的技术。
@@ -456,9 +443,9 @@ Ajax 是一种在无需重新加载整个网页的情况下，能够更新部分
 //创建核心对象
 var xmlhttp;
 if (window.XMLHttpRequest){// code for IE7+, Firefox, Chrome, Opera, Safari
-	xmlhttp=new XMLHttpRequest();
+    xmlhttp=new XMLHttpRequest();
 }else{// code for IE6, IE5
-	xmlhttp=new ActiveXObject("Microsoft.XMLHTTP");
+    xmlhttp=new ActiveXObject("Microsoft.XMLHTTP");
 }
 //建立连接
 //参数：
@@ -473,12 +460,12 @@ xmlhttp.send();
 //接受并处理来自服务器的响应结果,获取方式 ：xmlhttp.responseText
 xmlhttp.onreadystatechange=function()
 {
-	//判断readyState就绪状态是否为4，判断status响应状态码是否为200
-	if (xmlhttp.readyState==4 && xmlhttp.status==200){
-	    //获取服务器的响应结果
-	    var responseText = xmlhttp.responseText;
-	    alert(responseText);
-	}
+    //判断readyState就绪状态是否为4，判断status响应状态码是否为200
+    if (xmlhttp.readyState==4 && xmlhttp.status==200){
+        //获取服务器的响应结果
+        var responseText = xmlhttp.responseText;
+        alert(responseText);
+    }
 }
 ```
 
@@ -488,18 +475,18 @@ JQuery方式：
 
 ```
 $.ajax({
-	url:"ajaxServlet1111" , 		// 请求路径
-	type:"POST" , 					//请求方式
-	data: "username=jack&age=23",	//请求参数
-	data:{"username":"jack","age":23},
-	success:function (data) {
-	    alert(data);
-	},						//响应成功后的回调函数
-	error:function () {
-	    alert("出错啦...")
-	},			//表示如果请求响应出现错误，会执行的回调函数
-	dataType:"text"//设置接受到的响应数据的格式
-	});
+    url:"ajaxServlet1111" ,         // 请求路径
+    type:"POST" ,                     //请求方式
+    data: "username=jack&age=23",    //请求参数
+    data:{"username":"jack","age":23},
+    success:function (data) {
+        alert(data);
+    },                        //响应成功后的回调函数
+    error:function () {
+        alert("出错啦...")
+    },            //表示如果请求响应出现错误，会执行的回调函数
+    dataType:"text"//设置接受到的响应数据的格式
+    });
 ```
 
 2.$.get()
@@ -545,7 +532,6 @@ InputStream inputStream = IOUtils.toInputStream(content);
 //输出文件
 FileOutputStream fileOutputStream = new FileOutputStream(new File("d:/test1.html"));
 int copy = IOUtils.copy(inputStream, fileOutputStream);
-
 ```
 
 模板字符串静态化
@@ -570,8 +556,6 @@ InputStream inputStream = IOUtils.toInputStream(content);
 FileOutputStream fileOutputStream = new FileOutputStream(new File("d:/test1.html"));
 int copy = IOUtils.copy(inputStream, fileOutputStream);
 ```
-
-
 
 # xml
 
@@ -610,11 +594,11 @@ Student.dtd
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE students SYSTEM "student.dtd">
 <students>
-	<student number="itcast_0001">
-		<name>tom</name>
-		<age>18</age>
-		<sex>male</sex>
-	</student>	
+    <student number="itcast_0001">
+        <name>tom</name>
+        <age>18</age>
+        <sex>male</sex>
+    </student>    
 </students>
 ```
 
@@ -675,14 +659,14 @@ Student.xsd
 ```
 <?xml version="1.0" encoding="UTF-8" ?>
  <students   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
- 			 xmlns="http://www.itcast.cn/xml" 
- 		   xsi:schemaLocation="http://www.itcast.cn/xml  student.xsd"
- 		    >
- 	<student number="heima_0001">
- 		<name>tom</name>
- 		<age>18</age>
- 		<sex>male</sex>
- 	</student>	 
+              xmlns="http://www.itcast.cn/xml" 
+            xsi:schemaLocation="http://www.itcast.cn/xml  student.xsd"
+             >
+     <student number="heima_0001">
+         <name>tom</name>
+         <age>18</age>
+         <sex>male</sex>
+     </student>     
  </students>
 ```
 
@@ -754,7 +738,7 @@ String html():获取标签体的所有内容(包括字标签的字符串内容)
 selector查询方式
 
 ```
-Elements	select​(String cssQuery)
+Elements    select​(String cssQuery)
 ```
 
 **XPath**
@@ -772,13 +756,12 @@ System.out.println(elements.size());
 //查询所有student标签
 List<JXNode> jxNodes = jxDocument.selN("//student");
 for (JXNode jxNode : jxNodes) {
-	System.out.println(jxNode);
+    System.out.println(jxNode);
 }
 //查询所有student标签下的name标签
 List<JXNode> jxNodes2 = jxDocument.selN("//student/name");
 //查询student标签下带有id属性的name标签
 List<JXNode> jxNodes3 = jxDocument.selN("//student/name[@id]");
-//查询student标签下带有id属性的name标签 并且id属性值为itcast		
+//查询student标签下带有id属性的name标签 并且id属性值为itcast        
 List<JXNode> jxNodes4 = jxDocument.selN("//student/name[@id='itcast']");
 ```
-
