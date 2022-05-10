@@ -187,11 +187,11 @@ SDS是可以修改的字符串，内部结构实现上类似于 Java 的 ArrayLi
 
 如果是整数, 则使用int编码; 当Redis字符串的长度小于等于44时, 使用embstr编码; 当字符串长度超过44时, 使用raw编码存储. 因为内存分配器最多分配64字节空间, redisObject固定占用16字节, SDS固定属性占用3字节, 字符串结尾符占用1字节, 还剩下最多64-20=44字节, 超过44则为大字符串, 需要采用raw形式.
 
-embstr与raw的区别为: embstr将 RedisObject 和 SDS 对 象连续存在一起，使用 malloc 方法一次分配。而 raw 存储形式不一样，它需要两次 malloc，两个对象结构在内存地址上一般是不连续的。
+embstr与raw的区别为: embstr将 RedisObject 和 SDS 对 象连续存在一起, 使用 malloc 方法一次分配; 而 raw 存储形式不一样, 它需要两次 malloc, 两个对象结构在内存地址上一般是不连续的.
 
 > 对于浮点数, redis会转换为字符串存储, 但计算时还是对浮点数操作, 如INCRBYFLOAT
 
-> int和embstr编码在特定条件下回转换为raw, 另外embstr为只读不支持修改, 如果要修改embstr编码的字符串, 需要转换为raw
+> int和embstr编码在特定条件下会转换为raw, 另外embstr为只读不支持修改, 如果要修改embstr编码的字符串, 需要转换为raw
 
 每次追加字符串前通过free属性判断是否需要扩容, 杜绝c字符串的缓冲区溢出问题.
 
@@ -282,7 +282,7 @@ rehash过程:
 
 > 当Hash表中的元素个数等于table指针第一维数组的长度(桶数)的时候，就会开始两倍扩容.
 > 
-> 再bgsave时为了减少内存页的过多分离，redis不会去扩容。但如果hash表的元素个数已经到达了第一维数组长度的5倍的时候，就会强制扩容，不管你是否在持久化。
+> 在bgsave时为了减少内存页的过多分离，redis不会去扩容。但如果hash表的元素个数已经到达了第一维数组长度的5倍的时候，就会强制扩容，不管你是否在持久化。
 > 
 > 当元素个数低于数组长度的10%，开始缩容并且缩容不考虑是否在做redis持久化。
 
@@ -338,50 +338,6 @@ skiplist中每个节点通过链表连接, 并包含一个后退指针指向前�
 > zrevrange  myZset 0 1                         #逆序输出
 1) "value1"
 2) "value2"
-```
-
-**6.bitmap**
-
- bitmap 存储的是连续的二进制数字（0 和 1），通过 bitmap, 只需要一个 bit 位来表示某个元素对应的值或者状态，key 就是对应元素本身 。
-
-相关命令:`setbit,getbit,bitcount,bitop` 
-
-```xml
-# bitop 对一个或多个保存二进制位的字符串 key 进行位元操作，并将结果保存到 destkey 上。
-# 支持 AND 、 OR 、 NOT 、 XOR 这四种操作中的任意一种参数BITOP operation destkey key [key ...]
-```
-
-应用场景: 适合需要保存状态信息（比如是否签到、是否登录...）并需要进一步对这些信息进行分析的场景。比如用户签到情况、活跃用户情况、用户行为统计（比如是否点赞过某个视频）。
-
-```
-# setbit 会返回之前位的值（默认是 0）
-> setbit mykey 7 1
-(integer) 0
-> bitcount mykey  #统计被被设置为 1 的位的数量
-(integer) 1
-
-#使用场景一：用户行为分析 很多网站为了分析你的喜好，需要研究你点赞过的内容。
-# 记录你喜欢过 001 号小姐姐
-127.0.0.1:6379> setbit beauty_girl_001 uid 1
-
-#使用场景二：统计活跃用户
-# 使用时间作为 redis key，然后用户ID为map key，如果当日活跃过就设1(暂且约定，统计时间内只要有一天在线就称为活跃)
-127.0.0.1:6379> setbit 20210308 1 1
-(integer) 0
-127.0.0.1:6379> setbit 20210308 2 1
-(integer) 0
-127.0.0.1:6379> setbit 20210309 1 1
-(integer) 0
-//统计两天都活跃的人
-127.0.0.1:6379> bitop and desk1 20210308 20210309
-(integer) 1
-127.0.0.1:6379> bitcount desk1
-(integer) 1
-//统计两天内活跃了的人
-127.0.0.1:6379> bitop or desk2 20210308 20210309
-(integer) 1
-127.0.0.1:6379> bitcount desk2
-(integer) 2
 ```
 
 ## 持久化
@@ -476,7 +432,7 @@ rdb保存的文件是dump.rdb, 一个完整RDB文件包含五个部分:
 
 4.EOF: 常量, 标识文件正文内容(所有数据库的键值对)的结束, 1字节.
 
-5.check_sum: 前面四部分计算后的校验和, 是8字节无符号整数. 务器在载入 RDB 文件时， 会将载入数据所计算出的校验和与 `check_sum` 所记录的校验和进行对比， 以此来检查 RDB 文件是否有出错或者损坏的情况出现。
+5.check_sum: 前面四部分计算后的校验和, 是8字节无符号整数. 服务器在载入 RDB 文件时， 会将载入数据所计算出的校验和与 `check_sum` 所记录的校验和进行对比， 以此来检查 RDB 文件是否有出错或者损坏的情况出现。
 
 ### AOF
 
@@ -498,8 +454,12 @@ AOF持久化功能分为三个阶段:
 
 如果一个事件循环中执行了写命令，Redis 就会将该命令写入到**内存缓存** `server.aof_buf` 中(redis单线程串行写入)，
 
-```
-struct redisServer{    //...    sdf aof_buf;     //    aof缓冲区    //...}
+```c
+struct redisServer{    
+    //...    
+    sdf aof_buf;      //    aof缓冲区    
+    //...
+}
 ```
 
 然后再根据 `appendfsync` 配置来决定何时将其同步到硬盘中的 AOF 文件(fsync命令, 独立线程**异步**刷回, 真正的磁盘IO, 耗时!)。
@@ -522,7 +482,8 @@ struct redisServer{    //...    sdf aof_buf;     //    aof缓冲区    //...}
 
 ```text
 appendfsync always    #每个事件循环都会同步AOF文件,这样会严重降低Redis的速度
-appendfsync everysec  #每个事件循环判断距离上次同步aof文件是否超过1s, 如果是, 则同步AOF文件appendfsync no        #让操作系统决定何时进行同步
+appendfsync everysec  #每个事件循环判断距离上次同步aof文件是否超过1s, 如果是, 则同步AOF文件
+appendfsync no        #让操作系统决定何时进行同步
 ```
 
 AOF 日志在长期的运行过程中会变的无比庞大，数据库**重启时(空的redis实例)需要加载 AOF 日志进行指令重放(顺序执行所有指令)**，这个时间就会无比漫长。 所以需要定期进行 AOF 重写，给 AOF 日志进行瘦身。
@@ -573,7 +534,7 @@ Redis通过分别对select、epoll、evport、kqueue等I/O多路复用函数库�
 
 Redis服务器中的一些操作(如serverCron函数)需要在给定的时间点执行, 而时间事件就是服务器对这类定时操作的抽象.
 
-时间事件分为定时事件(指定时间之后执行一次)与周期性事件(每隔指定事件执行一次)
+时间事件分为定时事件(指定时间之后执行一次)与周期性事件(每隔指定时间执行一次)
 
 每个时间事件由三个属性组成:
 
@@ -794,7 +755,7 @@ filter.put(1);
 //当 mightContain() 方法返回 true 时，我们可以 99％确定该元素在过滤器中，当过滤器返回 false 时，我们可以 100％确定该元素不存在于过滤器中。
 ```
 
-3.Rdission
+3.Redisson
 
 ```
 Config config = new Config();
@@ -859,7 +820,7 @@ Redis v4.0 之后有了 Module（模块/插件） 功能，Redis Modules 让 Red
 
 ## 复制
 
-客户端通过从服务器向主服务器发送SLAVEOF命令可让从服务器去复制主服务器, 如
+客户端通过向从服务器发送SLAVEOF命令可让从服务器发起SYNC去复制主服务器, 如
 
 ```
 127.0.0.1:12345> SLAVEOF 127.0.0.1 6379
@@ -924,7 +885,7 @@ Redis v4.0 之后有了 Module（模块/插件） 功能，Redis Modules 让 Red
 
 2.回复
 
-如果主服务器返回`+FULLRESYNC <runid> <offset>`回复,  表示将执行完整重同步, 其中runid为此主服务器的运行ID, 让从服务器保存, offset为此主服务器的复制偏移量, 从服务器会将这个值最为自己的初始化偏移量.
+如果主服务器返回`+FULLRESYNC <runid> <offset>`回复,  表示将执行完整重同步, 其中runid为此主服务器的运行ID, 让从服务器保存, offset为此主服务器的复制偏移量, 从服务器会将这个值作为自己的初始化偏移量.
 
 如果主服务器返回`+CONTINUE`回复, 表示将执行部分重同步, 从服务器等待主服务器发送缺少的部分数据. 
 
@@ -982,14 +943,28 @@ SLAVEOF为异步命令, 设置完属性后, 从服务器向客户端返回OK, �
 
 主服务器接收到命令后, 将端口号保存在其对应客户端状态的slave_listening_port属性中
 
-```
-struct redisClient{    //...    int slave_listening_port;}
+```c
+struct redisClient{    
+    //...    
+    int slave_listening_port;
+}
 ```
 
 该端口唯一的作用为在主服务器执行`INFO replication`命令时打印从服务器的端口号:
 
-```
-127.0.0.1:6379> INFO replication# Replicationrole:masterconnected_slaves:1slave0:ip=127.0.0.1,port=12345,status=online,offset=1289,lag=1master_repl_offset:1289repl_backlog_active:1repl_backlog_size:1048576repl_backlog_first_byte_offset:2repl_backlog_histlen:1288
+```apacheconf
+127.0.0.1:6379> INFO replication
+# Replicationrole:
+masterconnected_slaves:1
+slave0:ip=127.0.0.1,
+port=12345,
+status=online,
+offset=1289,
+lag=1master_repl_offset:1289
+repl_backlog_active:1
+repl_backlog_size:1048576
+repl_backlog_first_byte_offset:2
+repl_backlog_histlen:1288
 ```
 
 6.同步与命令传播
@@ -1014,8 +989,9 @@ slave0:ip=127.0.0.1,port=12345,status=online,offset=1289,**lag=1**
 
 比如主服务器有如下配置:
 
-```
-min-slaves-to-write 3min-slaves-max-lag 10
+```ini
+min-slaves-to-write 3
+min-slaves-max-lag 10
 ```
 
 表示在从服务器少于3个或三个从服务器lag延迟都大于等于10s时, 主服务器将拒绝执行写命令. **可防止主服务器在不安全的情况下执行写命令**([脑裂](#脑裂)).
@@ -1030,7 +1006,7 @@ min-slaves-to-write 3min-slaves-max-lag 10
 
 ## Sentinel
 
-Redis的高可用，主要通过主从复制机制以及Sentinel集群来实现
+Redis的高可用, 可通过主从复制机制以及Sentinel集群来实现
 
 Sentinel 由一个或多个Sentinel实例组成的哨兵系统，可以监视任意多个主从服务器，并完成Failover的操作。Sentinal其实是一个运行在特殊模式下的Redis服务器，运行期间，会与各服务器建立网络连接，以检测服务器的状态；同时会与其它Sentinel服务器创建连接，完成信息交换，比如发现某个主服务器心跳异常时，会互相询问心跳结果，当超过一定数量时即可判定为客观下线；一旦主服务器被判定为客观下线状态，那么Sentinel集群会通过raft协议选举，选出一个Leader来执行故障转移Failover。
 
@@ -1070,69 +1046,72 @@ sentinel之间通过redis master 感知其他sentinel的存在
 redis-sentinel /path/to/your/sentinel.conf或redis-server /path/to/your/sentinel.conf --sentinel
 ```
 
-当一个Sentinel 启动时，它需要执行以下步骤：
-1）初始化服务器。
-2）将普通 Redis 服务器使用的代码替换成 Sentinel 专用代码。
-3）初始化Sentinel状态。
-4）根据给定的配置文件，初始化Sentinel的实例中监视masters列表(字典,键为ip:port, 值为实例结构)。
-5）创建连向主服务器的网络连接。
+当一个Sentinel 启动时, 需要执行以下步骤：
+1）初始化服务器;
+2）将普通 Redis 服务器使用的代码替换成 Sentinel 专用代码;
+3）初始化Sentinel状态;
+4）根据给定的配置文件, 初始化Sentinel监视的masters列表(字典,键为ip:port, 值为实例结构);
+5）创建连向主服务器的网络连接，包括命令连接和订阅连接(主服务器的`__sentinel__:hello`频道).
 
 2.获取主服务器信息
 
-Sentinel默认每10s向被监视的主服务器发送INFO命令(不加参数会返回Server和Replication信息), 分析其信息更新master实例. 根据replication信息又更新master实例中监视slaves列表(字典,键为ip:port, 值为实例结构)
+Sentinel默认每10s向被监视的主服务器发送INFO命令(不加参数会返回Server和Replication信息), 分析Server信息更新Sentinel状态的主服务器实例结构; 分析Replication信息更新主服务器实例结构中的slaves列表(字典,键为ip:port, 值为实例结构)
 
 3.获取从服务器信息
 
-Sentinel默认每10s向被监视的主服务器发送INFO命令(不加参数会返回Server和Replication信息), 分析其信息更新slave实例. 
+Sentinel对被监视的主服务器实例结构的slaves中的从服务器也会建立命令连接和订阅连接(也是`__sentinel__:hello`频道), 默认每10s向被监视的从服务器发送INFO命令, 分析Replication信息更新从服务器实例详细信息. 
 
 4.向主从服务器发送信息
 
-Sentinel默认每2s向每个被监视的主从服务器发送PUBLISH命令, 建立订阅连接
+Sentinel默认每2s通过命令连接向每个被监视的主从服务器发送PUBLISH命令, 向服务器的`__sentinel__:hello`频道发送一条**包含Sentinel本身信息和主服务器信息的消息**.
 
 5.接收来自主从服务器的频道信息
 
 当Sentinel与一个主或从服务器建立订阅连接后, Sentinel通过订阅连接向其发送SUBSCRIBE命令接收频道消息.
 
-**对于监视同一个服务器的多个Sentinel, 一个Sentinel发送的信息会被其他Sentinel收到**, 用于更新其他Sentinel对发送信息的Sentinel的认知和对被监视服务器的认知,
+> 也就是说, 对于每一个与Sentinel建立连接的服务器, Sentinel既通过命令连接向服务器的`__sentinel:hello`频道发送消息, 又通过订阅连接从服务器的`__sentinel__:hello`频道接收消息( 主要是为了分享master的认证和暴露自己给其他Sentinel )
+
+因此, 对于监视同一个服务器的多个Sentinel, 一个Sentinel发送的信息会被其他Sentinel收到(因为其他Sentinel也订阅了服务器的频道~), 用于更新其他Sentinel对发送信息的Sentinel的认知和对被监视服务器的认知;
+
+如果收到消息的Sentinel发现消息中记录的Sentinel信息表示的是自己, 则将该条消息丢弃; 否则将消息中记录的主服务器的信息更新到Sentinel状态的主服务器实例结构. 此外, 还会进行如下操作:
 
 ①更新sentinels字典
 
-Sentinel为主服务器创建的实例结构中的sentinels列表(字典)保存了所有监视该主服务器的Sentinel信息
-
-当一个Sentinel接收到其他Sentinel发来的信息时, 目标Sentinel会从信息中分析提取与源Sentinel相关的参数和与原Sentinel正在监视的主服务器相关的参数. 然后根据自己的Sentinel状态的masters列表中查找对应的主服务器实例, 更新该主服务器实例的sentinels列表中对应的的源Sentinel实例(如果没有则新建)
+Sentinel状态中的主服务器实例结构中的sentinels列表(字典)保存了所有监视该主服务器的Sentinel信息(包括本身). 当一个Sentinel接收到其他Sentinel发来的信息时, 目标Sentinel会从信息中分析提取与源Sentinel相关的参数和与原Sentinel正在监视的主服务器相关的参数. 然后根据自己的Sentinel状态的masters列表中查找对应的主服务器实例, 更新该主服务器实例的sentinels列表中对应的的源Sentinel实例(如果没有则新建)
 
 ②创建连向其他Sentinel的命令连接
 
-当Sentinel通过频道发现一个新的Sentinel时, 不仅会为新的Sentinel在sentinels列表中创建实例, 还会创建一个连向新Sentinel的命令连接, 而新Sentinel也同样会创建连向这个Sentinel的命令连接, 最终监视同一主服务器的多个Sentinel将形成相互连接的网络.
+当Sentinel通过频道发现一个新的Sentinel时, 不仅会为新的Sentinel在sentinels列表中创建实例, 还会创建一个连向新Sentinel的命令连接, 而新Sentinel也同样会创建连向这个Sentinel的命令连接, 最终监视同一主服务器的多个Sentinel将形成相互连接的网络. ( 在检查下线时将使用到该连接 )
 
 > 注意Sentinel在连接主或从服务器时会同时创建命令连接和订阅连接, 但连接其他Sentinel时, 只会创建命令连接. 因为Sentinel需要通过接收主或从服务器发来的频道信息来发现新Sentinel所以才建立订阅连接
 
 6.检测主观下线状态
 
-Sentinel默认每秒向所有与它创建了命令连接的实例(主从服务器与其他Sentinel)发送PING命令, 并通过实例返回的PING命令回复来判断是否在线.
+Sentinel默认每秒向所有与它创建了命令连接的实例(主从服务器与其他Sentinel)发送PING命令, 并通过实例返回的对PING命令回复来判断是否在线.
 
-Sentinel配置文件中的down-after-milliseconds选项指定了Sentinel判断实例进入主观下线所需的时间长度, 如果在指定毫秒内实例向Sentinel返回无效回复, 则Sentinel会修改这个实例对应的结构, 标识其主观下线.
+Sentinel配置文件中的down-after-milliseconds选项指定了Sentinel判断实例进入主观下线所需的时间长度, 如果在指定毫秒内实例向Sentinel返回无效回复或直接超时, 则Sentinel会修改这个实例对应的结构flags, 标识其主观下线.
 
 7.检测客观下线状态
 
-当Sentinel将一个主服务器判断为主观下线之后, 会向同样监视这一主服务器的其他Sentinel询问该主服务器是否下线(is-master-down-by-addr命令), 其他Sentinel接收到询问后根据命令参数检查主服务器是否下线, 并向源Sentinel返回一个包含三个参数的Multi Bulk回复.
+当Sentinel将一个主服务器判断为主观下线之后, 会向同样监视这一主服务器的其他Sentinel询问该主服务器是否下线(is-master-down-by-addr命令, 该命令还会被用于Leader选举 ), 其他Sentinel接收到询问后根据命令参数检查主服务器是否下线, 并向源Sentinel返回一个is-master-down-by-addr回复.
 
-当Sentinel从其他Sentinel接收到足够数量的已下线判断后, 会将其标识为客观下线状态.
+当Sentinel从其他Sentinel接收到足够数量的已下线判断后, 会修改这个实例对应的结构flags, 将其标识为客观下线状态.
 
-8.选举领头Sentinel
+8.选举Sentinel Leader
 
-当一个主服务器被判断为客观下线时, 监视这个主服务器的各个Sentinel会选出一个Sentinel领头, 由其对下线主服务器执行故障转移. 选举规则如下(基于Raft):
+当一个主服务器被判断为客观下线时, 监视这个主服务器的各个Sentinel会基于Raft选出一个Sentinel Leader, 由其对下线主服务器执行故障转移, 重要的几点有:
 
-①所有监视同一个主服务器的多个在线Sentinel都有被选为领头的资格;
+①每次选举之后, 不论是否成功, 所有Sentinel的配置纪元(configuration epoch)的值都会自增一次; 在一个配置纪元里面, 所有Sentinel都有一次将某个Sentinel设置为局部领头Sentinel的机会(投票);
+②每个发现主服务器进人客观下线的Sentinel都会要求其他Sentinel将自己设置为局部领头 Sentinel. 当is-master-down-by-addr命令中的leader_runid参数不是*符号而是源Sentinel的run_id时, 表示源Sentinel要求目标Sentinel将前者设置为后者的局部领头 Sentinel(拉票);
+③源Sentinel在接收到目标Sentinel返回的is-master-down-by-addr命令回复之后, 如果leader_epoch参数和自己的配置纪元是否相同, 且 leader_runid参数与自己的run_id相同，那么表示目标Sentinel将源Sentinel设置成了局部领头Sentinel.(拉票成功)
 
-②每次进行领头Sentinel选举之后，不论选举是否成功，所有Sentinel的配置纪元（configuration epoch）的值都会自增一次;
-③在一个配置纪元里面，所有Sentinel都有一次将某个Sentinel设置为局部领头Sentinel的机会(投票);
-④每个发现主服务器进人客观下线的Sentinel都会要求其他Sentinel将自己设置为局部领头 Sentinel(拉票)。当一个Sentinel（源Sentinel）向另一个Sentinel（目标Sentinel）发送sentinel is-master-down-by-addr命令，并且命令中的runid参数不是*符号而是源Sentinel的运行ID时，这表示源Sentinel要求目标Sentinel将前者设置为后者的局部领头 Sentinel。
-⑤Sentinel 设置局部领头 Sentinel 的规则是先到先得：最先向目标Sentinel 发送设置要求的源Sentinel将成为目标Sentinel的局部领头Sentinel，而之后接收到的所有设置要求都会被目标Sentinel拒绝。
-⑥目标Sentinel在接收到SENTINEL is-master-down-by-addr命令之后，将向源Sentinel返回一条命令回复，回复中的 leader_runid 参数和 leader_epoch参数分别记录了目标Sentinel的局部领头Sentinel的运行ID和配置纪元。
-⑦源Sentinel在接收到目标Sentinel返回的命令回复之后，会检查回复中leaderepoch参数的值和自己的配置纪元是否相同，如果相同的话，那么源Sentinel继续取出回复中的 leader_runid参数，如果 leader
-runid 参数的值和源Sentinel的运行ID一致，那么表示目标Sentinel将源Sentinel设置成了局部领头Sentinel。
-⑧如果有某个Sentinel被半数以上的Sentinel设置成了局部领头Sentinel，那么这个Sentinel 成为领头 Sentinel。(一个配置纪元里只会出现一个领头Sentinel); 如果没有选出leader, 进入下一次选举.
+`Sentinel is-master-down-by-addr`命令参数
+
+| 参数           | 意义                                    |
+| ------------ | ------------------------------------- |
+| down_state   | 返回目标Sentinel对主服务器的主观判断结果, 1为下线, 0为未下线 |
+| leader_runid | *仅用于检查主服务器的下线状态; 否则用于选举leader拉票和回复    |
+| leader_epoch | leader_runid不为*时有效, 表示目标Sentinel的配置纪元 |
 
 9.故障转移
 
@@ -1611,8 +1590,9 @@ keys命令用来查找key, 并支持正则, 但是其存在缺点:
 
 如要在10000个key中查找key99开头的key:
 
-```
-# 第一次遍历cursor从0开始 最大返回1000条 将返回结果的第一个整数作为下一次遍历的cursor, 直到返回0127.0.0.1:6379> scan 0 match key99* count 1000
+```editorconfig
+# 第一次遍历cursor从0开始 最大返回1000条 将返回结果的第一个整数作为下一次遍历的cursor, 直到返回0
+127.0.0.1:6379> scan 0 match key99* count 1000
 1) "13976"
 2)     1) "key9911"     
     2) "key9974"     
@@ -1644,9 +1624,9 @@ keys命令用来查找key, 并支持正则, 但是其存在缺点:
 
 在 Redis 中所有的 key 都存储在一个很大的字典中，这个字典的结构和 Java 中的 HashMap 一样，是一维数组 + 二维链表结构，第一维数组的大小总是 2^n(n>=0)，扩容一 次数组大小空间加倍，也就是 n++。
 
-scan 指令返回的游标就是第一维数组的位置索引，我们将这个位置索引称为槽 (slot)。 如果不考虑字典的扩容缩容，直接按数组下标挨个遍历就行了。limit 参数就表示需要遍历的 槽位数，之所以返回的结果可能多可能少，是因为不是所有的槽位上都会挂接链表，有些槽 位可能是空的，还有些槽位上挂接的链表上的元素可能会有多个。每一次遍历都会将 limit 数量的槽位上挂接的所有链表元素进行模式匹配过滤后，一次性返回给客户端。
+scan 指令返回的游标就是第一维数组的位置索引，我们将这个位置索引称为槽 (slot)。 如果不考虑字典的扩容缩容，直接按数组下标挨个遍历就行了。limit 参数就表示需要遍历的 槽位数，之所以返回的结果可能多可能少，是因为不是所有的槽位上都会挂接链表，有些槽位可能是空的，还有些槽位上挂接的链表上的元素可能会有多个。每一次遍历都会将 limit 数量的槽位上挂接的所有链表元素进行模式匹配过滤后，一次性返回给客户端。
 
-scan 的遍历顺序非常特别。它不是从第一维数组的第 0 位一直遍历到末尾，而是采用 了高位进位加法来遍历。之所以使用这样特殊的方式进行遍历，是考虑到字典的扩容和缩容 时避免槽位的遍历重复和遗漏。
+scan 的遍历顺序非常特别。它不是从第一维数组的第 0 位一直遍历到末尾，而是采用 了高位进位加法来遍历。之所以使用这样特殊的方式进行遍历，是考虑到字典的扩容和缩容时避免槽位的遍历重复和遗漏。
 
 详细见《Redis深度历险》
 
@@ -1781,31 +1761,9 @@ typedef struct redisDb{
 
 **ACID**
 
-Redis数据库具有原子性、一致性和隔离性. 并且在某种特定的持久化模式下也具有耐久性.
-
-原子性Atomicity: 将事务的多个操作当做一个整体来执行,要么全部执行,要么都不执行. 
-
-Redis满足, 但是如果事务队列中某个命令**执行出错**, Redis与传统数据库的区别是: **不支持回滚机制, 但整个事务也会继续执行下去**.(与我理解的原子性不一样?)
+如果事务队列中某个命令**执行出错**, Redis与传统数据库的区别是: **不支持回滚机制, 但整个事务也会继续执行下去**.
 
 > 回滚与Redis追求简单高效的设计主旨不符, 且命令出错同都是开发环境下编程错误产生, 很少在实际生产环境出现.  --Redis作者
-
-一致性Consistency: 如果数据库在执行事务前是一致的, 那么在事务执行之后, 无论事务是否执行成功, 数据库也应该仍然是一致的.
-
-> 一致 指数据复合数据库本身的定义, 没有包含非法或无效的错误数据
-
-Redis通过谨慎的错误检测和简单的设计来保证事务一致性(与我理解的一致性不一样?):
-
-①入队错误: 事务在**入队命令时**出现了命令不存在或命令格式不正确等错误, Redis将拒绝执行该事务, 不会影响一致性;
-
-②执行错误: 事务在执行时发生了(无法在入队时被发现的)错误, Redis不会中断事务的执行, 会继续执行事务中余下命令(最常见的为对键执行了错误类型的操作). 出错命令不会对数据库做任何修改, 所以不会影响一致性(???).
-
-③服务器宕机: 如果服务器运行在无持久化状态, 重启之后数据库为空, 因此数据一致; 如果在RDB模式下, 事务中途服务器宕机, 但可根据RDB文件回复, 因此数据一致; AOF同理(Redis持久化方案有延迟, 应该有延迟就有不一致吧?).
-
-隔离性Isolation: 即使数据库中多个事务并发执行, 各个事务之间也不会相互影响, 并且并发状态执行事务与串行执行的事务产生的结果相同.
-
-Redis因为使用单线程串行方式运行事务, 总是具有隔离性
-
-持久性Durability: 当一个事务执行完, 执行该事务所得的结果已经被保存到**永久性存储介质**里, 即使服务器执行完事务后停机, 事务结果也不会丢失.
 
 Redis事务持久性只在AOF持久化模式下且appdenfsync为always时才具有持久性, 具体见[AOF](#AOF)
 
@@ -1843,7 +1801,7 @@ Redis服务器创建并修改Lua环境的步骤:
 4.redis.error_reply和redis.status_reply用于返回错误信息.
 ```
 
-4）使用Redis自制的随机函数来替换Lua原有的带有副作用的随机函数，从而避免在脚本中引人副作用。
+4）使用Redis自制的随机函数来替换Lua原有的带有副作用的随机函数，从而避免在脚本中引入副作用。
 
 > 为保证相同的脚本在不同机器上产生相同结果, Redis要求所有传入服务器的Lua脚本和Lua环境中的函数都是无副作用的纯函数
 
@@ -1917,7 +1875,7 @@ EVAL <script> <numkeys> [key ...] [arg ...]
 > 
 > 三.EVALSHA通过脚本的SHA1校验和调用Lua函数来执行脚本.
 
-②将脚本保存到lua_scripts字典(见[环境](#环境)), 键位SHA1校验和, 值为脚本本身.
+②将脚本保存到lua_scripts字典(见[环境](#环境)), 键为SHA1校验和, 值为脚本本身.
 
 ③执行脚本函数:
 
@@ -2173,7 +2131,7 @@ struct redisServer{
 };
 ```
 
-slowlog_entry_id初始值为0, 没创建一条新的慢查询日志时, 该属性的值就赋给新日志的id, 然后对这个属性加一.
+slowlog_entry_id初始值为0, 每创建一条新的慢查询日志时, 该属性的值就赋给新日志的id, 然后对这个属性加一.
 
 slowlog链表中每个节点保存一个slowlogEntry结构, 记录慢查询日志:
 
@@ -2254,7 +2212,7 @@ def SLOWLOG_RESET():    # 遍历服务器中的所有慢查询日志
 
 MONITOR命令可让客户端作为一个监视器实时接收并打印服务器当前处理的命令请求的相关信息. 
 
-当一个客户端向服务器发送一条命令请求时, 服务器除了会处理这条命令请求之外, 还会将该命令请求的信息发给索引监视器.
+当一个客户端向服务器发送一条命令请求时, 服务器除了会处理这条命令请求之外, 还会将该命令请求的信息发给所有监视器.
 
 客户端发送MONITOR命令后, 服务器将该客户端状态的flags属性的REDIS_MONITOR属性打开, 并将该客户端添加到redisServer.monitors链表尾部.
 

@@ -54,6 +54,16 @@ public boolean doRecover(Throwable e,int a)throws ArithmeticException{
 
 数据库等持久化方法的调用状态, 并通过定时任务定期检查数据库, 对未成功的任务进行重试
 
+## 负载均衡
+
+服务端负载均衡: 需要独立部署一台机器提供负载均衡(可理解为代理), 如Nginx、H5等.
+
+该方式将形成新的中心化节点, 需要为其考虑高可用问题(可考虑VIP+KeepAlived+DNS轮询); 并且不支持动态扩容, 若要给服务增加节点, 需要修改Nginx配置文件再重启Nginx.
+
+客户端负载均衡: 在客户端从注册中心获取服务列表信息缓存, 自己完成负载均衡, 如Ribbon.
+
+为支持故障转移, 某服务宕机后(停止与注册中心发送心跳包), 注册中心需要主动向客户端推送服务摘除(或客户端监听注册中心变化, zk).
+
 ## Dubbo
 
 分布式服务框架, 工作流程为: provider 向注册中心去注册; consumer 从注册中心订阅服务，注册中心会通知 consumer 注册好的服务; consumer 调用 provider; consumer 和 provider 都异步通知监控中心.

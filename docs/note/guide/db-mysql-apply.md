@@ -91,7 +91,7 @@ Extra: NULL
 8.Select tables optimized away
     explain select * from emp ,dept where emp.empno = dept.ceo ;
     explain select min(id) from subject;
-9.using MMR : 使用到了MMR,关于MMR见B+树索引-特性
+9.using MRR : 使用到了MRR,关于MRR见B+树索引-特性
 ```
 
 ### NLJ
@@ -229,25 +229,21 @@ MySQL binlog主要记录了 MySQL 数据库中数据的所有变化(数据库执
 
 MySQL主从同步方案有异步复制, 半同步复制(保证一台从节点同步), MHA, 全同步复制(mgr, 有许多限制)
 
-除了主从复制之外，binlog 还能帮助我们实现数据恢复。
+> 阿里开源的 canal 工具可以帮助实现 MySQL 和其他数据源比如 Elasticsearch 或者另外一台 MySQL 数据库之间的数据同步, 其底层原理也依赖 binlog
 
-> 阿里开源的 canal 工具可以帮助实现 MySQL 和其他数据源比如 Elasticsearch 或者另外一台 MySQL 数据库之间的数据同步。这个工具的底层原理也依赖 binlog。
+**读写分离主要是为了将对数据库的读写操作分散到不同的数据库节点上**, 小幅提升写性能, 大幅提升读性能.
 
-**读写分离主要是为了将对数据库的读写操作分散到不同的数据库节点上。** 小幅提升写性能，大幅提升读性能。
-
-**实现读写分离**:
+实现读写分离:
 
 **1.代理方式**
 
-我们可以在应用和数据中间加了一个代理层。应用程序所有的数据请求都交给代理层处理，代理层负责分离读写请求，将它们路由到对应的数据库中。
+在应用和数据中间加了一个代理层, 应用程序所有的数据请求都交给代理层处理, 代理层负责分离读写请求, 路由到对应的数据库中.
 
-提供类似功能的中间件有 **MySQL Router**（官方）、**Atlas**（基于 MySQL Proxy）、**Maxscale**、**MyCat**。
+如 MySQL Router（官方）、Atlas（基于 MySQL Proxy）、Maxscale、MyCat.
 
-**2.组件方式**
+**2.组件方式**(客户端)
 
-引入第三方组件来帮助我们读写请求
-
-这种方式目前在各种互联网公司中用的最多的，相关的实际的案例也非常多。比如 `sharding-jdbc` ，直接引入 jar 包即可使用，非常方便。
+引入第三方组件来帮助我们读写请求, 如 `sharding-jdbc` , 直接引入 jar 包即可使用, 非常方便.
 
 > 主从复制中的slave默认不会进行写binlog, 但在master-slave-slave架构下, 需要设置`log-slave-update`参数开启slave的写binlog功能.
 
@@ -293,12 +289,18 @@ MySQL 5.7.17插件, 支持故障检测以及多节点写入, 适用于金融交�
 MGR约束:
 
 ```
-1、仅支持InnoDB表，并且每张表一定要有一个主键，用于做write set的冲突检测;2、必须打开GTID特性，二进制日志格式必须设置为ROW，用于选主与writeset；主从状态信息存于表中（--master-info-repository=TABLE)、--relay-log-info-repository=TABLE），--log-slave-updates打开3、MGR不支持大事务，事务大小最好不超过143MB，当事务过大，无法在5秒的时间内通过网络在组成员之间复制消息，则可能会怀疑成员失败了，然后将其驱逐出局4、目前一个MGR集群最多支持9个节点5、不支持外键于save point特性，无法做全局间的约束检测与部分事务回滚6、二进制日志不支持Binlog Event Checksum
+1、仅支持InnoDB表，并且每张表一定要有一个主键，用于做write set的冲突检测;
+2、必须打开GTID特性，二进制日志格式必须设置为ROW，用于选主与writeset；
+主从状态信息存于表中（--master-info-repository=TABLE)、--relay-log-info-repository=TABLE），--log-slave-updates打开
+3、MGR不支持大事务，事务大小最好不超过143MB，当事务过大，无法在5秒的时间内通过网络在组成员之间复制消息，则可能会怀疑成员失败了，然后将其驱逐出局
+4、目前一个MGR集群最多支持9个节点
+5、不支持外键于save point特性，无法做全局间的约束检测与部分事务回滚
+6、二进制日志不支持Binlog Event Checksum
 ```
 
 ### MHA高可用
 
-MHA（Master HA）是一款开源的 MySQL 的高可用程序，它为 MySQL 主从复制架构提供了 automating master failover 功能。MHA 在监控到 master 节点故障时，会提升其中拥有最新数据的 slave 节点成为新的master 节点，在此期间，MHA 会通过于其它从节点获取额外信息来避免一致性方面的问题。MHA 还提供了 master 节点的在线切换功能，即按需切换 master/slave 节点。
+MHA（Master HA）是一款开源的 MySQL 的高可用程序，它为 MySQL 主从复制架构提供了 automating master failover 功能。MHA 在监控到 master 节点故障时，会提升其中拥有最新数据的 slave 节点成为新的master 节点，在此期间，MHA 会通过与其它从节点获取额外信息来避免一致性方面的问题。MHA 还提供了 master 节点的在线切换功能，即按需切换 master/slave 节点。
 
 在mysql主从同步基本实现中, 主服务器在数据处理以后生成binlog ,从服务器将binlog保存在relaylog中进行应用来保持同步. 
 
@@ -401,8 +403,6 @@ MHA缺点:
 
 当单表数据大于1000w 或 单表数据文件大于20GB时需要考虑切分.
 
-分片规则
-
 **垂直分表**
 
 因为innodb管理数据的单位为页(16k) , 在表设计时,要尽可能在页内多存储行数据,减少跨页检索.
@@ -491,7 +491,7 @@ key为 字段名:字段值, value为 对应的数据库主键
 
 缺点:多一次redis查询,性能有所降低; 对redis内存需求大(如果SSD性能好, 可使用InnoDB表代替); 需要维护一致性.
 
-## 数据迁移
+## 数据迁移与同步
 
 **数据迁移方式**
 

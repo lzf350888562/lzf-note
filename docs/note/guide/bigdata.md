@@ -59,23 +59,21 @@ Region服务器负责存储和维护分配给自己的Region，处理来自客�
 
 客户端并不是直接从Master主服务器上读取数据，而是在获得Region的存储位置信息后，直接从Region服务器上读取数据。
 
-客户端并不依赖Master，而是通过Zookeeper来Region位置信息，大多数客户端甚至从来不和Master通信，这种设计方式使得Master负载很小。
+客户端并不依赖Master，而是通过Zookeeper来获取Region位置信息，大多数客户端甚至从来不和Master通信，这种设计方式使得Master负载很小。
 
 ## ElasticSearch
 
 Lucene穿了一件json的外套就是ElasticSearch, 相较于Solr, 内置了对分布式集群和分布式索引的管理.
 
+### 原理
+
 ES集群采用多shard多replica方式实现高可用, 集群中会自动选举一个master节点, 负责维护索引元数据、切换primary shard和replica shard身份等. 如果一个非master节点宕机, master会将该宕机节点primary shard对应的replica shard切换为primary, 当宕机的节点恢复后, 不再是primary shard, 而是replica shard.
 
 ES的写请求(任一的协调节点)将根据doc_id(hash)**转发**到对应的primary shard节点上进行写, 然后同步到所有replica shard节点, 待同步完成后, (协调节点)返回响应给客户端;
 
-ES的读请求(任一的协调节点)将根据doc_id(hash), 并根据**随机轮询**策略, 在其primary shard和所有replica shard节点中随机选择一个完成读请求以实现负载均衡, 读请求完成之后返回doc给协调节点, 协调节点再返回给客户端.
+ES的读请求(任一的协调节点)将根据doc_id(hash), 并根据**随机轮询**策略, 在其primary shard和所有replica shard节点中随机选择一个完成读请求以实现负载均衡, 读请求完成之后返回doc给协调节点, 协调节点再返回给客户端. 若是范围查询需要对所有shard查询, 见深度分页.
 
-> 若分页查找, ES集群将在所有shard上查询n条数据再到协调节点上进行合并处理, 当页数大时会越来越慢.
-> 
-> 除了限制深度分页外, 还可以使用scroll以游标的形式进行分页查询(前端类似淘宝商品页下拉), 或以search_after方式使用前一页的结果来帮助检索下一页的数据
-
-ES的写操作先写内存buffer(无法查找), 同时并数据写入translog日志文件.
+ES的写操作先写内存buffer(无法查找), 同时将数据写入translog日志文件.
 
 每一秒ES将buffer(或满时)中的数据refresh到操作系统文件缓存(可查找), 之后需要等待操作系统fsync到一个新的segment file,  这也是为什么ES为准实时的, 即写入的数据1s之后才可以查找到. 也可以手动refresh到操作系统文件缓存.
 
@@ -88,6 +86,16 @@ translog类似redo log, 因为refresh前后数据存在于buffer和操作系统�
 当translog大到阈值(async)或默认每隔30分钟(request), 会触发commit操作将buffer的数据强行fsync到segment file.
 
 ES的删除操作会生成.del文件, 将被删除的doc标识为deleted; 更新操作会将document标记为deleted后插入新数据. 因为在buffer每次refresh都会产生一个segement file( 默认情况下1s一个 ), ES会定期进行merge操作, merge的同时会将标识为deleted的doc给物理删除掉.
+
+### 深度分页
+
+若分页查找n页m条数据, ES集群将在所有shard上查询1-n页的所有数据的doc_id(Query阶段); 再到协调节点上进行合并排序处理, 最后返回给客户端(Fetch阶段). 当页数大时会越来越慢, 合并后需要丢弃的数据也越多.
+
+除了限制深度分页以外, 可通过以下两种方式进行深度分页
+
+1.search_after方式使用前一页的结果来帮助检索下一页的数据 : 每次查询把from size变成排序列上一个固定值的条件, 返回常量size个. 不会随着页数增大缓存的数据条数递增.(若排序列不唯一会有问题)
+
+2.scroll以游标的形式进行分页查询 : 仅在每个shard上完成Query阶段, 将结果集doc_id列表缓存, 之后每次来取都根据开始的size取数据集即可. (不适合实时)
 
 ### 分词与倒排索引
 

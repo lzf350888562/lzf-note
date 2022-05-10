@@ -1054,7 +1054,7 @@ handler 收到响应后，通过 send 将结果返回给 client.
 
 Reactor主线程 MainReactor 对象通过select监听**连接**事件，收到事件后，通过Acceptor处理连接事件;
 当Acceptor处理连接事件后，MainReactor将连接分配给SubReactor;
-Subreactor 将连接加入到连接队列进行监听,并创建handler进行后续工作, 结果不经MainReactor直接返回给client.
+SubReactor 将连接加入到连接队列进行监听,并创建handler进行后续工作, 结果不经MainReactor直接返回给client.
 
 优点：主从Reactor线程分工明确, 主只需要负责接收连接并将新连接传给子, 子负责业务处理(可以有多个); 
 缺点：实现复杂.
