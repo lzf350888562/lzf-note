@@ -1,5 +1,7 @@
 # Doc
 
+  [V2free](https://w1.v2free.net/user/shop)
+
 [advanced-java](https://doocs.github.io/advanced-java) 分布式 高并发 高可用 微服务试题
 
 [git30days](https://github.com/doggy8088/Learn-Git-in-30-days)
@@ -150,57 +152,9 @@ AXURE:前端美工软件
 
 ### Practice
 
- [服务器监控](https://hub.fastgit.org/B-Software/Ward) √
-
-[小说阅读](https://hub.fastgit.org/201206030/fiction_house) ?爬虫
-
-[电商](https://hub.fastgit.org/newbee-ltd/newbee-mall) √
-
 [springcloud 脚手架](https://hub.fastgit.org/zhoutaoo/SpringCloud )
 
-[后台管理系统](https://hub.fastgit.org/elunez/eladmin) eladmin (jpa)
-
-[人力资源管理系统](https://hub.fastgit.org/lenve/vhr )
-
-[电商](https://hub.fastgit.org/macrozheng/mall)
-
-网盘 [后端](https://hub.fastgit.org/zhaojun1998/zfile/) [前端](https://hub.fastgit.org/zhaojun1998/zfile-vue/)
-
-[高仿饿了么](https://hub.fastgit.org/microapp-store/flash-waimai)
-
-[在线考试系统](https://gitee.com/SnailClimb/uexam)
-
-[全能在线搜题](http://so.jszkk.com/)
-
-[视频管理系统](https://hub.fastgit.org/user-xiangpeng/yaoqishan)
-
-[物流管理系统](https://gitee.com/jian_bo_bai/cable__xinrun_logistics?_from=gitee_search)
-
-[有来商城](https://gitee.com/youlaitech/youlai-mall?_from=gitee_search)
-
 ### OpenSource
-
-电商合辑:
-
-```
-https://github.com/macrozheng/mall-swarm
-https://github.com/SiGuiyang/spring-cloud-shop
-https://github.com/lucisl/ddBuy
-https://github.com/gz-yami/mall4j
-https://gitee.com/hai-27/vue-store
-https://gitee.com/beijing_hongye_huicheng/lilishop
-```
-
-小程序合辑
-
-```
-在线答题：https://gitee.com/xiaofeiyang3369/cloudapp
-智慧家园：https://gitee.com/java110/WechatOwnerService
-微信点餐：https://gitee.com/clouddreamteam_admin/cloud-dream
-垃圾：https://gitee.com/aaluoxiang/GarbageSort
-网易云音乐：https://github.com/lsqy/taro-music
-小程序电商：https://github.com/EastWorld/wechat-app-mall
-```
 
 [mybatis分页](https://hub.fastgit.org/pagehelper/Mybatis-PageHelper )
 
@@ -235,8 +189,6 @@ https://gitee.com/beijing_hongye_huicheng/lilishop
 [jeepay](https://github.com/jeequan/jeepay.git)
 
 [springboot 接口文档自动生成](https://hub.fastgit.org/YeDaxia/JApiDocs)
-
-[云盘](https://hub.fastgit.org/zhaojun1998/zfile)
 
 [各种文件预览框架](https://hub.fastgit.org/kekingcn/kkFileView)
 

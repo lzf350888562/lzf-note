@@ -1181,7 +1181,7 @@ writerIndex -- capacity                  可写区域
 
 > 一些情况 如Spring session用Redis做session共享时 和 spring cache 用redis做缓存时  ,默认都是使用的jdk序列化
 
-> 目前流行http + json 或 tcp + protobuf 方案
+> 目前流行http + json (Restful)或 tcp + protobuf(gRPC) 方案
 
 ### Protobuf
 

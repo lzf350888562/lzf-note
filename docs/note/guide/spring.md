@@ -98,8 +98,6 @@ beanFactory的准备工作, 对其各种属性进行填充.
 
 最后广播事件, ApplicationContext初始化完成.
 
-
-
 ### 事件驱动
 
 事件对象一般都是java.util.EventObject的子类; ApplicationEventPublisher(即ApplicationContext)将请求委托给ApplicationEventMulticaster来实现的; 监听器是EventListener(jdk)的子类, 在refresh在初始化多播器后注册监听器.
@@ -254,13 +252,13 @@ NamespaceHandlerSupport.parse方法中, 会继续调用findParserForElement通�
  1-3)注册ConfigurationClassPostProcessor处理@Configuration类:
   在refresh的invokeBeanFactoryPostProcessors方法中,因为该processor继承了BeanDefinitionRegistryPostProcessor,所以会先执行postProcessBeanDefinitionRegistry方法，再调用其postProcessBeanFactory.
  1-4)注册AutowiredAnnotationBeanPostProcessor注入@Autowired的属性和方法:
- 	先在AbstractAutowireCapableBeanFactory.doCreateBean中调用applyMergedBeanDefinitionPostProcessors方法(实例化bean之后,填充bean之前),调用AutowiredAnnotationBeanPostProcessor.postProcessMergedBeanDefinition扫描Autowired属性和方法保存为InjectionMetadata对象进行缓存;
- 	然后在AbstractAutowireCapableBeanFactory.populateBean中调用AutowiredAnnotationBeanPostProcessor.postProcessPropertyValues方法(在bean的xml属性已经根据计算完毕之后,但还没有执行applyPropertyValues设置到bean之前),获取InjectionMetadata缓存然后注入.
+     先在AbstractAutowireCapableBeanFactory.doCreateBean中调用applyMergedBeanDefinitionPostProcessors方法(实例化bean之后,填充bean之前),调用AutowiredAnnotationBeanPostProcessor.postProcessMergedBeanDefinition扫描Autowired属性和方法保存为InjectionMetadata对象进行缓存;
+     然后在AbstractAutowireCapableBeanFactory.populateBean中调用AutowiredAnnotationBeanPostProcessor.postProcessPropertyValues方法(在bean的xml属性已经根据计算完毕之后,但还没有执行applyPropertyValues设置到bean之前),获取InjectionMetadata缓存然后注入.
  1-5)注册RequiredAnnotationBeanPostProcessor必须注入@Required标注的setter的属性
- 	同AutowiredAnnotationBeanPostProcessor类似,但RequiredAnnotationBeanPostProcessor.postProcessMergedBeanDefinition为空实现;
- 	仅在RequiredAnnotationBeanPostProcessor.postProcessPropertyValues中对bean进行检查,对已检查过的bean缓存到名为validatedBeanNames的set中防止做无用功.
+     同AutowiredAnnotationBeanPostProcessor类似,但RequiredAnnotationBeanPostProcessor.postProcessMergedBeanDefinition为空实现;
+     仅在RequiredAnnotationBeanPostProcessor.postProcessPropertyValues中对bean进行检查,对已检查过的bean缓存到名为validatedBeanNames的set中防止做无用功.
  1-6)注册CommonAnnotationBeanPostProcessor开启对JSR-250的支持(rt.jar),可使用@Resouce等
- 	同上类似
+     同上类似
  1-7)注册PersistenceAnnotationBeanPostProcessor提供JPA的支持,classpath不存在,默认不注册
  1-8)注册EventListenerMethodProcessor提供对@EventListener支持
  1-9)注册DefaultEventListenerFactory产生EventLisener对象
@@ -287,7 +285,7 @@ NamespaceHandlerSupport.parse方法中, 会继续调用findParserForElement通�
 3.PropertyOverrideBeanDefinitionParser(property-override).doParse:
 
 > property-override允许使用属性文件对bean属性进行替换:beanName.属性名=属性值
->
+> 
 > <context:property-override location="property.properties" />
 
 调用其父类AbstractPropertyLoadingBeanDefinitionParser.doParse,同上面一样获取解析元素以及其子元素的属性并保存在一个GenericBeanDefinition中:
@@ -363,7 +361,7 @@ aop:aspect对应类AspectJPointcutAdvisor;
 ...
 
 > aop:config的proxy-target-class属性表示是否为被代理对象生成CGLIB子类, 即主动使用cglib;
->
+> 
 > expose-proxy属性表示是否将代理bean暴露给用户, 暴露代理对象可通过AopContext获得.
 
 ConfigBeanDefinitionParser.parse:
@@ -397,6 +395,8 @@ ConfigBeanDefinitionParser.parse:
  在方法在创建一个ProxyFactory,执行ProxyFactory.getProxy,在方法中通过DefaultAopProxyFactory.createAopProxy根据proxy-target-classs以及是否实现了接口来决定jdk还是cglib,需要注意的是,它们都会对所有相关的Advisor进行链式调用.
 ```
 
+>  Spring 5.x和Springboot 2.x使用CGLIB事务相关的拦截器为TransactionInterceptor
+
 ### ScopedProxyBeanDefinitionDecorator
 
 aop:scoped-proxy(与@ScopedProxy注解相同):
@@ -427,8 +427,6 @@ aop:aspectj-autoproxy用以开启对于@AspectJ注解风格AOP的支持, 即使�
 AspectJAutoProxyBeanDefinitionParser.parse:
 
 流程与ConfigBeanDefinitionParser类似, 注册AnnotationAwareAspectJAutoProxyCreator, 是前面AspectJAwareAdvisorAutoProxyCreator的子类. 核心逻辑一样, 不同的是注解特性是通过重写AnnotationAwareAspectJAutoProxyCreator.findCandidateAdvisors方法体现, 寻找适用于bean的Advisor
-
-
 
 ## Task
 
@@ -525,8 +523,6 @@ AnnotationDrivenBeanDefinitionParser(注意时spring-tx包下的).parse:
 
 ![img](picture/de6d2b213f112297298f3e223bf08f28.png)
 
-
-
 ### init
 
 Servlet标准定义了init方法是其生命周期的初始化方法, 具体初始化入口在DispatcherServlet的父类HttpServletBean.init执行:
@@ -558,9 +554,9 @@ FrameworkServlet.initWebApplicationContext:
 > Spring-mvc支持Spring容器与MVC容器共存，此时，Spring容器即根容器，mvc容器将根容器视为父容器.
 
 > sprinb-mvc通过listener配置rootContext (listener先于filter和servlet执行)
->
+> 
 > web.xml中配置根容器的方式:
->
+> 
 > ```xml
 > <listener>
 >     <listener-class>org.springframework.web.context.ContextLoaderListener</listener-class>
@@ -572,7 +568,7 @@ FrameworkServlet.initWebApplicationContext:
  2-1)调用getContextClass获取容器类型
 
 > web.xml中配置容器类型:
->
+> 
 > ```xml
 > <servlet>
 >     <servlet-name>SpringMVC</servlet-name>
@@ -599,9 +595,9 @@ FrameworkServlet.initWebApplicationContext:
   2-2-3)调用容器的refresh方法解析配置文件(spring-servlet.xml);
 
 > spring-mvc容器默认为XmlWebApplicationContext,其通过重写`loadBeanDefinitions`方法改变了bean加载行为，使其指向spring-servlet.xml, 引入mvc命名空间.
->
+> 
 > spring-mvc通过加入MvcNamespaceHandler(见[BeanDefinitionParser](#BeanDefinitionParser)), 该类的init方法注册了mvc:annotation-driven、mvc:default-servlet-handler、mvc:interceptors、mvc:view-resolvers等标签对应的BeanDefinitionParser, 其中:
->
+> 
 > ```
 > 1.AnnotationDrivenBeanDefinitionParser.parse向容器注册以下组件:
 > 1)HandlerMapping:RequestMappingHandlerMapping,BeanNameUrlHandlerMapping;   2)HandlerAdapter:RequestMappingHandlerAdapter,HttpRequestHandlerAdapter,SimpleControllerHandlerAdapter;
@@ -617,11 +613,11 @@ FrameworkServlet.initWebApplicationContext:
 > ```
 
 > 执行refresh时,XmlWebApplicationContext.postProcessBeanFactory将执行(bean工厂创建完毕且beanDefinition已加载但未创建):
->
+> 
 > 注册ServletContextAwareProcessor用以向实现了ServletContextAware的bean注册ServletContext;
->
+> 
 > 注册registerWebApplicationScopes用以注册"request", "session", "globalSession", "application"四种scope;
->
+> 
 > 注册registerEnvironmentBeans用以将servletContext、servletConfig以及各种启动参数注册到Spring容器中。
 
  2-3)调用DispatcherServlet.onRefresh(ApplicationContext), 再调用DispatcherServlet.initStrategies, 见下↓
@@ -691,7 +687,7 @@ FrameworkServlet覆盖service:用于拦截PATCH请求, 如果是则直接调用p
 HttpServlet.service中会判断方法增加额外操作(更新最后修改)后调用doGet、doHead、doPost等, 而FrameworkServlet也覆盖了这些方法, 也是调用processRequest.
 
 > Spring MVC会在请求分发之前进行上下文的准备工作，含两部分:
->
+> 
 > 1. 将地区(Locale)和请求属性以ThreadLocal的方法与当前线程进行关联，分别可以通过LocaleContextHolder和RequestContextHolder进行获取。
 > 2. 将WebApplicationContext、FlashMap等组件放入到Request属性中。
 
@@ -699,7 +695,7 @@ DispatcherServlet.doDispatch(会检查最后修改):
 
 1)调用DispatcherServlet.getHandler获取HandlerExecutionChain:
 
-​	方法中遍历handlerMappings, 委托给AbstractHandlerMapping.getHandler进行查找, 一旦查找到, 直接返回(即存在优先级, **根据AnnotationDrivenBeanDefinitionParser的注释，RequestMappingHandlerMapping有最高的优先级**), AbstractHandlerMapping.getHandler:
+​    方法中遍历handlerMappings, 委托给AbstractHandlerMapping.getHandler进行查找, 一旦查找到, 直接返回(即存在优先级, **根据AnnotationDrivenBeanDefinitionParser的注释，RequestMappingHandlerMapping有最高的优先级**), AbstractHandlerMapping.getHandler:
 
 ​    1-1)调用getHandlerInternal根据url查找handler( 其实就是HandlerMethod, 根据在HandlerMapping初始化中的urlLookup??? );
 
@@ -709,7 +705,7 @@ DispatcherServlet.doDispatch(会检查最后修改):
 
 2)根据handler调用DispatcherServlet.getHandlerAdapter获取适配器:
 
-​	该方法遍历handlerAdapters, 通过判断AbstractHandlerMethodAdapter.supports是否为true进行返回合适的适配器.
+​    该方法遍历handlerAdapters, 通过判断AbstractHandlerMethodAdapter.supports是否为true进行返回合适的适配器.
 
 ​    而supports中又调用了supportsInternal交给具体的适配器去执行, 因为第一个适配器是RequestMappingHandlerAdapter，而其support方法直接返回true，这就导致了使用的适配器总是这一个.
 
@@ -719,7 +715,7 @@ DispatcherServlet.doDispatch(会检查最后修改):
 
 ​     3-1)如果开启了synchronizeOnSession, 根据session互斥量, 对同一个session的请求将同步执行, 即串行, 默认关闭;
 
-​	 3-2)调用invokeHandlerMethod在方法中进行真正的请求处理(调用HandlerMethod).
+​     3-2)调用invokeHandlerMethod在方法中进行真正的请求处理(调用HandlerMethod).
 
 **参数解析**
 
@@ -799,4 +795,3 @@ Ant 中的通配符有三种：
 ```
 
 ## Boot
-

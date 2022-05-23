@@ -604,7 +604,7 @@ public class NativeAsyncTaskExecutePool implements AsyncConfigurer{
 
 ## AOP
 
-Spring 中的 AOP 模块中：如果目标对象实现了接口，则默认采用 JDK 动态代理，否则采用 CGLIB 动态代理。
+Spring 中的 AOP 模块中：如果目标对象实现了接口，则默认采用 JDK 动态代理，否则采用 CGLIB 动态代理(5.X开始默认使用CGLIB, 基于字节码效率更高)。
 
 - Pointcut（切点），指定在什么情况下才执行 AOP，例如方法被打上某个注解的时候
 - JoinPoint（连接点），程序运行中的执行点，例如一个方法的执行或是一个异常的处理；并且在 Spring AOP 中，只有方法连接点
@@ -677,9 +677,7 @@ SampleClass sample = (SampleClass) enhancer.create();
    
    因为spring采用动态代理机制来实现事务控制，而动态代理(jdk代理,因为service实现了接口)最终都是要调用原始对象的，而原始对象在去调用方法时，是不会再触发代理了.
    
-   可通过注解的proxyTargetClass=true指定使用cglib代理方式.
-   
-   > 注意: SpringBoot2.x开始为了避免使用JDK代理出现的各种问题, 如在非@Transaction方法中调用@Transaction方法事务不会生效、只能通过接口自动注入等问题, 默认使用的AOP实现为CGLIB!!!
+   可通过注解的proxyTargetClass=true指定使用cglib代理方式.(有误, 同样不会触发代理) 
 
 > pointcut表达式支持更直观的操作, 如
 > 

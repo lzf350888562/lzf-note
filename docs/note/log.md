@@ -94,7 +94,7 @@ Spring Boot默认配置只会输出到控制台，并不会记录到文件中，
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
             <fileNamePattern>${log.path}/logback.%d{yyyy-MM-dd}.log</fileNamePattern>
             <maxHistory>30</maxHistory>
-        	<totalSizeCap>1GB</totalSizeCap>
+            <totalSizeCap>1GB</totalSizeCap>
         </rollingPolicy>
         <encoder>
             <pattern>%d{HH:mm:ss.SSS} %contextName [%thread] %-5level %logger{36} - %msg%n</pattern>
@@ -174,7 +174,6 @@ Spring Boot默认配置只会输出到控制台，并不会记录到文件中，
 在创建Spring Boot工程时，我们引入了`spring-boot-starter`，其中包含了`spring-boot-starter-logging`，该依赖内容就是Spring Boot默认的日志框架Logback，所以我们在引入log4j之前，需要先排除该包的依赖，再引入log4j的依赖，就像下面这样：
 
 ```xml
-
 <dependency>
     <groupId>org.springframework.boot</groupId>
     <artifactId>spring-boot-starter</artifactId>
@@ -286,7 +285,6 @@ log4j.appender.errorfile.layout.ConversionPattern=%d{yyyy-MM-dd HH:mm:ss,SSS} %5
 - `application-prod.properties`配置文件中添加日志级别定义：`logging.level.com.didispace=INFO`
 
 ```
-
 # LOG4J配置
 log4j.category.com.didispace=${logging.level.com.didispace}, didifile
 
@@ -362,7 +360,7 @@ spring.aop.proxy-target-class=false # Whether subclass-based (CGLIB) proxies are
 - 使用`@Pointcut`定义一个切入点，可以是一个规则表达式，比如下例中某个package下的所有函数，也可以是一个注解等。
 
 - 根据需要在切入点不同位置的切入内容
-
+  
   ```
   使用`@Before`在切入点开始处切入内容
   
@@ -375,41 +373,39 @@ spring.aop.proxy-target-class=false # Whether subclass-based (CGLIB) proxies are
   使用`@AfterThrowing`用来处理当切入内容部分抛出异常之后的处理逻辑
   ```
 
-  
+```
+@Aspect
+@Component
+public class WebLogAspect {
 
-  ```
-  @Aspect
-  @Component
-  public class WebLogAspect {
-  
-      private Logger logger = Logger.getLogger(getClass());
-  
-      @Pointcut("execution(public * com.didispace.web..*.*(..))")
-      public void webLog(){}
-  
-      @Before("webLog()")
-      public void doBefore(JoinPoint joinPoint) throws Throwable {
-          // 接收到请求，记录请求内容
-          ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
-          HttpServletRequest request = attributes.getRequest();
-  
-          // 记录下请求内容
-          logger.info("URL : " + request.getRequestURL().toString());
-          logger.info("HTTP_METHOD : " + request.getMethod());
-          logger.info("IP : " + request.getRemoteAddr());
-          logger.info("CLASS_METHOD : " + joinPoint.getSignature().getDeclaringTypeName() + "." + joinPoint.getSignature().getName());
-          logger.info("ARGS : " + Arrays.toString(joinPoint.getArgs()));
-  
-      }
-  
-      @AfterReturning(returning = "ret", pointcut = "webLog()")
-      public void doAfterReturning(Object ret) throws Throwable {
-          // 处理完请求，返回内容
-          logger.info("RESPONSE : " + ret);
-      }
-  
-  }
-  ```
+    private Logger logger = Logger.getLogger(getClass());
+
+    @Pointcut("execution(public * com.didispace.web..*.*(..))")
+    public void webLog(){}
+
+    @Before("webLog()")
+    public void doBefore(JoinPoint joinPoint) throws Throwable {
+        // 接收到请求，记录请求内容
+        ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+        HttpServletRequest request = attributes.getRequest();
+
+        // 记录下请求内容
+        logger.info("URL : " + request.getRequestURL().toString());
+        logger.info("HTTP_METHOD : " + request.getMethod());
+        logger.info("IP : " + request.getRemoteAddr());
+        logger.info("CLASS_METHOD : " + joinPoint.getSignature().getDeclaringTypeName() + "." + joinPoint.getSignature().getName());
+        logger.info("ARGS : " + Arrays.toString(joinPoint.getArgs()));
+
+    }
+
+    @AfterReturning(returning = "ret", pointcut = "webLog()")
+    public void doAfterReturning(Object ret) throws Throwable {
+        // 处理完请求，返回内容
+        logger.info("RESPONSE : " + ret);
+    }
+
+}
+```
 
 ### 拓展
 
@@ -422,7 +418,6 @@ spring.aop.proxy-target-class=false # Whether subclass-based (CGLIB) proxies are
 的确，直接在这里定义基本类型会有同步问题，所以我们可以引入ThreadLocal对象，像下面这样进行记录
 
 ```
-
 @Aspect
 @Component
 public class WebLogAspect {
@@ -578,15 +573,15 @@ public class WebLogAspect {
 ## actuator loggers端点动态修改日志级别
 
 ```
-	<!--  spring boot actuator 监控端点-->
-	<dependency>
-		<groupId>org.springframework.boot</groupId>
-		<artifactId>spring-boot-starter-actuator</artifactId>
-	</dependency>
-	<dependency>
-		<groupId>org.springframework.boot</groupId>
-		<artifactId>spring-boot-starter-web</artifactId>
-	</dependency>
+    <!--  spring boot actuator 监控端点-->
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-actuator</artifactId>
+    </dependency>
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
 ```
 
 - 在应用主类中添加一个接口用来测试日志级别的变化，比如下面的实现：
@@ -595,19 +590,19 @@ public class WebLogAspect {
 @RestController
 @SpringBootApplication
 public class DemoApplication {
-	private Logger logger = LoggerFactory.getLogger(getClass());
+    private Logger logger = LoggerFactory.getLogger(getClass());
 
-	@RequestMapping(value = "/test", method = RequestMethod.GET)
-	public String testLogLevel() {
-		logger.debug("Logger Level ：DEBUG");
-		logger.info("Logger Level ：INFO");
-		logger.error("Logger Level ：ERROR");
-		return "";
-	}
+    @RequestMapping(value = "/test", method = RequestMethod.GET)
+    public String testLogLevel() {
+        logger.debug("Logger Level ：DEBUG");
+        logger.info("Logger Level ：INFO");
+        logger.error("Logger Level ：ERROR");
+        return "";
+    }
 
-	public static void main(String[] args) {
-		SpringApplication.run(DemoApplication.class, args);
-	}
+    public static void main(String[] args) {
+        SpringApplication.run(DemoApplication.class, args);
+    }
 }
 ```
 
@@ -701,13 +696,13 @@ properties
 ```
  ### 设置###
 log4j.rootLogger = debug,stdout,D,E
- 
+
 ### 输出信息到控制抬 ###
 log4j.appender.stdout = org.apache.log4j.ConsoleAppender
 log4j.appender.stdout.Target = System.out
 log4j.appender.stdout.layout = org.apache.log4j.PatternLayout
 log4j.appender.stdout.layout.ConversionPattern = [%-5p] %d{yyyy-MM-dd HH:mm:ss,SSS} method:%l%n%m%n
- 
+
 ### 输出DEBUG 级别以上的日志到=E://logs/error.log ###
 log4j.appender.D = org.apache.log4j.DailyRollingFileAppender
 log4j.appender.D.File = E://logs/log.log
@@ -715,7 +710,7 @@ log4j.appender.D.Append = true
 log4j.appender.D.Threshold = DEBUG 
 log4j.appender.D.layout = org.apache.log4j.PatternLayout
 log4j.appender.D.layout.ConversionPattern = %-d{yyyy-MM-dd HH:mm:ss}  [ %t:%r ] - [ %p ]  %m%n
- 
+
 ### 输出ERROR 级别以上的日志到=E://logs/error.log ###
 log4j.appender.E = org.apache.log4j.DailyRollingFileAppender
 log4j.appender.E.File =E://logs/error.log 
@@ -730,4 +725,3 @@ log4j.logger.org.apache.shiro=INFO
 log4j.logger.org.apache.shiro.util.ThreadContext=WARN
 log4j.logger.org.apache.shiro.cache.ehcache.EhCache=WARN
 ```
-

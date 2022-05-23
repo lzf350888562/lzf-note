@@ -30,18 +30,18 @@ url.delete(url.length() - request.getRequestURI().length(), url.length()).append
  * 如果使用了多级反向代理的话，X-Forwarded-For的值并不止一个，而是一串IP地址，X-Forwarded-For中第一个非unknown的有效IP字符串，则为真实IP地址
  */
 public static String getIpAddr(HttpServletRequest request) {
-		String ip = request.getHeader("x-forwarded-for");
-		if (ip == null || ip.length() == 0 || "unknown".equalsIgnoreCase(ip)) {
-			ip = request.getHeader("Proxy-Client-IP");
-		}
-		if (ip == null || ip.length() == 0 || "unknown".equalsIgnoreCase(ip)) {
-			ip = request.getHeader("WL-Proxy-Client-IP");
-		}
-		if (ip == null || ip.length() == 0 || "unknown".equalsIgnoreCase(ip)) {
-			ip = request.getRemoteAddr();
-		}
-		return "0:0:0:0:0:0:0:1".equals(ip) ? "127.0.0.1" : ip;
-	}
+        String ip = request.getHeader("x-forwarded-for");
+        if (ip == null || ip.length() == 0 || "unknown".equalsIgnoreCase(ip)) {
+            ip = request.getHeader("Proxy-Client-IP");
+        }
+        if (ip == null || ip.length() == 0 || "unknown".equalsIgnoreCase(ip)) {
+            ip = request.getHeader("WL-Proxy-Client-IP");
+        }
+        if (ip == null || ip.length() == 0 || "unknown".equalsIgnoreCase(ip)) {
+            ip = request.getRemoteAddr();
+        }
+        return "0:0:0:0:0:0:0:1".equals(ip) ? "127.0.0.1" : ip;
+    }
 ```
 
 ### 是否为Ajax请求
@@ -121,16 +121,14 @@ public class ErrorPageConfig implements ErrorPageRegistrar {
 }
 ```
 
-
-
 ## 模板引擎
 
 ### Thymeleaf
 
 ```xml
 <dependency>
-	<groupId>org.springframework.boot</groupId>
-	<artifactId>spring-boot-starter-thymeleaf</artifactId>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-thymeleaf</artifactId>
 </dependency>
 ```
 
@@ -399,15 +397,15 @@ public class ServletInitializer extends SpringBootServletInitializer {
 
 Spring 4.2提供`@CrossOrigin`注解, 包含了以下属性:
 
-| 属性             | 含义                                                         |
-| :--------------- | :----------------------------------------------------------- |
+| 属性               | 含义                                                                        |
+|:---------------- |:------------------------------------------------------------------------- |
 | value            | 指定所支持域的集合，`*`表示所有域都支持，默认值为`*`。这些值对应HTTP请求头中的`Access-Control-Allow-Origin` |
-| origins          | 同value                                                      |
-| allowedHeaders   | 允许请求头中的header，默认都支持                             |
-| exposedHeaders   | 响应头中允许访问的header，默认为空                           |
-| methods          | 支持请求的方法，比如`GET`，`POST`，`PUT`等，默认和Controller中的方法上标注的一致。 |
-| allowCredentials | 是否允许cookie随请求发送，使用时必须指定具体的域             |
-| maxAge           | 预请求的结果的有效期，默认30分钟                             |
+| origins          | 同value                                                                    |
+| allowedHeaders   | 允许请求头中的header，默认都支持                                                       |
+| exposedHeaders   | 响应头中允许访问的header，默认为空                                                      |
+| methods          | 支持请求的方法，比如`GET`，`POST`，`PUT`等，默认和Controller中的方法上标注的一致。                    |
+| allowCredentials | 是否允许cookie随请求发送，使用时必须指定具体的域                                               |
+| maxAge           | 预请求的结果的有效期，默认30分钟                                                         |
 
 **2.接口编程**
 
@@ -428,12 +426,12 @@ public class WebConfigurer implements WebMvcConfigurer {
 ```java
 @Bean
 public FilterRegistrationBean corsFilter() {    
-	UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();    
-	CorsConfiguration config = new CorsConfiguration();    
-	config.setAllowCredentials(true);    
-	config.addAllowedOrigin("*");    
-	source.registerCorsConfiguration("/**", config);    
-	FilterRegistrationBean bean = new FilterRegistrationBean(new CorsFilter(source));   
+    UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();    
+    CorsConfiguration config = new CorsConfiguration();    
+    config.setAllowCredentials(true);    
+    config.addAllowedOrigin("*");    
+    source.registerCorsConfiguration("/**", config);    
+    FilterRegistrationBean bean = new FilterRegistrationBean(new CorsFilter(source));   
     bean.setOrder(0);    
     return bean;
 }
@@ -727,18 +725,18 @@ logging.level.org.springframework.web.servlet.mvc.method.annotation.RequestMappi
 
 >  @Inject 可代替 @Autowired,  `@Named` or `@ManagedBean`可代替@Component , 这三个注解均来自于JSR-330的**javax.inject**包
 
->依赖注入配置时,通过required=false属性 , @Nullable 和 java8的Optional方式, 可以达到不必须依赖的效果.
->
->同样,  这三种方式也可与MVC, required=false可与 @RequestParam、@RequestHeader等结合使用。
+> 依赖注入配置时,通过required=false属性 , @Nullable 和 java8的Optional方式, 可以达到不必须依赖的效果.
+> 
+> 同样,  这三种方式也可与MVC, required=false可与 @RequestParam、@RequestHeader等结合使用。
 
 > JSR-330的@Singleton 相当于 @Scope("singleton") , 因为是默认, 所以无用
 
 > 在spring配置类中, 可以用@ImportResource注解导入xml文件配置
 
->通过@ComponentScan的nameGenerator指定BeanNameGenerator可实现自定义 Bean 命名策略
+> 通过@ComponentScan的nameGenerator指定BeanNameGenerator可实现自定义 Bean 命名策略
 
 > HttpEntity< T > 与@RequestBody功能相同:
->
+> 
 > ```
 > @PostMapping("/accounts")
 > public void handle(HttpEntity<Account> entity) 
@@ -747,5 +745,3 @@ logging.level.org.springframework.web.servlet.mvc.method.annotation.RequestMappi
 > @PostMapping("/accounts")
 > public void handle(@RequestBody Account account)
 > ```
->
-> 

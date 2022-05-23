@@ -23,7 +23,6 @@ public enum ExampleEnum {
     public int getValue() {
         return value;
     }
-
 ```
 
 ## 集合(数组)常量
@@ -151,40 +150,32 @@ public class SerializeUtils {
 }
 ```
 
-
-
-
-
-
-
 # 日期时间
 
 ## 时间格式转换
 
 ```
 public static String convert(String inDate){
-		String formatPattern = "yyyy-MM-dd HH:mm:ss";
-		ZonedDateTime zdt  = ZonedDateTime.parse(inDate);
-		LocalDateTime localDateTime = zdt.toLocalDateTime();
-		DateTimeFormatter formatter = DateTimeFormatter.ofPattern(formatPattern);
-		String outDate = formatter.format(localDateTime.plusHours(8));
-		return outDate;
-	}
+        String formatPattern = "yyyy-MM-dd HH:mm:ss";
+        ZonedDateTime zdt  = ZonedDateTime.parse(inDate);
+        LocalDateTime localDateTime = zdt.toLocalDateTime();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern(formatPattern);
+        String outDate = formatter.format(localDateTime.plusHours(8));
+        return outDate;
+    }
 ```
 
 ## 获取最近几天日期
 
 ```
 public void get(int days){
-	for(int i= days-1; i>=0; i--){
-		Calendar calendar = Calendar.getInstance();
-		calendar.set(Calendar.DAY_OF_YEAR,Calendar.get(Calendar.DAY_OF_YEAR)-i);
-		Dcalendar.getTime();
-	}
+    for(int i= days-1; i>=0; i--){
+        Calendar calendar = Calendar.getInstance();
+        calendar.set(Calendar.DAY_OF_YEAR,Calendar.get(Calendar.DAY_OF_YEAR)-i);
+        Dcalendar.getTime();
+    }
 }
 ```
-
-
 
 # 线程
 
@@ -192,18 +183,16 @@ public void get(int days){
 
 ```
 public static void main(String[] args) {
-		// 获取 Java 线程管理 MXBean
-	ThreadMXBean threadMXBean = ManagementFactory.getThreadMXBean();
-		// 不需要获取同步的 monitor 和 synchronizer 信息，仅获取线程和线程堆栈信息
-		ThreadInfo[] threadInfos = threadMXBean.dumpAllThreads(false, false);
-		// 遍历线程信息，仅打印线程 ID 和线程名称信息
-		for (ThreadInfo threadInfo : threadInfos) {
-			System.out.println("[" + threadInfo.getThreadId() + "] " + threadInfo.getThreadName());
-		}
-	}
+        // 获取 Java 线程管理 MXBean
+    ThreadMXBean threadMXBean = ManagementFactory.getThreadMXBean();
+        // 不需要获取同步的 monitor 和 synchronizer 信息，仅获取线程和线程堆栈信息
+        ThreadInfo[] threadInfos = threadMXBean.dumpAllThreads(false, false);
+        // 遍历线程信息，仅打印线程 ID 和线程名称信息
+        for (ThreadInfo threadInfo : threadInfos) {
+            System.out.println("[" + threadInfo.getThreadId() + "] " + threadInfo.getThreadName());
+        }
+    }
 ```
-
-
 
 ## 根据线程ID获取线程
 
@@ -223,8 +212,3 @@ public static Thread findThread(long threadId) {
     return null;
 }
 ```
-
-
-
-
-

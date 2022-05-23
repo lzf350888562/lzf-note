@@ -38,30 +38,30 @@ long length = file.length();
 //每个线程读取的大小 这里必须为向上整, 即每个线程可以多读但不能少读, 并且必须为整数字节
 int part = Math.cell(length / threadNum); 
 for(int i = 0; i < threadNum; i++){
-	final int k = i;
-	new Thread(() -> {
-		try{
-			RandomAccessFile in = new RandomAccessFile(file,"r");  
-			RandomAccessFile out = new RandomAccessFile("xxx","rw");  
-			in.seek(k * part);	//从指定位置开始读
-			out.seek(k * part);	//从指定位置开始写 
-			byte[] bytes = new byte[1024*2];
-			int len = -1,sum = 0;
-			while(true){
-				len = in.read(bytes);
-				if(len == -1){	//如果是读取最后一个part的线程读取结束了
-					break;		//因为最后一个线程可能读取不到part个字节 所以单独进行判断
-				}
-				sum += len;
-				out.write(bytes,0,len); 	//写入
-				if(sum >= part){	//每个线程读取完毕
-					break;
-				}				
-			}
-		}catch(Exception e){
-			e.printStackTrace();
-		}
-	}).start();
+    final int k = i;
+    new Thread(() -> {
+        try{
+            RandomAccessFile in = new RandomAccessFile(file,"r");  
+            RandomAccessFile out = new RandomAccessFile("xxx","rw");  
+            in.seek(k * part);    //从指定位置开始读
+            out.seek(k * part);    //从指定位置开始写 
+            byte[] bytes = new byte[1024*2];
+            int len = -1,sum = 0;
+            while(true){
+                len = in.read(bytes);
+                if(len == -1){    //如果是读取最后一个part的线程读取结束了
+                    break;        //因为最后一个线程可能读取不到part个字节 所以单独进行判断
+                }
+                sum += len;
+                out.write(bytes,0,len);     //写入
+                if(sum >= part){    //每个线程读取完毕
+                    break;
+                }                
+            }
+        }catch(Exception e){
+            e.printStackTrace();
+        }
+    }).start();
 }
 //可通过join 或 CountDownLautch 计时
 ```
@@ -82,49 +82,49 @@ int part = Math.cell(length / threadNum);
 // key为线程编号, value为线程读取的字节数
 final Map<Integer,Integer> map = new ConcurrentHashMap<>();
 for(int i = 0; i < threadNum; i++){
-	final int k = i;
-	new Thread(() -> {
-		RandomAccessFile log = null;
-		try{
-			RandomAccessFile in = new RandomAccessFile(file,"r");  
-			RandomAccessFile out = new RandomAccessFile("xxx","rw");  
-			log = new RandomAccessFile("xxx.log","rw");  // 日记记录位置 用于持久化
-			in.seek(k * part);	
-			out.seek(k * part);	
-			byte[] bytes = new byte[1024*2];
-			int len = -1,sum = 0;
-			while(true){
-				len = in.read(bytes);
-				if(len == -1){	
-					break;		
-				}
-				sum += len;
-				//读取的字节数写入map
-				map.put(k, k*part + sum);  
-				out.write(bytes,0,len); 	
-				//map持久化 只保留每个线程最新读取和写入完成的位置
-				log.seek(0);
-				StringJoiner joiner = new StringJoiner(",");
-				map.forEach((key,val) -> joiner.add(String.valueOf(val)));
-				log.write(joiner.toString().getBytes(StandardCharsets.UTF_8));
-				
-				if(sum >= part){	
-					break;
-				}
-			}
-		}catch(Exception e){
-			e.printStackTrace();
-		}finally{
-			try{
-				if(log!=null) log.close();	//关闭流, 否则无法删除
-			} catch(Exception e){
-			 	e.printStackTrace();
-			}
-		}
-	}).start();
-	//...
-	//读取完成后删除断点log文件
-	new File("xxx.log").delete();
+    final int k = i;
+    new Thread(() -> {
+        RandomAccessFile log = null;
+        try{
+            RandomAccessFile in = new RandomAccessFile(file,"r");  
+            RandomAccessFile out = new RandomAccessFile("xxx","rw");  
+            log = new RandomAccessFile("xxx.log","rw");  // 日记记录位置 用于持久化
+            in.seek(k * part);    
+            out.seek(k * part);    
+            byte[] bytes = new byte[1024*2];
+            int len = -1,sum = 0;
+            while(true){
+                len = in.read(bytes);
+                if(len == -1){    
+                    break;        
+                }
+                sum += len;
+                //读取的字节数写入map
+                map.put(k, k*part + sum);  
+                out.write(bytes,0,len);     
+                //map持久化 只保留每个线程最新读取和写入完成的位置
+                log.seek(0);
+                StringJoiner joiner = new StringJoiner(",");
+                map.forEach((key,val) -> joiner.add(String.valueOf(val)));
+                log.write(joiner.toString().getBytes(StandardCharsets.UTF_8));
+
+                if(sum >= part){    
+                    break;
+                }
+            }
+        }catch(Exception e){
+            e.printStackTrace();
+        }finally{
+            try{
+                if(log!=null) log.close();    //关闭流, 否则无法删除
+            } catch(Exception e){
+                 e.printStackTrace();
+            }
+        }
+    }).start();
+    //...
+    //读取完成后删除断点log文件
+    new File("xxx.log").delete();
 }
 ```
 
@@ -136,9 +136,9 @@ for(int i = 0; i < threadNum; i++){
 File logFile = new File("xxx.log");
 String[] $data = null;
 if(logFile.exist()){
-	BufferedReader reader = new BufferedReader(new FileReader(file));
-	String data = reader.readLine();
-	$data = data.split(",");
+    BufferedReader reader = new BufferedReader(new FileReader(file));
+    String data = reader.readLine();
+    $data = data.split(",");
 }
 logFile.close(); //关闭流, 否则无法删除
 final _data = $data;
@@ -151,8 +151,8 @@ out.seek(_data == null ? k * part : Integer.parseInt(_data[k]));
 map.put(k, (_data == null ? k * part : Integer.parseInt(_data[k])) + sum);  
 
 //----- 重点:修改判断是否读取完成的代码, 因为续传不会读取到part大小, 所以需要修改整个逻辑
-if(sum + (_data == null ? k * part : Integer.parseInt(_datak])) >= (k+1) * part){	
-	break;
+if(sum + (_data == null ? k * part : Integer.parseInt(_datak])) >= (k+1) * part){    
+    break;
 }
 ```
 
@@ -252,11 +252,11 @@ https://github.com/alibaba/easyexcel/
 ```java
 @Data
 public class DemoData {
-	//value设置excel表头名称 用于写 ,  index表示列数索引 用于读
-	@ExcelProperty(value="学生编号",index = 0)
-	private  Integer sno;
-	@ExcelProperty(value="学生姓名",index = 1)
-	private  String sname;
+    //value设置excel表头名称 用于写 ,  index表示列数索引 用于读
+    @ExcelProperty(value="学生编号",index = 0)
+    private  Integer sno;
+    @ExcelProperty(value="学生姓名",index = 1)
+    private  String sname;
 }
 ```
 
@@ -450,7 +450,7 @@ private void addBorder(Workbook excel){
         //worksheets[i].Cells.SetColumnWidth(1, 30);//设置列宽
         for (int j = 0; j < worksheets.get(i).getCells().getCount(); j++){  //sheet中的每一个单元格都采用这种风格
             worksheets.get(i).getCells().setRowHeight(j, 20);//设置行高
-			Cell hg = worksheets.get(i).getCells().get(j);
+            Cell hg = worksheets.get(i).getCells().get(j);
             hg.setStyle(style);
         }
     }
@@ -580,7 +580,7 @@ public class RandomValidateCodeUtil {
 ```java
 @Configuration
 public class CaptchaConfig{
-	//字符
+    //字符
     @Bean(name = "captchaProducer")
     public DefaultKaptcha getKaptchaBean(){
         DefaultKaptcha defaultKaptcha = new DefaultKaptcha();
@@ -607,7 +607,7 @@ public class CaptchaConfig{
         defaultKaptcha.setConfig(config);
         return defaultKaptcha;
     }
-	//计算
+    //计算
     @Bean(name = "captchaProducerMath")
     public DefaultKaptcha getKaptchaBeanMath(){
         DefaultKaptcha defaultKaptcha = new DefaultKaptcha();
@@ -778,6 +778,7 @@ public void getCode(HttpServletResponse response) {
     }
 }
 ```
+
 ## Bean
 
 随着系统模块分层不断细化，在Java日常开发中不可避免地涉及到各种对象的转换，如：DO、DTO、VO等等，编写映射转换代码是一个繁琐重复且还易错的工作，一个好的工具辅助，减轻了工作量、提升开发工作效率的同时还能减少bug的发生。
@@ -1133,8 +1134,6 @@ public interface CarMapper {
 }
 ```
 
-
-
 7.**表达式自定义映射**
 
 通过表达式，可以包含来自多种语言的结构。
@@ -1203,8 +1202,6 @@ public abstract class CarMapperDecorator implements CarMapper {
     } 
 }
 ```
-
-
 
 ## Lombok
 
@@ -1283,7 +1280,7 @@ public class SneakyThrowsExample implements Runnable {
     public String utf8ToString(byte[] bytes) {
       return new String(bytes, "UTF-8");
     }
-    
+
     @SneakyThrows
     public void run() {
       throw new Throwable();
@@ -1302,7 +1299,7 @@ public class SneakyThrowsExample implements Runnable {
       throw Lombok.sneakyThrow(e);
     }
   }
-  
+
   public void run() {
     try {
       throw new Throwable();
@@ -1552,10 +1549,10 @@ elasticjob.jobs.my-simple-job.sharding-total-count=1
 @Component
 @ElasticJobConf(name = "dayJob", cron = "0/10 * * * * ?", shardingTotalCount = 2, shardingItemParameters = "0=AAAA,1=BBBB", description = "简单任务", failover = true)
 public class TestJob implements SimpleJob {    
-	@Override    
-	public void execute(ShardingContext shardingContext) {        
-		log.info("TestJob任务名：【{}】, 片数：【{}】, param=【{}】", shardingContext.getJobName(),shardingContext.getShardingTotalCount(),              shardingContext.getShardingParameter());    
-	}
+    @Override    
+    public void execute(ShardingContext shardingContext) {        
+        log.info("TestJob任务名：【{}】, 片数：【{}】, param=【{}】", shardingContext.getJobName(),shardingContext.getShardingTotalCount(),              shardingContext.getShardingParameter());    
+    }
 }
 ```
 
@@ -1573,17 +1570,17 @@ public class TestJob implements SimpleJob {
 @Slf4j
 @Service
 public class MyShardingJob implements SimpleJob {    
-	@Override    
-	public void execute(ShardingContext context) {        
-		switch (context.getShardingItem()) {            
-			case 0:                
-				log.info("分片1：执行任务");                
-				break;            
-			case 1:                
-				log.info("分片2：执行任务");                
-				break;            
-			case 2:                
-				log.info("分片3：执行任务");               
+    @Override    
+    public void execute(ShardingContext context) {        
+        switch (context.getShardingItem()) {            
+            case 0:                
+                log.info("分片1：执行任务");                
+                break;            
+            case 1:                
+                log.info("分片2：执行任务");                
+                break;            
+            case 2:                
+                log.info("分片3：执行任务");               
                 break;        
         }   
     }
@@ -1710,15 +1707,11 @@ public ReturnT<String> myAnnotationJobHandler(String param)throws Exception {
 
 ...
 
-
-
 ### 比较
 
 ![](picture/PowerJobCompare.PNG)
 
 定时任务的技术选型 ：XXL-JOB 2015 年推出，已经经过了很多年的考验。XXL-JOB 轻量级，并且使用起来非常简单。虽然存在性能瓶颈，但是，在绝大多数情况下，对于企业的基本需求来说是没有影响的。PowerJob 属于分布式任务调度领域里的新星，其稳定性还有待继续考察。ElasticJob 由于在架构设计上是基于 Zookeeper ，而 XXL-JOB 是基于数据库，性能方面的话，ElasticJob 略胜一筹。
-
-
 
 ## ASM
 
@@ -1734,12 +1727,12 @@ Java字节码操控框架, 起源于java.lang.instument.Instrumentation, 它的r
 
 ```
 @BtracePublicclass ArgArray{
-	@OnMethod(	clazz="/java\\.io\\..*/", method="/read.*/")
+    @OnMethod(    clazz="/java\\.io\\..*/", method="/read.*/")
 public static void andRead(@ProbeClassName String pcn, @PromeMethodName String pmn, AnyType[] args){
-		System.out.println(pcn);
-		System.out.println(pmn);
-		System.out.println(args);
-	}
+        System.out.println(pcn);
+        System.out.println(pmn);
+        System.out.println(args);
+    }
 }
 ```
 

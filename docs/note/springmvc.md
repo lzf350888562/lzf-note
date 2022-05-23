@@ -9,15 +9,15 @@
 ```java
 @Configuration
 public class CorsConfig implements WebMvcConfigurer {
-	@Override
-	public void addCorsMappings(CorsRegistry registry) {
-		registry.addMapping("/**")
-				.allowedOrigins("*")
-				.allowedMethods("GET", "HEAD", "POST", "PUT", "DELETE", "OPTIONS")
-				.allowCredentials(true)
-				.maxAge(3600)
-				.allowedHeaders("*");
-	}
+    @Override
+    public void addCorsMappings(CorsRegistry registry) {
+        registry.addMapping("/**")
+                .allowedOrigins("*")
+                .allowedMethods("GET", "HEAD", "POST", "PUT", "DELETE", "OPTIONS")
+                .allowCredentials(true)
+                .maxAge(3600)
+                .allowedHeaders("*");
+    }
 }
 ```
 
@@ -215,8 +215,6 @@ public class DateConverter implements Converter<String, Date> {
 
 > 也可以实现ConverterFactory接口
 
-
-
 ## 内容协商
 
 **内容协商**机制是指客户端和服务器端就响应的资源内容进行交涉，然后提供给客户端最为适合的资源。内容协商会以响应资源的语言、字符集、编码方式等作为判断的基准。HTTP请求头中Content-Type，Accept等内容就是内容协商判断的标准。在Spring Boot中，一个完整的内容协商过程如下图所示：
@@ -227,17 +225,17 @@ public class DateConverter implements Converter<String, Date> {
 
 核心组件:
 
-| 组件                            | 名称                 | 说明                                                |
-| :------------------------------ | :------------------- | :-------------------------------------------------- |
-| ContentNegotiationManager       | 内容协商管理器       | ContentNegotiationStrategy 控制策略                 |
-| MediaType                       | 媒体类型             | HTTP 消息媒体类型，如 text/html                     |
-| @RequestMapping#consumes        | 消费媒体类型         | 请求头 Content-Type 媒体类型映射                    |
-| @RequestMapping#produces        | 生产媒体类型         | 响应头 Content-Type 媒体类型映射                    |
-| HttpMessageConverter            | HTTP消息转换器接口   | HTTP 消息转换器，用于反序列化 HTTP 请求或序列化响应 |
-| WebMvcConfigurer                | Web MVC 配置器       | 配置 REST 相关的组件                                |
-| HandlerMethod                   | 处理方法             | @RequestMapping 标注的方法                          |
-| HandlerMethodArgumentResolver   | 处理方法参数解析器   | 用于 HTTP 请求中解析 HandlerMethod 参数内容         |
-| HandlerMethodReturnValueHandler | 处理方法返回值解析器 | 用于 HandlerMethod 返回值解析为 HTTP 响应内容       |
+| 组件                              | 名称          | 说明                                |
+|:------------------------------- |:----------- |:--------------------------------- |
+| ContentNegotiationManager       | 内容协商管理器     | ContentNegotiationStrategy 控制策略   |
+| MediaType                       | 媒体类型        | HTTP 消息媒体类型，如 text/html           |
+| @RequestMapping#consumes        | 消费媒体类型      | 请求头 Content-Type 媒体类型映射           |
+| @RequestMapping#produces        | 生产媒体类型      | 响应头 Content-Type 媒体类型映射           |
+| HttpMessageConverter            | HTTP消息转换器接口 | HTTP 消息转换器，用于反序列化 HTTP 请求或序列化响应   |
+| WebMvcConfigurer                | Web MVC 配置器 | 配置 REST 相关的组件                     |
+| HandlerMethod                   | 处理方法        | @RequestMapping 标注的方法             |
+| HandlerMethodArgumentResolver   | 处理方法参数解析器   | 用于 HTTP 请求中解析 HandlerMethod 参数内容  |
+| HandlerMethodReturnValueHandler | 处理方法返回值解析器  | 用于 HandlerMethod 返回值解析为 HTTP 响应内容 |
 
 ### HttpMessageConverter
 
@@ -327,8 +325,8 @@ public class User {
 ```
 其对应的xml的样例为
 <User>
-	<name>aaaa</name>
-	<age>10</age>
+    <name>aaaa</name>
+    <age>10</age>
 </User>
 ```
 
@@ -365,13 +363,13 @@ age:18
 
 ```java
 public class PropertiesHttpMessageConverter extends AbstractGenericHttpMessageConverter<Properties> {
-	//在构造函数中指定它能处理的媒体类型(content-type)
-	public PropertiesHttpMessageConverter() {
-    	super(new MediaType("text", "properties"));
-	}
+    //在构造函数中指定它能处理的媒体类型(content-type)
+    public PropertiesHttpMessageConverter() {
+        super(new MediaType("text", "properties"));
+    }
     @Override
     protected void writeInternal(Properties properties, Type type, HttpOutputMessage outputMessage) throws IOException, HttpMessageNotWritableException {
-    	// 获取请求头
+        // 获取请求头
         HttpHeaders headers = outputMessage.getHeaders();
         // 获取 content-type
         MediaType contentType = headers.getContentType();
@@ -418,7 +416,7 @@ public class PropertiesHttpMessageConverter extends AbstractGenericHttpMessageCo
 ```Java
 @Configuration
 public class WebConfigurer implements WebMvcConfigurer {
-	@Override
+    @Override
     public void extendMessageConverters(List<HttpMessageConverter<?>> converters) {
         // converters.add(new PropertiesHttpMessageConverter());
         // 指定顺序，这里为第一个,否则会被排在前面的MappingJackson2HttpMessageConverter优先处理
@@ -433,7 +431,7 @@ controller
 ```java
 @RestController
 public class TestController {
-	//指定接收的Content-Type为text/properties
+    //指定接收的Content-Type为text/properties
     @GetMapping(value = "test", consumes = "text/properties")
     public Properties test(@RequestBody Properties properties) {
         return properties;
@@ -451,12 +449,12 @@ public class TestController {
 
 ```java
 public class PropertiesHandlerMethodArgumentResolver implements HandlerMethodArgumentResolver {
-	//用于指定支持解析的参数类型，这里为Properties类型
+    //用于指定支持解析的参数类型，这里为Properties类型
     @Override
     public boolean supportsParameter(MethodParameter parameter) {
         return Properties.class.equals(parameter.getParameterType());
     }
-	//用于实现解析逻辑，解析过程和PropertiesHttpMessageConverter的readInternal方法类似。
+    //用于实现解析逻辑，解析过程和PropertiesHttpMessageConverter的readInternal方法类似。
     @Override
     public Object resolveArgument(MethodParameter parameter, ModelAndViewContainer mavContainer, NativeWebRequest webRequest, WebDataBinderFactory binderFactory) throws Exception {
         ServletWebRequest servletWebRequest = (ServletWebRequest) webRequest;
@@ -525,50 +523,50 @@ public class TestController {
 
 接着我们开始实现自定义方法返回值解析器，并且不依赖于`@ResponseBody`注解。
 
-> newbee mall 通过该接口 ,  对带指定注解的接口参数使用请求头里的token从dao获取登录用户对象解析赋值	:
->
+> newbee mall 通过该接口 ,  对带指定注解的接口参数使用请求头里的token从dao获取登录用户对象解析赋值    :
+> 
 > ```java
 > @Component
 > public class TokenToAdminUserMethodArgumentResolver implements HandlerMethodArgumentResolver {
->     	@Autowired
->     	private NewBeeAdminUserTokenMapper newBeeAdminUserTokenMapper;
->     	public TokenToAdminUserMethodArgumentResolver() {
->     	}
-> 	public boolean supportsParameter(MethodParameter parameter) {
->         	if (parameter.hasParameterAnnotation(TokenToAdminUser.class)) {
->             	return true;
->        	}
->         	return false;
->    	}
->    
->  	public Object resolveArgument(MethodParameter parameter, ModelAndViewContainer mavContainer, NativeWebRequest webRequest, WebDataBinderFactory binderFactory) {
->         	if (parameter.getParameterAnnotation(TokenToAdminUser.class) instanceof TokenToAdminUser) {
->             	String token = webRequest.getHeader("token");
->             	if (null != token && !"".equals(token) && token.length() == Constants.TOKEN_LENGTH) {
->                 	AdminUserToken adminUserToken = newBeeAdminUserTokenMapper.selectByToken(token);
->                 	if (adminUserToken == null) {
->                     	NewBeeMallException.fail(ServiceResultEnum.ADMIN_NOT_LOGIN_ERROR.getResult());
->                 	} else if (adminUserToken.getExpireTime().getTime() <= System.currentTimeMillis()) {
->                     	NewBeeMallException.fail(ServiceResultEnum.ADMIN_TOKEN_EXPIRE_ERROR.getResult());
->                 	}
->                 	return adminUserToken;
->             	} else {
->                 	NewBeeMallException.fail(ServiceResultEnum.ADMIN_NOT_LOGIN_ERROR.getResult());
->             	}
->         	}
+>         @Autowired
+>         private NewBeeAdminUserTokenMapper newBeeAdminUserTokenMapper;
+>         public TokenToAdminUserMethodArgumentResolver() {
+>         }
+>     public boolean supportsParameter(MethodParameter parameter) {
+>             if (parameter.hasParameterAnnotation(TokenToAdminUser.class)) {
+>                 return true;
+>            }
+>             return false;
+>        }
+> 
+>      public Object resolveArgument(MethodParameter parameter, ModelAndViewContainer mavContainer, NativeWebRequest webRequest, WebDataBinderFactory binderFactory) {
+>             if (parameter.getParameterAnnotation(TokenToAdminUser.class) instanceof TokenToAdminUser) {
+>                 String token = webRequest.getHeader("token");
+>                 if (null != token && !"".equals(token) && token.length() == Constants.TOKEN_LENGTH) {
+>                     AdminUserToken adminUserToken = newBeeAdminUserTokenMapper.selectByToken(token);
+>                     if (adminUserToken == null) {
+>                         NewBeeMallException.fail(ServiceResultEnum.ADMIN_NOT_LOGIN_ERROR.getResult());
+>                     } else if (adminUserToken.getExpireTime().getTime() <= System.currentTimeMillis()) {
+>                         NewBeeMallException.fail(ServiceResultEnum.ADMIN_TOKEN_EXPIRE_ERROR.getResult());
+>                     }
+>                     return adminUserToken;
+>                 } else {
+>                     NewBeeMallException.fail(ServiceResultEnum.ADMIN_NOT_LOGIN_ERROR.getResult());
+>                 }
+>             }
 >         return null;
->     	}
+>         }
 >    }
 > ```
 > 
 > 并且该项目是通过WebMvcConfigurer接口的addArgumentResolver方法添加该解析器的,即不覆盖spring自带的解析器链路
->
+> 
 > ```java
->public void addArgumentResolvers(List<HandlerMethodArgumentResolver> argumentResolvers) {
-> 	argumentResolvers.add(tokenToMallUserMethodArgumentResolver);
-> 	argumentResolvers.add(tokenToAdminUserMethodArgumentResolver);
+> public void addArgumentResolvers(List<HandlerMethodArgumentResolver> argumentResolvers) {
+>     argumentResolvers.add(tokenToMallUserMethodArgumentResolver);
+>     argumentResolvers.add(tokenToAdminUserMethodArgumentResolver);
 >    }
->    ```
+> ```
 
 ### HandlerMethodReturnValueHandler
 
@@ -608,9 +606,9 @@ public class PropertiesHandlerMethodReturnValueHandler implements HandlerMethodR
         OutputStreamWriter outputStreamWriter = new OutputStreamWriter(body, charset);
 
         properties.store(outputStreamWriter, "Serialized by PropertiesHandlerMethodReturnValueHandler#handleReturnValue");
-        
-		// 告诉 Spring MVC 请求已经处理完毕
-        //	mavContainer.setRequestHandled(true);
+
+        // 告诉 Spring MVC 请求已经处理完毕
+        //    mavContainer.setRequestHandled(true);
     }
 }
 ```
@@ -782,7 +780,7 @@ dispatcherType: 处理请求类型, 包括5种:
 
 ```java
 public class TimeInterceptor implements HandlerInterceptor {
-	//方法在处理拦截之前执行
+    //方法在处理拦截之前执行
     @Override
     public boolean preHandle(HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse, Object o) throws Exception {
         System.out.println("处理拦截之前");
@@ -793,14 +791,14 @@ public class TimeInterceptor implements HandlerInterceptor {
         System.out.println(((HandlerMethod) o).getMethod().getName());
         return true;
     }
-	//当被拦截的方法没有抛出异常成功时才会处理
+    //当被拦截的方法没有抛出异常成功时才会处理
     @Override
     public void postHandle(HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse, Object o, ModelAndView modelAndView) throws Exception {
         System.out.println("开始处理拦截");
         Long start = (Long) httpServletRequest.getAttribute("startTime");
         System.out.println("【拦截器】耗时 " + (new Date().getTime() - start));
     }
-	//方法无论被拦截的方法抛出异常与否都会执行
+    //方法无论被拦截的方法抛出异常与否都会执行
     @Override
     public void afterCompletion(HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse, Object o, Exception e) throws Exception {
         System.out.println("处理拦截之后");
@@ -1123,5 +1121,3 @@ response.setHeader("Content-Type","text/plain");
 response.addHeader("Content-Disposition","attachment;filename=" + new String(filename.getBytes(),"utf-8"));  
 response.addHeader("Content-Length","" + file.length());  
 ```
-
- 

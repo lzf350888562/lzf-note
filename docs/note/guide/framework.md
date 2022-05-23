@@ -1,6 +1,6 @@
 # 框架
 
-##  Mybatis
+## Mybatis
 
 **#{}与${}**
 
@@ -11,12 +11,10 @@
 3）使用 #{} 可以有效的防止SQL注入，提高系统安全性。
 
 > like语句不能使用 %#{xxx}% ,应使用concat;
->
+> 
 > in语句不能使用 in (${ids}), 应使用foreach标签
 
 > order by 不能使用 order by #{} ,因为order by后接列名,属于代码语义的一部分. 如果在语义分析部分没有确定下来就相当于执行 order by 空列名, 有语法 错误
-
-
 
 ### 分页
 
@@ -31,8 +29,6 @@
 **(3)** 也可以使用分页插件来完成物理分页。 
 
 分页插件的基本原理是使用 MyBatis 提供的插件接口，实现自定义插件，在插件的拦截方法内拦截待执行的 sql，然后重写 sql，根据 dialect 方言，添加对应的物理分页语句和物理分页参数。
-
-
 
 ### 延迟加载
 
@@ -94,27 +90,27 @@ SqlSession session1 = factory.openSession();
 UserDao userDao1 = session1.getMapper(UserDao.class);
 User user1 = userDao1.findById(45);
 System.out.println(user1);
-session1.commit(); 			//commit()方法提交二级缓存 同时清空一级缓存
-session1.close();			
+session1.commit();             //commit()方法提交二级缓存 同时清空一级缓存
+session1.close();            
 //第二次查找命中二级缓存
 SqlSession session2 = factory.openSession();
 UserDao userDao2 = session2.getMapper(UserDao.class);
 User user2 = userDao2.findById(45);
-session2.commit(); 			//commit()方法提交二级缓存 同时清空一级缓存
+session2.commit();             //commit()方法提交二级缓存 同时清空一级缓存
 session2.close();
 System.out.println(user2); 
-System.out.println(user1 == user2);	//false 因为二级缓存的是数据, 而不是对象
+System.out.println(user1 == user2);    //false 因为二级缓存的是数据, 而不是对象
 ```
 
 ## JWT
 
 如果为每个请求验证用户名和密码会降低应用程序性能(比如单向哈希密码比较), 使用短期凭证, 如session、 token等可解决此问题.
 
-**JWT(Json Web Token)**是一个经过加密的，包含用户信息的且具有时效性的固定格式字符串 
+**JWT**(Json Web Token)是一个经过加密的，包含用户信息的且具有时效性的固定格式字符串 
 
 ![image-20211206205223334](picture/image-20211206205223334.png)
 
-**Header (标头)  ** : 描述 JWT 的元数据，定义了生成签名的算法以及 `Token` 的类型。
+**Header** (标头)   : 描述 JWT 的元数据，定义了生成签名的算法以及 `Token` 的类型。
 
 ```
 标头Header   : eyJhbGciOiJIUzI1NiJ9
@@ -253,7 +249,7 @@ user-agent，用户代理，帮助资源所有者与客户端沟通的工具，�
 
 `client_id` 用来表识客户端（公开），`client_secret` 用来验证客户端身份（保密）。
 
-[**OAuth 2.0 **](https://oauth.net/2/)规定了四种获得令牌(授权)的流程:
+[**OAuth 2.0**](https://oauth.net/2/)规定了四种获得令牌(授权)的流程:
 
 1.**授权码** : 指的是第三方应用先申请一个授权码，然后再用该码获取令牌。
 
@@ -264,7 +260,7 @@ user-agent，用户代理，帮助资源所有者与客户端沟通的工具，�
 1. 资源拥有者（用户）需要登录客户端（APP），他选择了第三方登录。
 2. 客户端（APP）重定向到第三方授权服务器。此时客户端携带了客户端标识（client_id），那么第三方就知道这是哪个客户端，资源拥有者确定（拒绝）授权后需要重定向到哪里。
 3. 用户确认授权，客户端（APP）被重定向到注册时给定的 URI，并携带了第三方给定的 code。
-4. 在重定向的过程中**，客户端拿到 code 与 `client_id`、`client_secret` 去授权服务器请求令牌，如果成功，直接请求资源服务器获取资源，整个过程，用户代理是不会拿到令牌 token 的**。
+4. 在重定向的过程中，客户端拿到 code 与 `client_id`、`client_secret` 去授权服务器请求令牌，如果成功，直接请求资源服务器获取资源，整个过程，用户代理是不会拿到令牌 token 的。
 5. 客户端（APP）拿到令牌 token 后就可以向第三方的资源服务器请求资源了。
 
 当我想在 coding 上通过 github 账号登录时：
@@ -279,12 +275,12 @@ https://github.com/login/oauth/authorize?
   scope=user:email
 ```
 
-| 字段          | 描述                                           |
-| :------------ | :--------------------------------------------- |
-| response_type | 必须，固定为 code，表示这是一个授权码请求。    |
-| client_id     | 必须，在 github 注册获得的客户端 ID。          |
+| 字段            | 描述                        |
+|:------------- |:------------------------- |
+| response_type | 必须，固定为 code，表示这是一个授权码请求。  |
+| client_id     | 必须，在 github 注册获得的客户端 ID。  |
 | redirect_uri  | 可选，接受或拒绝注册后的跳转网址的重定向 URI。 |
-| scope         | 可选，请求资源范围，多个空格隔开。             |
+| scope         | 可选，请求资源范围，多个空格隔开。         |
 | state         | 可选（推荐），如果存在，原样返回给客户端。     |
 
 用户确认授权后, 返回code
@@ -304,13 +300,13 @@ https://github.com/login/oauth/access_token?
   redirect_uri=https://coding.net/api/oauth/github/callback
 ```
 
-| 字段          | 描述                                                         |
-| :------------ | :----------------------------------------------------------- |
+| 字段            | 描述                                               |
+|:------------- |:------------------------------------------------ |
 | grant_type    | 必须，固定为 authorization_code (刷新的时候为refresh_token)。 |
-| code          | 必须，上一步获取到的授权码。                                 |
-| redirect_uri  | 必须（如果请求/authorize接口有），完成授权后的回调地址，与注册时一致。 |
-| client_id     | 必须，客户端标识。                                           |
-| client_secret | 必须，客户端密钥。                                           |
+| code          | 必须，上一步获取到的授权码。                                   |
+| redirect_uri  | 必须（如果请求/authorize接口有），完成授权后的回调地址，与注册时一致。         |
+| client_id     | 必须，客户端标识。                                        |
+| client_secret | 必须，客户端密钥。                                        |
 
 返回值：
 
@@ -323,12 +319,12 @@ https://github.com/login/oauth/access_token?
 }
 ```
 
-| 字段          | 描述                                            |
-| :------------ | :---------------------------------------------- |
-| access_token  | 这个就是最终获取到的令牌。                      |
+| 字段            | 描述                               |
+|:------------- |:-------------------------------- |
+| access_token  | 这个就是最终获取到的令牌。                    |
 | token_type    | 令牌类型，常见有 bearer/mac/token（可自定义）。 |
-| expires_in    | 失效时间。                                      |
-| refresh_token | 刷新令牌，用来刷新 access_token。               |
+| expires_in    | 失效时间。                            |
+| refresh_token | 刷新令牌，用来刷新 access_token。          |
 
 ③获取资源服务器资源，拿着 access_token 就可以获取账号的相关信息了：
 
@@ -349,10 +345,10 @@ https://github.com/login/oauth/access_token?
   refresh_token=5d633d136b6d56a41829b73a424803ec
 ```
 
-| 字段          | 描述                             |
-| :------------ | :------------------------------- |
-| redirect_uri  | 必须                             |
-| grant_type    | 必须，固定为 refresh_token       |
+| 字段            | 描述                      |
+|:------------- |:----------------------- |
+| redirect_uri  | 必须                      |
+| grant_type    | 必须，固定为 refresh_token    |
 | refresh_token | 必须，上面获取到的 refresh_token |
 
 返回值：
@@ -368,8 +364,6 @@ https://github.com/login/oauth/access_token?
 
 > refresh_token 只有在 access_token 过期时才能使用，并且只能使用一次。当换取到的 access_token 再次过期时，使用新的 refresh_token 来换取 access_token
 
-
-
 2.**隐藏模式**: 要求用户授权应用程序，然后授权服务器将访问令牌传回给用户代理，用户代理将其传递给客户端。
 
 ①同样以 coding 和 github 为例 ( response_type变为了token 表示要求直接返回token)：
@@ -382,12 +376,12 @@ https://github.com/login/oauth/authorize?
   scope=user:email
 ```
 
-| 字段          | 描述                                                      |
-| :------------ | :-------------------------------------------------------- |
-| response_type | 必须，固定为 token。                                      |
-| client_id     | 必须。当客户端被注册时，有授权服务器分配的客户端标识。    |
-| redirect_uri  | 可选。由客户端注册的重定向URI。                           |
-| scope         | 可选。请求可能的作用域。                                  |
+| 字段            | 描述                              |
+|:------------- |:------------------------------- |
+| response_type | 必须，固定为 token。                   |
+| client_id     | 必须。当客户端被注册时，有授权服务器分配的客户端标识。     |
+| redirect_uri  | 可选。由客户端注册的重定向URI。               |
+| scope         | 可选。请求可能的作用域。                    |
 | state         | 可选(推荐)。任何需要被传递到客户端请求的URI客户端的状态。 |
 
 返回值：
@@ -400,12 +394,12 @@ https://coding.net/api/oauth/github/callback#
   scope=user:email
 ```
 
-| 字段         | 描述                                                      |
-| :----------- | :-------------------------------------------------------- |
-| access_token | 必须。授权服务器分配的访问令牌。                          |
-| token_type   | 必须。令牌类型。                                          |
-| expires_in   | 推荐，访问令牌过期的秒数。                                |
-| scope        | 可选，访问令牌的作用域。                                  |
+| 字段           | 描述                               |
+|:------------ |:-------------------------------- |
+| access_token | 必须。授权服务器分配的访问令牌。                 |
+| token_type   | 必须。令牌类型。                         |
+| expires_in   | 推荐，访问令牌过期的秒数。                    |
+| scope        | 可选，访问令牌的作用域。                     |
 | state        | 必须，如果出现在授权请求期间，和请求中的 state 参数一样。 |
 
 ②用户代理提取令牌 token 并提交给 coding
@@ -416,8 +410,6 @@ https://coding.net/api/oauth/github/callback#
 curl -H "Authorization: token a14afef0f66fcffce3e0fcd2e34f6ff4" https://api.github.com/user
 ```
 
-
-
 3.**资源所有者密码模式**: 用户将其服务凭证（用户名和密码）直接提供给客户端 (**高度信任下**) ，该客户端使用凭据从服务获取访问令牌。
 
 `POST 请求` 密码凭证流程
@@ -426,12 +418,12 @@ curl -H "Authorization: token a14afef0f66fcffce3e0fcd2e34f6ff4" https://api.gith
 https://oauth.example.com/token?grant_type=password&username=USERNAME&password=PASSWORD&client_id=CLIENT_ID
 ```
 
-| 字段       | 描述                                 |
-| :--------- | :----------------------------------- |
-| grant_type | 必须，固定为 password。              |
+| 字段         | 描述                    |
+|:---------- |:--------------------- |
+| grant_type | 必须，固定为 password。      |
 | username   | 必须，UTF-8 编码的资源拥有者用户名。 |
-| password   | 必须，UTF-8 编码的资源拥有者密码。   |
-| scope      | 可选，授权范围。                     |
+| password   | 必须，UTF-8 编码的资源拥有者密码。  |
+| scope      | 可选，授权范围。              |
 
 返回值：
 
@@ -446,8 +438,6 @@ https://oauth.example.com/token?grant_type=password&username=USERNAME&password=P
 
 如果授权服务器验证成功，那么将直接返回令牌 token，该客户端已被授权。
 
-
-
 4.**客户端模式** : 这种模式只需要提供 `client_id` 和 `client_secret` 即可获取授权。一般用于后端 API 的相关操作。
 
 `POST 请求` 客户端凭证流程：
@@ -456,10 +446,10 @@ https://oauth.example.com/token?grant_type=password&username=USERNAME&password=P
 https://oauth.example.com/token?grant_type=client_credentials&client_id=CLIENT_ID&client_secret=CLIENT_SECRET
 ```
 
-| 字段       | 描述                          |
-| :--------- | :---------------------------- |
+| 字段         | 描述                       |
+|:---------- |:------------------------ |
 | grant_type | 必须。固定client_credentials. |
-| scope      | 可选。授权的作用域。          |
+| scope      | 可选。授权的作用域。               |
 
 返回值
 
@@ -477,7 +467,7 @@ https://oauth.example.com/token?grant_type=client_credentials&client_id=CLIENT_I
 
 ### Authentication
 
-Subject.login -->  SecurityManager.login(token) -->	Authenticator.doAuthenticate(token)   --> Realm.getAuthenticationInfo(token)
+Subject.login -->  SecurityManager.login(token) -->    Authenticator.doAuthenticate(token)   --> Realm.getAuthenticationInfo(token)
 
 **AuthenticationToken**
 
@@ -496,35 +486,27 @@ Remenbered的标识使系统知道该用户可能是谁，但实际上，无法�
 
 由于 Web 应用程序中 remenbered 的身份通常与 Cookie 一起保留，并且 Cookie 只能在提交响应正文之前删除，因此强烈建议在调用 subject.logout（） 后立即将最终用户重定向到新的视图或页面。这保证了任何与安全相关的 Cookie 都会按预期删除。这是对HTTP cookie功能的限制，而不是Shiro的限制。
 
-
-
 **Authenticator**
 
 the Shiro `SecurityManager` implementations default to using a [`ModularRealmAuthenticator`](https://shiro.apache.org/static/current/apidocs/org/apache/shiro/authc/pam/ModularRealmAuthenticator.html) instance.
 
 如果只有单个Realm,  ModularRealmAuthenticator 进行直接调用;  如果有多个Realm , ModularRealmAuthenticator 实例将利用其配置的 AuthenticationStrategy 启动多Realm认证尝试
 
-
-
 **AuthenticationStrategy**
 
-| `AuthenticationStrategy` class                               | Description                                                  |
-| :----------------------------------------------------------- | :----------------------------------------------------------- |
-| [`AtLeastOneSuccessfulStrategy`](https://shiro.apache.org/static/current/apidocs/org/apache/shiro/authc/pam/AtLeastOneSuccessfulStrategy.html) | 如果一个（或多个）Realm 成功通过身份验证，则整体尝试将被视为成功。如果没有身份验证成功，则尝试将失败。 |
-| [`FirstSuccessfulStrategy`](https://shiro.apache.org/static/current/apidocs/org/apache/shiro/authc/pam/FirstSuccessfulStrategy.html) | 只有从第一个成功通过身份验证的 Realm 返回的信息才会被使用。所有进一步的 Realm 都将被忽略。如果没有身份验证成功，则尝试将失败。 |
-| [`AllSuccessfulStrategy`](https://shiro.apache.org/static/current/apidocs/org/apache/shiro/authc/pam/AllSuccessfulStrategy.html) | 所有配置的Realm必须都认证成功时, 整体尝试才被视为成功, 如果任一验证失败, 则尝试将失败 |
+| `AuthenticationStrategy` class                                                                                                                 | Description                                                            |
+|:---------------------------------------------------------------------------------------------------------------------------------------------- |:---------------------------------------------------------------------- |
+| [`AtLeastOneSuccessfulStrategy`](https://shiro.apache.org/static/current/apidocs/org/apache/shiro/authc/pam/AtLeastOneSuccessfulStrategy.html) | 如果一个（或多个）Realm 成功通过身份验证，则整体尝试将被视为成功。如果没有身份验证成功，则尝试将失败。                 |
+| [`FirstSuccessfulStrategy`](https://shiro.apache.org/static/current/apidocs/org/apache/shiro/authc/pam/FirstSuccessfulStrategy.html)           | 只有从第一个成功通过身份验证的 Realm 返回的信息才会被使用。所有进一步的 Realm 都将被忽略。如果没有身份验证成功，则尝试将失败。 |
+| [`AllSuccessfulStrategy`](https://shiro.apache.org/static/current/apidocs/org/apache/shiro/authc/pam/AllSuccessfulStrategy.html)               | 所有配置的Realm必须都认证成功时, 整体尝试才被视为成功, 如果任一验证失败, 则尝试将失败                       |
 
 如果你想自己创建自己的 AuthenticationStrategy 实现，你可以使用` org.apache.shiro.authc.pam.AbstractAuthenticationStrategy` 作为起点。其会自动实现"捆绑"/聚合行为，即将每个 Realm 的结果合并到一个 AuthenticationInfo 实例中。
-
-
 
 **Realm Order**
 
 需要指出的是，ModularRealmAuthenticator 将按迭代顺序与 SecurityManager上的Realm 实例进行交互，这一点非常重要。
 
 realm的顺序可以通过定义的形式隐式声明 或 通过 securityManager.realms属性显式声明.
-
-
 
 ### Authorization
 
@@ -576,9 +558,9 @@ currentUser.isPermitted(new WildcardPermission("printer:print:laserjet4400n"))
 ```
 
 > Q: 为什么要对字符串权限转换为WildcardPermission对象?
->
+> 
 > 因为权限检查是通过隐含逻辑, 而不是简单的字符串相等性检查来评估的。比如支持*通配符检查
->
+> 
 > 关于通配符权限字符串的使用, 具体见官方https://shiro.apache.org/permissions.html
 
 权限断言:
@@ -641,8 +623,6 @@ if (principals == null || principals.isEmpty()) {
 
 见https://shiro.apache.org/web.html#Web-taglibrary的JSP/GSP Tag Library章节
 
-
-
 流程:
 
 代码调用hasRole,isPermitted...变体(如果有, 如注解 )  -->  Subject.hasRole,isPermitted.....   -->
@@ -652,8 +632,6 @@ SecurityManager.hasRole,isPermitted... (实现了Authorizer接口)-->
 SecurityManager方法内部委托给Authorizer实例(默认为ModularRealmAuthorizer)调用, 它支持在任何授权操作期间协调一个或多个 Realm 实例。 -->
 
 ModularRealmAuthorizer再委托给其内部的实现了Authorizer的Realm实例集合调用
-
-
 
 **ModularRealmAuthorizer** 
 
@@ -668,10 +646,8 @@ SecurityManager 实现默认使用 ModularRealmAuthorizer 实例。ModularRealmA
 2.如果 Realm方法导致异常，则该异常将作为授权异常传播到Subject调用方。
 
 > Q: 我们通常自定义的Realm实例与Authorizer接口实例有啥关系?
->
+> 
 > A: 如果要让Realm支持授权操作, 需要实现Realm的抽象子类AuthorizingRealm, 该抽象类实现了Authorizer接口的方法, 并以模板设计模式方式提供了子类实现的getAuthorizationInfo(token)方法用于获取授权信息, 在实现的Authorizer接口的方法中进行调用.
-
-
 
 **PermissionResolver**
 
@@ -680,8 +656,6 @@ SecurityManager 实现默认使用 ModularRealmAuthorizer 实例。ModularRealmA
 如果想要自定义权限语法并创建对应的`PermissionResolver`实现, 为了让所有已配置的Realm实例都支持该语法, 可配置全局`PermissionResolver` 到`securityManager.authorizer.permissionResolver`上, 为了让Realm实例中使用此`PermissionResolver`, 还必须要给Realm实现`PermissionResolverAware`接口.
 
 >  也可以单独为某个Realm指定`PermissionResolver` .
-
-
 
 > 最后, 如果你的应用程序使用多个Realm来执行授权，并且 ModularRealmAuthorizer 的默认简单基于迭代的短路授权行为不适合您的需要，则您可能希望创建一个自定义Authorizer并相应地配置 SecurityManager。
 
@@ -721,8 +695,6 @@ userDAO.create(user);
 org.apache.shiro.authc.credential.Sha256CredentialsMatcher
 ```
 
-
-
 也可以自定义实现.
 
 通过下列方式进行设置
@@ -730,8 +702,6 @@ org.apache.shiro.authc.credential.Sha256CredentialsMatcher
 ```
 AuthenticatingRealm.setCredentialsMatcher(customMatcher)
 ```
-
-
 
 **Realm Authentication**
 
@@ -816,8 +786,6 @@ SessionDAO 使用 `SessionIdGenerator `组件在每次创建新会话时生成�
 
 中会注入一个 `InMemoryUserDetailsManager `,     并指定一个User对象( 用户信息主题UserDetails的实现类) , 这个User用户名为user,  密码在控制台可以看到.
 
-
-
 ### PasswordEncoder
 
  `PasswordEncoder` 就是我们对密码进行编码 的工具接口。该接口只有两个功能： 一个是匹配验证。另一个是密码编码。
@@ -827,23 +795,23 @@ SessionDAO 使用 `SessionIdGenerator `组件在每次创建新会话时生成�
 ```
 // 获取最终干活的PasswordEncoder
 private PasswordEncoder getPasswordEncoder() {
-	if (this.passwordEncoder != null) {
-		return this.passwordEncoder;
-	}
-	PasswordEncoder passwordEncoder = getBeanOrNull(PasswordEncoder.class);
-	if (passwordEncoder == null) {
-		passwordEncoder = PasswordEncoderFactories.createDelegatingPasswordEncoder();
-	}
-	this.passwordEncoder = passwordEncoder;
-	return passwordEncoder;
+    if (this.passwordEncoder != null) {
+        return this.passwordEncoder;
+    }
+    PasswordEncoder passwordEncoder = getBeanOrNull(PasswordEncoder.class);
+    if (passwordEncoder == null) {
+        passwordEncoder = PasswordEncoderFactories.createDelegatingPasswordEncoder();
+    }
+    this.passwordEncoder = passwordEncoder;
+    return passwordEncoder;
 }
 // 从Spring IoC容器中获取Bean 有可能获取不到
 private <T> T getBeanOrNull(Class<T> type) {
-	try {
-		return this.applicationContext.getBean(type);
-	} catch(NoSuchBeanDefinitionException notFound) {
-	return null;
-	}
+    try {
+        return this.applicationContext.getBean(type);
+    } catch(NoSuchBeanDefinitionException notFound) {
+    return null;
+    }
 }
 ```
 
@@ -851,20 +819,19 @@ private <T> T getBeanOrNull(Class<T> type) {
 
 ```
 public static PasswordEncoder createDelegatingPasswordEncoder() {
-	String encodingId = "bcrypt";
-	Map<String, PasswordEncoder> encoders = new HashMap<>();
-	encoders.put(encodingId, new BCryptPasswordEncoder());
-	encoders.put("ldap", new org.springframework.security.crypto.password.LdapShaPasswordEncoder());
-	encoders.put("MD4", new org.springframework.security.crypto.password.Md4PasswordEncoder());
-	encoders.put("MD5", new org.springframework.security.crypto.password.MessageDigestPasswordEncoder("MD5"));
-	encoders.put("noop",org.springframework.security.crypto.password.NoOpPasswordEncoder.getInstance());
-	encoders.put("pbkdf2", new Pbkdf2PasswordEncoder());
-	encoders.put("scrypt", new SCryptPasswordEncoder());
-	encoders.put("SHA-1", new org.springframework.security.crypto.password.MessageDigestPasswordEncoder("SHA1"));
-	encoders.put("SHA-256", new org.springframework.security.crypto.password.MessageDigestPasswordEncoder("SHA256"));	
-	encoders.put("sha256", new org.springframework.security.crypto.password.StandardPasswordEncoder());
-	return new DelegatingPasswordEncoder(encodingId, encoders);
-
+    String encodingId = "bcrypt";
+    Map<String, PasswordEncoder> encoders = new HashMap<>();
+    encoders.put(encodingId, new BCryptPasswordEncoder());
+    encoders.put("ldap", new org.springframework.security.crypto.password.LdapShaPasswordEncoder());
+    encoders.put("MD4", new org.springframework.security.crypto.password.Md4PasswordEncoder());
+    encoders.put("MD5", new org.springframework.security.crypto.password.MessageDigestPasswordEncoder("MD5"));
+    encoders.put("noop",org.springframework.security.crypto.password.NoOpPasswordEncoder.getInstance());
+    encoders.put("pbkdf2", new Pbkdf2PasswordEncoder());
+    encoders.put("scrypt", new SCryptPasswordEncoder());
+    encoders.put("SHA-1", new org.springframework.security.crypto.password.MessageDigestPasswordEncoder("SHA1"));
+    encoders.put("SHA-256", new org.springframework.security.crypto.password.MessageDigestPasswordEncoder("SHA256"));    
+    encoders.put("sha256", new org.springframework.security.crypto.password.StandardPasswordEncoder());
+    return new DelegatingPasswordEncoder(encodingId, encoders);
 ```
 
 返回的是一个`DelegatingPasswordEncoder`委托密码编码器对象, 继承了多种编码方式, 默认采用bcrypt进行编码(通过传入encodingId). 
@@ -887,10 +854,10 @@ public static PasswordEncoder createDelegatingPasswordEncoder() {
 @ConditionalOnMissingBean(WebSecurityConfigurerAdapter.class)
 @ConditionalOnWebApplication(type = Type.SERVLET)
 public class SpringBootWebSecurityConfiguration {
-	@Configuration
-	@Order(SecurityProperties.BASIC_AUTH_ORDER)
-	static class DefaultConfigurerAdapter extends WebSecurityConfigurerAdapter {
-	}
+    @Configuration
+    @Order(SecurityProperties.BASIC_AUTH_ORDER)
+    static class DefaultConfigurerAdapter extends WebSecurityConfigurerAdapter {
+    }
 }
 ```
 
@@ -915,12 +882,12 @@ public class WebSecurityEnablerConfiguration {
 @Target(value = { java.lang.annotation.ElementType.TYPE })
 @Documented
 @Import({ WebSecurityConfiguration.class,
-	SpringWebMvcImportSelector.class,
-	OAuth2ImportSelector.class })
+    SpringWebMvcImportSelector.class,
+    OAuth2ImportSelector.class })
 @EnableGlobalAuthentication
 @Configuration
 public @interface EnableWebSecurity {
-	boolean debug() default false;
+    boolean debug() default false;
 }
 ```
 
@@ -933,95 +900,95 @@ public @interface EnableWebSecurity {
 ```java
 @Configuration
 public class WebSecurityConfiguration implements ImportAware,BeanClassLoaderAware {
-	private WebSecurity webSecurity;
-	// 是否启用了调试模式，来自注解 @EnableWebSecurity 的属性 debug，缺省值 false
-	private Boolean debugEnabled;
-	private List<SecurityConfigurer<Filter, WebSecurity>> webSecurityConfigurers;
-	private ClassLoader beanClassLoader;
-	@Autowired(required = false)
-	private ObjectPostProcessor<Object> objectObjectPostProcessor;
-	/**
-	* 代理监听器 监听 DefaultAuthenticationEventPublisher 的一些处理策略
-	*/
-	@Bean
-	public static DelegatingApplicationListener delegatingApplicationListener(){
-		return new DelegatingApplicationListener();
-	}
-	/**
-	* 安全SpEL表达式处理器 SecurityExpressionHandler 缺省为一个DefaultWebSecurityExpressionHandler
-	*/
-	@Bean
-	@DependsOn(AbstractSecurityWebApplicationInitializer.DEFAULT_FILTER_NAME)
-	public SecurityExpressionHandler<FilterInvocation> webSecurityExpressionHandler() {
-		return webSecurity.getExpressionHandler();
-	}
-	/**
-	* Spring Security核心过滤器链
-	*/
-	@Bean(name = AbstractSecurityWebApplicationInitializer.DEFAULT_FILTER_NAME)
-	public Filter springSecurityFilterChain() throws Exception {
-		boolean hasConfigurers = webSecurityConfigurers != null && !webSecurityConfigurers.isEmpty();
-		if (!hasConfigurers) {
-			WebSecurityConfigurerAdapter adapter = objectObjectPostProcessor
-				.postProcess(new WebSecurityConfigurerAdapter() {
-				});
-			webSecurity.apply(adapter);
-		}
-		return webSecurity.build();
-	}
-	/**
-	* 用于模板 如JSP Freemarker 的一些页面标签按钮控制支持
-	*/
-	@Bean
-	@DependsOn(AbstractSecurityWebApplicationInitializer.DEFAULT_FILTER_NAME)
-	public WebInvocationPrivilegeEvaluator privilegeEvaluator() throws Exception{
-		return webSecurity.getPrivilegeEvaluator();
-	}
-	/**
-	* webSecurity应用SecurityConfigurer实例，
-	* 注入参数的依赖对应的bean autowiredWebSecurityConfigurersIgnoreParents也在该类中定义
-	*/
-	@Autowired(required = false)
-	public void setFilterChainProxySecurityConfigurer(
-			ObjectPostProcessor<Object> objectPostProcessor,
-			@Value("#
-				{@autowiredWebSecurityConfigurersIgnoreParents.getWebSecurityConfigurers()}")
-				List<SecurityConfigurer<Filter, WebSecurity>> webSecurityConfigurers)throws Exception {
-		webSecurity = objectPostProcessor.postProcess(new WebSecurity(objectPostProcessor));
-		if (debugEnabled != null) {
-		webSecurity.debug(debugEnabled);
-		}
-		Collections.sort(webSecurityConfigurers,AnnotationAwareOrderComparator.INSTANCE);
-		Integer previousOrder = null;
-		Object previousConfig = null;
-		for (SecurityConfigurer<Filter, WebSecurity> config : webSecurityConfigurers) {
-			Integer order = AnnotationAwareOrderComparator.lookupOrder(config);
-			if (previousOrder != null && previousOrder.equals(order)) {
-				throw new IllegalStateException(
-					"@Order on WebSecurityConfigurers must be unique. Order of "
-					+ order + " was already used on " +
-					previousConfig + ", so it cannot be used on "
-					+ config + " too.");
-			}
-			previousOrder = order;
-			previousConfig = config;
-		}
-		for (SecurityConfigurer<Filter, WebSecurity> webSecurityConfigurer : webSecurityConfigurers){
-			webSecurity.apply(webSecurityConfigurer);
-		}
-		this.webSecurityConfigurers = webSecurityConfigurers;
-	}
-	/**
-	* 从当前bean容器中获取所有的WebSecurityConfigurer bean。
-	* 这些WebSecurityConfigurer通常是由开发人员实现的配置类，并且继承自WebSecurityConfigurerAdapter
-	*/
-	@Bean
-	public static AutowiredWebSecurityConfigurersIgnoreParents
-		autowiredWebSecurityConfigurersIgnoreParents(
-			ConfigurableListableBeanFactory beanFactory) {
-		return new AutowiredWebSecurityConfigurersIgnoreParents(beanFactory);
-	}
-	//......
+    private WebSecurity webSecurity;
+    // 是否启用了调试模式，来自注解 @EnableWebSecurity 的属性 debug，缺省值 false
+    private Boolean debugEnabled;
+    private List<SecurityConfigurer<Filter, WebSecurity>> webSecurityConfigurers;
+    private ClassLoader beanClassLoader;
+    @Autowired(required = false)
+    private ObjectPostProcessor<Object> objectObjectPostProcessor;
+    /**
+    * 代理监听器 监听 DefaultAuthenticationEventPublisher 的一些处理策略
+    */
+    @Bean
+    public static DelegatingApplicationListener delegatingApplicationListener(){
+        return new DelegatingApplicationListener();
+    }
+    /**
+    * 安全SpEL表达式处理器 SecurityExpressionHandler 缺省为一个DefaultWebSecurityExpressionHandler
+    */
+    @Bean
+    @DependsOn(AbstractSecurityWebApplicationInitializer.DEFAULT_FILTER_NAME)
+    public SecurityExpressionHandler<FilterInvocation> webSecurityExpressionHandler() {
+        return webSecurity.getExpressionHandler();
+    }
+    /**
+    * Spring Security核心过滤器链
+    */
+    @Bean(name = AbstractSecurityWebApplicationInitializer.DEFAULT_FILTER_NAME)
+    public Filter springSecurityFilterChain() throws Exception {
+        boolean hasConfigurers = webSecurityConfigurers != null && !webSecurityConfigurers.isEmpty();
+        if (!hasConfigurers) {
+            WebSecurityConfigurerAdapter adapter = objectObjectPostProcessor
+                .postProcess(new WebSecurityConfigurerAdapter() {
+                });
+            webSecurity.apply(adapter);
+        }
+        return webSecurity.build();
+    }
+    /**
+    * 用于模板 如JSP Freemarker 的一些页面标签按钮控制支持
+    */
+    @Bean
+    @DependsOn(AbstractSecurityWebApplicationInitializer.DEFAULT_FILTER_NAME)
+    public WebInvocationPrivilegeEvaluator privilegeEvaluator() throws Exception{
+        return webSecurity.getPrivilegeEvaluator();
+    }
+    /**
+    * webSecurity应用SecurityConfigurer实例，
+    * 注入参数的依赖对应的bean autowiredWebSecurityConfigurersIgnoreParents也在该类中定义
+    */
+    @Autowired(required = false)
+    public void setFilterChainProxySecurityConfigurer(
+            ObjectPostProcessor<Object> objectPostProcessor,
+            @Value("#
+                {@autowiredWebSecurityConfigurersIgnoreParents.getWebSecurityConfigurers()}")
+                List<SecurityConfigurer<Filter, WebSecurity>> webSecurityConfigurers)throws Exception {
+        webSecurity = objectPostProcessor.postProcess(new WebSecurity(objectPostProcessor));
+        if (debugEnabled != null) {
+        webSecurity.debug(debugEnabled);
+        }
+        Collections.sort(webSecurityConfigurers,AnnotationAwareOrderComparator.INSTANCE);
+        Integer previousOrder = null;
+        Object previousConfig = null;
+        for (SecurityConfigurer<Filter, WebSecurity> config : webSecurityConfigurers) {
+            Integer order = AnnotationAwareOrderComparator.lookupOrder(config);
+            if (previousOrder != null && previousOrder.equals(order)) {
+                throw new IllegalStateException(
+                    "@Order on WebSecurityConfigurers must be unique. Order of "
+                    + order + " was already used on " +
+                    previousConfig + ", so it cannot be used on "
+                    + config + " too.");
+            }
+            previousOrder = order;
+            previousConfig = config;
+        }
+        for (SecurityConfigurer<Filter, WebSecurity> webSecurityConfigurer : webSecurityConfigurers){
+            webSecurity.apply(webSecurityConfigurer);
+        }
+        this.webSecurityConfigurers = webSecurityConfigurers;
+    }
+    /**
+    * 从当前bean容器中获取所有的WebSecurityConfigurer bean。
+    * 这些WebSecurityConfigurer通常是由开发人员实现的配置类，并且继承自WebSecurityConfigurerAdapter
+    */
+    @Bean
+    public static AutowiredWebSecurityConfigurersIgnoreParents
+        autowiredWebSecurityConfigurersIgnoreParents(
+            ConfigurableListableBeanFactory beanFactory) {
+        return new AutowiredWebSecurityConfigurersIgnoreParents(beanFactory);
+    }
+    //......
 }
 ```
 
@@ -1037,8 +1004,6 @@ public class WebSecurityConfiguration implements ImportAware,BeanClassLoaderAwar
 
 这个类主要引入了` AuthenticationConfiguration` 目的主要为了构造 认证管理器` AuthenticationManager `。 
 
-
-
 3.**SecurityFilterAutoConfiguration**
 
 用于向Servlet容器注册一个名称为 `securityFilterChainRegistration` 的bean, 实现类是 `DelegatingFilterProxyRegistrationBean` 。该 bean 的目的是注册另外一个 Servlet Filter Bean 到 Servlet 容器,实现类为 `DelegatingFilterProxy` 。 DelegatingFilterProxy 其实是一个代理过滤器，它被 Servlet 容器用于处理请求时，会将任务委托给指定给自己另外一个Filter bean。 对于 SecurityFilterAutoConfiguration ,来讲，这个被代理的Filter bean的名字为 **springSecurityFilterChain** , 也就是我们上面提到过的 Spring Security Web提供的用于请求安全处理的Filter bean，其实现类是 `FilterChainProxy` 。
@@ -1051,36 +1016,36 @@ public class WebSecurityConfiguration implements ImportAware,BeanClassLoaderAwar
 @EnableConfigurationProperties(SecurityProperties.class)
 // 仅在特定类存在于 classpath 上时才生效
 @ConditionalOnClass({ AbstractSecurityWebApplicationInitializer.class,
-	SessionCreationPolicy.class })
+    SessionCreationPolicy.class })
 // 指定该配置类在 SecurityAutoConfiguration 配置类应用之后应用
 @AutoConfigureAfter(SecurityAutoConfiguration.class)
 public class SecurityFilterAutoConfiguration {
-	// 要注册到 Servlet 容器的 DelegatingFilterProxy Filter的目标代理Filter bean的名称springSecurityFilterChain
-	private static final String DEFAULT_FILTER_NAME =
-		AbstractSecurityWebApplicationInitializer.DEFAULT_FILTER_NAME;
-	// 安装上面方式注入securityFilterChainRegistration,
-	@Bean
-	@ConditionalOnBean(name = DEFAULT_FILTER_NAME)
-	public DelegatingFilterProxyRegistrationBean securityFilterChainRegistration(
-			SecurityProperties securityProperties) {
-		DelegatingFilterProxyRegistrationBean registration = new
-		DelegatingFilterProxyRegistrationBean(DEFAULT_FILTER_NAME);
-		registration.setOrder(securityProperties.getFilter().getOrder());
-		registration.setDispatcherTypes(getDispatcherTypes(securityProperties));
-		return registration;
-	}
-	private EnumSet<DispatcherType> getDispatcherTypes(SecurityProperties securityProperties) {
-		if (securityProperties.getFilter().getDispatcherTypes() == null) {
-			return null;
-		}
-		return securityProperties.getFilter().getDispatcherTypes().stream()
-			.map((type) -> DispatcherType.valueOf(type.name()))
-			.collect(Collectors.collectingAndThen(Collectors.toSet(), EnumSet::copyOf));
-	}
+    // 要注册到 Servlet 容器的 DelegatingFilterProxy Filter的目标代理Filter bean的名称springSecurityFilterChain
+    private static final String DEFAULT_FILTER_NAME =
+        AbstractSecurityWebApplicationInitializer.DEFAULT_FILTER_NAME;
+    // 安装上面方式注入securityFilterChainRegistration,
+    @Bean
+    @ConditionalOnBean(name = DEFAULT_FILTER_NAME)
+    public DelegatingFilterProxyRegistrationBean securityFilterChainRegistration(
+            SecurityProperties securityProperties) {
+        DelegatingFilterProxyRegistrationBean registration = new
+        DelegatingFilterProxyRegistrationBean(DEFAULT_FILTER_NAME);
+        registration.setOrder(securityProperties.getFilter().getOrder());
+        registration.setDispatcherTypes(getDispatcherTypes(securityProperties));
+        return registration;
+    }
+    private EnumSet<DispatcherType> getDispatcherTypes(SecurityProperties securityProperties) {
+        if (securityProperties.getFilter().getDispatcherTypes() == null) {
+            return null;
+        }
+        return securityProperties.getFilter().getDispatcherTypes().stream()
+            .map((type) -> DispatcherType.valueOf(type.name()))
+            .collect(Collectors.collectingAndThen(Collectors.toSet(), EnumSet::copyOf));
+    }
 }
 ```
 
-### WebSecurityConfigurerAdapter 
+### WebSecurityConfigurerAdapter
 
 安全配置类,  通过该类可以自定义配置, 通常直接实现该类重写其方法即可, 也可以模仿`SpringBootWebSecurityConfiguration`的方式
 
@@ -1089,22 +1054,22 @@ public class SecurityFilterAutoConfiguration {
 @ConditionalOnClass(WebSecurityConfigurerAdapter.class)
 @ConditionalOnWebApplication(type = Type.SERVLET)
 public class  CustomSpringBootWebSecurityConfiguration {
-	@Configuration(proxyBeanMethods = false)
-	@Order(SecurityProperties.BASIC_AUTH_ORDER)
-	static class DefaultConfigurerAdapter extends WebSecurityConfigurerAdapter {
-		@Override
-		protected void configure(AuthenticationManagerBuilder auth) throws Exception {
-			super.configure(auth);
-		}
-		@Override
-		public void configure(WebSecurity web) throws Exception {
-			super.configure(web);
-		}
-		@Override
-		protected void configure(HttpSecurity http) throws Exception {
-			super.configure(http);
-		}
-	}
+    @Configuration(proxyBeanMethods = false)
+    @Order(SecurityProperties.BASIC_AUTH_ORDER)
+    static class DefaultConfigurerAdapter extends WebSecurityConfigurerAdapter {
+        @Override
+        protected void configure(AuthenticationManagerBuilder auth) throws Exception {
+            super.configure(auth);
+        }
+        @Override
+        public void configure(WebSecurity web) throws Exception {
+            super.configure(web);
+        }
+        @Override
+        protected void configure(HttpSecurity http) throws Exception {
+            super.configure(http);
+        }
+    }
 }
 ```
 
@@ -1154,20 +1119,20 @@ openidLogin() 基于 OpenID 身份认证规范
 @RestController
 @RequestMapping("/login")
 public class LoginController {
-	@Resource
-	private SysUserService sysUserService;
-	@PostMapping("/failure")
-	public Rest loginFailure() {
-		return RestBody.failure(HttpStatus.UNAUTHORIZED.value(), "登录失败了，老哥");
-	}
-	@PostMapping("/success")
-	public Rest loginSuccess() {
-		User principal = (User) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-		String username = principal.getUsername();
-		SysUser sysUser = sysUserService.queryByUsername(username);
-		sysUser.setEncodePassword("[PROTECT]");
-		return RestBody.okData(sysUser,"登录成功");
-	}
+    @Resource
+    private SysUserService sysUserService;
+    @PostMapping("/failure")
+    public Rest loginFailure() {
+        return RestBody.failure(HttpStatus.UNAUTHORIZED.value(), "登录失败了，老哥");
+    }
+    @PostMapping("/success")
+    public Rest loginSuccess() {
+        User principal = (User) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        String username = principal.getUsername();
+        SysUser sysUser = sysUserService.queryByUsername(username);
+        sysUser.setEncodePassword("[PROTECT]");
+        return RestBody.okData(sysUser,"登录成功");
+    }
 }
 ```
 
@@ -1176,15 +1141,15 @@ public class LoginController {
 ```java
 @Override
 protected void configure(HttpSecurity http) throws Exception {
-	http.csrf().disable()
-		.cors()
-		.and()
-		.authorizeRequests().anyRequest().authenticated()
-		.and()
-		.formLogin()
-		.loginProcessingUrl("/process")			//登录的Url
-		.successForwardUrl("/login/success")  	//登录成功后的Url, 登录成功后的转发?
-		.failureForwardUrl("/login/failure");	//登录失败后的Url
+    http.csrf().disable()
+        .cors()
+        .and()
+        .authorizeRequests().anyRequest().authenticated()
+        .and()
+        .formLogin()
+        .loginProcessingUrl("/process")            //登录的Url
+        .successForwardUrl("/login/success")      //登录成功后的Url, 登录成功后的转发?
+        .failureForwardUrl("/login/failure");    //登录失败后的Url
 }
 ```
 
@@ -1194,7 +1159,7 @@ Http登录认证由过滤器` UsernamePasswordAuthenticationFilter` 进行处理
 
 我们可以实现我们自己的登录方式(比如验证码 , json), 通过 HttpSecurity 的 `addFilterBefore(preLoginFilter, UsernamePasswordAuthenticationFilter.class) `方法进行前来实现。
 
-###  AuthenticationManager
+### AuthenticationManager
 
 `AuthenticationManager`在`void configure(AuthenticationManagerBuilder auth)` 中配置.
 
@@ -1204,27 +1169,27 @@ Http登录认证由过滤器` UsernamePasswordAuthenticationFilter` 进行处理
 
 ```java
 public AuthenticationManager getAuthenticationManager() throws Exception {
-	// 先判断 AuthenticationManager 是否初始化
-	if (this.authenticationManagerInitialized) {
-		// 如果已经初始化 那么直接返回初始化的
-		return this.authenticationManager;
-	}
-	// 否则就去 Spring IoC 中获取其构建类
-	AuthenticationManagerBuilder authBuilder = this.applicationContext.getBean(AuthenticationManagerBuilder.class);
-	// 如果不是第一次构建 好像是每次总要通过Builder来进行构建
-	if (this.buildingAuthenticationManager.getAndSet(true)) {
-	// 返回 一个委托的AuthenticationManager
-		return new AuthenticationManagerDelegator(authBuilder);
-	}
-	// 如果是第一次通过Builder构建 将全局的认证配置整合到Builder中 那么以后就不用再整合全局的配置了
-	for (GlobalAuthenticationConfigurerAdapter config : globalAuthConfigurers) {
-		authBuilder.apply(config);
-	}
-	// 构建AuthenticationManager
-	authenticationManager = authBuilder.build();
-	// 如果构建结果为null
-	if (authenticationManager == null) {
-	// 再次尝试去Spring IoC 获取懒加载的 AuthenticationManager Bean
+    // 先判断 AuthenticationManager 是否初始化
+    if (this.authenticationManagerInitialized) {
+        // 如果已经初始化 那么直接返回初始化的
+        return this.authenticationManager;
+    }
+    // 否则就去 Spring IoC 中获取其构建类
+    AuthenticationManagerBuilder authBuilder = this.applicationContext.getBean(AuthenticationManagerBuilder.class);
+    // 如果不是第一次构建 好像是每次总要通过Builder来进行构建
+    if (this.buildingAuthenticationManager.getAndSet(true)) {
+    // 返回 一个委托的AuthenticationManager
+        return new AuthenticationManagerDelegator(authBuilder);
+    }
+    // 如果是第一次通过Builder构建 将全局的认证配置整合到Builder中 那么以后就不用再整合全局的配置了
+    for (GlobalAuthenticationConfigurerAdapter config : globalAuthConfigurers) {
+        authBuilder.apply(config);
+    }
+    // 构建AuthenticationManager
+    authenticationManager = authBuilder.build();
+    // 如果构建结果为null
+    if (authenticationManager == null) {
+    // 再次尝试去Spring IoC 获取懒加载的 AuthenticationManager Bean
 authenticationManager = getAuthenticationManagerBean();
 }
 // 修改初始化状态
@@ -1232,4 +1197,3 @@ this.authenticationManagerInitialized = true;
 return authenticationManager;
 }
 ```
-

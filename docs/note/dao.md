@@ -1340,7 +1340,7 @@ public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory factor
 
 ## Transaction
 
-在Spring Boot中，当我们使用了spring-boot-starter-jdbc或spring-boot-starter-data-jpa依赖的时候，框架会自动默认分别注入DataSourceTransactionManager或JpaTransactionManager。所以我们不需要任何额外配置就可以用@Transactional注解进行事务的使用。(老版本可能需要加`@EnableTransactionManagement`)
+在Spring Boot中，当我们使用了spring-boot-starter-jdbc或spring-boot-starter-data-jpa依赖的时候，框架会自动默认分别注入DataSourceTransactionManager或JpaTransactionManager(统一父接口都为PlatformTransactionManager, 提供getTransaction、commit、回滚事务rollback方法)。所以我们不需要任何额外配置就可以用@Transactional注解进行事务的使用。(老版本可能需要加`@EnableTransactionManagement`)
 
 回滚日志:
 
@@ -1477,7 +1477,7 @@ Spring事务最重要的 3 个接口为：
 </dependency>
 ```
 
-在Spring Boot主类中增加`@EnableCaching`注解开启缓存功能
+在Spring Boot主类中增加`@EnableCaching`注解开启缓存功能, CacheManager是Spring提供的各种缓存技术抽象接口.
 
 Spring Boot根据下面的顺序去侦测缓存提供者：
 

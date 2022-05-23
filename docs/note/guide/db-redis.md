@@ -1145,7 +1145,7 @@ Sentinel配置文件中的down-after-milliseconds选项指定了Sentinel判断�
 
 解决方案(不能完全避免):
 
-min-slaves-to-write: 主库能进行数据同步的最少从库数量(主要).
+min-slaves-to-write: 主库能进行数据同步的最少从库数量(主要, 否则禁止写入).
 
 min-slaves-max-lag: 主从库进行数据复制时, 从库给主库发送ACK消息的最大延迟(见[心跳检测](#心跳检测))
 
@@ -1175,11 +1175,7 @@ crc16(key)%16384
 
 cluster模式集群中槽分配的元数据会不断的在集群中分发(gossip协议) ,以保证所有节点都知晓槽的分配情况.
 
-**为什么时16384?**
-
-主节点个数通常远远达不到16384 
-
-> 16384即16k ,在发送心跳包时使用char进行bitmap压缩后是2k( 2 * 8 ( 8bit) * 1024 ( 1k ) = 16k) .
+> 16384即16k ,在发送心跳包时使用char进行bitmap压缩后是2K( 2 * 8 ( 8bit) * 1024 ( 1k ) = 16k) .
 
 **构建配置**
 
@@ -1199,7 +1195,7 @@ redis-cluster.conf
 
 ![image-20211207193714585](picture/image-20211207193714585.png)
 
-操作结果中也会显示槽的定位转发
+操作结果中也会显示槽的定位转发(重定向)
 
 ![image-20211207193814192](picture/image-20211207193814192.png)
 
@@ -1240,7 +1236,7 @@ struct clusterNode{
 }
 ```
 
-**clusterNode** 保存连接节点所需的有关信息, 如套接字描述符, 输入缓冲区和输出缓冲区:
+**clusterLink** 保存连接节点所需的有关信息, 如套接字描述符, 输入缓冲区和输出缓冲区:
 
 ```c
 typedef struct clusterLink{    
@@ -1260,7 +1256,8 @@ typedef struct clusterState{
     uint64_t currentEpoch;//集群当前的配置纪元    
     int state;//集群当前状态:在线下线    
     int size;//集群中至少处理着一个槽的节点数量    
-    dict *nodes;//集群节点名单,包括myself节点,键为节点名称,值为键对应的节点的clusterNode结构        clusterNode *slots[16384];//记录槽的指派信息    
+    dict *nodes;//集群节点名单,包括myself节点,键为节点名称,值为键对应的节点的clusterNode结构        
+    clusterNode *slots[16384];//记录槽的指派信息    
     zskiplist *slots_to_keys;//记录槽与键之间的关系
 };
 ```
@@ -1323,7 +1320,7 @@ def CLUSTER_ADDSLOTS(*all_input_slots)：
 
 > 节点通过`CRC16(key) & 16383`计算给定key属于哪个槽.
 
-节点通过clusterState.slots[i]判断槽由哪个节点处理, 如果clusterState.slost[i] = clusterState.myself, 则当前节点直接执行命令; 否则根据clusterState.slots[i]指向的clusterNode所记录的节点ip和port向客户端返回MOVED错误, 指引客户端重定向到正确节点, 再次发送之前命令.
+节点通过clusterState.slots[i]判断槽由哪个节点处理, 如果clusterState.slost[i] = clusterState.myself, 则当前节点直接执行命令; 否则根据clusterState.slots[i]指向的clusterNode所记录的节点ip和port向客户端返回MOVED错误, 指引客户端**重定向**到正确节点, 再次发送之前命令.
 
 MOVED错误的格式为`MOVED <slot> <ip>:<port>`
 
@@ -1396,7 +1393,7 @@ typedef struct clusterState{
 
 **ASK与MOVED错误的区别**
 
-①MOVED错误代表槽的负责权威其他节点, 客户端收到MOVED错误之后的每次关于该槽的请求都将直接发送到MOVED错误指向的目标节点.
+①MOVED错误代表槽的负责权为其他节点, 客户端收到MOVED错误之后的每次关于该槽的请求都将直接发送到MOVED错误指向的目标节点.
 
 ②ASK错误只是两个节点在迁移槽时的一种临时措施, ASK错误代表的槽负责权还是属于源节点, 但键值对已经到了目标节点, 但目标节点目前还没有槽的负责权. ASK错误带来的重定向不会对客观的关于槽[i]的请求产生任何影响, 还是会发往负责该槽的源节点.
 
@@ -1410,7 +1407,7 @@ typedef struct clusterState{
 
 Redis集群模式分为master和slave节点, slave节点复制master节点, 在master下线时替代.
 
-客户端向节点发送`CLUSTER REPLICATE <node_id>`可让该节点称为node_id指定的节点的从节点, 并开始复制:
+客户端向节点发送`CLUSTER REPLICATE <node_id>`可让该节点成为node_id指定的节点的从节点, 并开始复制:
 
 ①接收到命令的节点在自己的clusterState.nodes字典中找到node_id对应的clusterNode结构, 并将自己的clusterState.myself.slaveof指针指向这个结构, 记录复制的主节点.
 
@@ -1424,7 +1421,7 @@ Redis集群模式分为master和slave节点, slave节点复制master节点, 在m
 
 集群中每个节点定期向其他节点发送PING消息(传统复制模式为Sentinel发送), 如果没有在规定时间内接收到PONG消息, 则发送PING命令的节点在自己的clusterState.nodes字典中找到目标节点对于的clusterNode结构, 在其flags属性中打开REDIS_NODE_PFAIL标识, 表示此节点已进入疑似下线状态.
 
-集群中各个节点会通过相互发送消息的方式交换集群中各个节点的状态信息: 当一个主节点A通过消息得知主节点B认为主节点C状态为疑似下线时, 主节点A为在自己的clusterState.ndoes字典中找到主节点C对于的clusterNode结构并将主节点B的下线报告添加到其fail_reports链表里.
+集群中各个节点会通过相互发送消息的方式交换集群中各个节点的状态信息: 当一个主节点A通过消息得知主节点B认为主节点C状态为疑似下线时, 主节点A为在自己的clusterState.ndoes字典中找到主节点C对应的clusterNode结构并将主节点B的下线报告添加到其fail_reports链表里.
 
 每个下线报告由一个clusterNodeFailReport结构表示:
 
@@ -1447,7 +1444,7 @@ struct clusterNodeFailReport{
 
 ③新的主节点撤销所有对已下线主节点的槽指派, 并将这些槽指派给自己;
 
-④新的主节点向集群广播一条PONG消息, 让其他节点知道自己从主变味了主节点, 并接管了槽;
+④新的主节点向集群广播一条PONG消息, 让其他节点知道自己变成了主节点, 并接管了槽;
 
 ⑤新的主节点开始接收和处理自己负责的槽相关的命令请求, 故障转移完成.
 
@@ -1459,10 +1456,9 @@ struct clusterNodeFailReport{
 ②PING 消息：集群里的每个节点默认每隔一秒钟就会从已知节点列表中随机选出五个节点，然后对这五个节点中最长时间没有发送过 PING 消息的节点发送 PING消息，以此来检测被选中的节点是否在线。为了防止节点A因为长时间没有随机选中节点B作为 PING 消息的发送对象而导致对节点B的信息更新滞后, 如果节点 A 最后一次收到节点B 发送的 PONG消息的时间，距离当前时间已经超过了节点A的cluster-node-timeout 选项设置时长的一半，那么节点A也会向节点B发送PING消息。
 ③PONG 消息：当接收者收到发送者发来的MEET消息或者PING消息时，为了向发送者确认这条MEET 消息或者PING消息已到达，接收者会向发送者返回一条PONG消息。另外，一个节点也可以通过向集群广播自己的 PONG 消息来让集群中的其他节点立即刷新关于这个节点的认知。
 ④FAIL消息：当一个主节点A判断另一个主节点B已经进人FAIL状态时，节点A会向集群广播一条关于节点 B 的 FAIL 消息，所有收到这条消息的节点都会立即将节点 B 标记为已下线。
-⑤PUBLISH消息：当节点接收到一个PUBLISH命令时，节点会执行这个命令，并向集群广播一条 PUBLISH 消息，所有接收到这条 PUBLISH :
-消息的节点都会执行相同的 PUBLISH 命令。
+⑤PUBLISH消息：当节点接收到一个PUBLISH命令时，节点会执行这个命令，并向集群广播一条 PUBLISH 消息，所有接收到这条 PUBLISH 消息的节点都会执行相同的 PUBLISH 命令。
 
-一个消息有一个cluster.h/clusterMsg结构表示, 接受者可根据currentEpoch、sender、myslots等记录发送者**节点信息的属性对自己的clusterState.nodes字典里对应的clusterNode结构进行更新**.其中clusterMsgData结构的data属性记录消息正文:
+一个消息由一个cluster.h/clusterMsg结构表示, 接受者可根据currentEpoch、sender、myslots等记录发送者**节点信息的属性对自己的clusterState.nodes字典里对应的clusterNode结构进行更新**.其中clusterMsgData结构的data属性记录消息正文:
 
 ```c
 typedef struct {    
@@ -1506,7 +1502,7 @@ union clusterMsgData {
         // 每条MEET、PING、PONG消息都包含两个clusterMsgDataGossip结构                
         clusterMsgDataGossip gossip[1];    
     } ping;    
-        // FAIL消息的正文    
+    // FAIL消息的正文    
     struct {        
         clusterMsgDataFail about;    
     } fail;    
@@ -1520,9 +1516,9 @@ union clusterMsgData {
 
 **MEET、PING、PONG消息的实现**
 
-Redis集群的各个节点通过Gossip协议来交换各自关于不同节点的状态信息, Gossip协议又MEET、PING、PONG三种消息实现, 这三种消息的正文都由两个cluster.h/clusterMsgDataGossip结构组成, 因为三种消息都使用相同的结构, 所以需要在clusterMsg.type中指定消息类型.
+Redis集群的各个节点通过Gossip协议来交换各自关于不同节点的状态信息, Gossip协议由MEET、PING、PONG三种消息实现, 这三种消息的正文都由两个cluster.h/clusterMsgDataGossip结构组成, 因为三种消息都使用相同的结构, 所以需要在clusterMsg.type中指定消息类型.
 
-每次发送消息时, 发送者从自己的已知节点列表中随机选出两个节点(主或从都可), 并将这两个被选中节点的信息分别保存到两个clusterMsgDataGossip结构中:
+每次发送消息时, 发送者从自己的已知节点列表中随机选出两个节点(主或从都可), 并将这两个被选中节点的信息分别保存到两个clusterMsgDataGossip结构中进行发送(一致性扩散):
 
 ```c
 typedef struct {    
