@@ -1243,7 +1243,7 @@ Object dbSize = redisTemplate.execute((RedisCallback<Object>) RedisServerCommand
 可以为RedisTemplate指定序列化器, 通常key序列化采用自带的`StringRedisSerializer`即可, 而value的序列化可以实现多种定制，实现RedisSerializer接口即可, 如自定义对象序列化:
 
 ```java
-//内部利用Converter原生序列化  序列化的对象需要实现serializer接口(不确定)
+//内部利用Converter原生序列化  序列化的对象需要实现serializer接口
 public class RedisObjectSerializer implements RedisSerializer<Object> {
   private Converter<Object, byte[]> serializer = new SerializingConverter();
   private Converter<byte[], Object> deserializer = new DeserializingConverter();
@@ -1314,7 +1314,7 @@ public class FastJsonRedisSerializer<T> implements RedisSerializer<T> {
 
 或直接使用Jackson提供的Jackson2JsonRedisSerializer:
 
-```
+```java
 @Bean
 public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory factory) {
     RedisTemplate<String, Object> template = new RedisTemplate<String, Object>();
