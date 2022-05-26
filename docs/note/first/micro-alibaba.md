@@ -191,13 +191,12 @@ config包下配置类
 ```
 @Configuration
 public class ApplicationContextConfig {
-	@Bean
-	@LoadBalanced
-	public RestTemplate getRestTemplate(){
-		return new RestTemplate();
-	}
+    @Bean
+    @LoadBalanced
+    public RestTemplate getRestTemplate(){
+        return new RestTemplate();
+    }
 }
-
 ```
 
 controller
@@ -223,12 +222,12 @@ public class OrderNacosController {
 
 ## 各注册中心对比
 
-| 服务注册与发现框架 | CAP  | 控制台管理 | 社区活跃度 |
-| ------------------ | ---- | ---------- | ---------- |
-| Eureka             | AP   | 支持       | 低         |
-| Zookeeper          | CP   | 不支持     | 中         |
-| Consul             | CP   | 支持       | 高         |
-| Nacos              | AP   | 支持       | 高         |
+| 服务注册与发现框架 | CAP | 控制台管理 | 社区活跃度 |
+| --------- | --- | ----- | ----- |
+| Eureka    | AP  | 支持    | 低     |
+| Zookeeper | CP  | 不支持   | 中     |
+| Consul    | CP  | 支持    | 高     |
+| Nacos     | AP  | 支持    | 高     |
 
 Nacos还可以AP与CP切换。
 
@@ -306,7 +305,7 @@ controller
 public class ConfigClientController {
    @Value("${config.info}")
    private String configInfo;
-   
+
    @GetMapping("config/info")
    public String getConfigInfo(){
       return configInfo;
@@ -607,7 +606,6 @@ while getopts ":m:f:s:p:" opt
 nohup $JAVA ${JAVA_OPT} nacos.nacos >> ${BASE_DIR}/logs/start.out 2>&1 &
 修改为
 hup $JAVA -Dserver.port=${PORT} ${JAVA_OPT} nacos.nacos >> ${BASE_DIR}/logs/start.out 2>&1 &
-
 ```
 
 4.nginx配置，需要安装nginx和nginx知识。
@@ -617,9 +615,9 @@ hup $JAVA -Dserver.port=${PORT} ${JAVA_OPT} nacos.nacos >> ${BASE_DIR}/logs/star
 ```
 修改为
 server{
-	listen        1111;
-	server_name   localhost;
- 
+    listen        1111;
+    server_name   localhost;
+
     location /{
          #root     html;
          #index    index.html index.htm;
@@ -717,7 +715,6 @@ http://localhost:8080/
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
-   
 ```
 
 ```
@@ -972,10 +969,10 @@ public String testD(){
     * 演示 测试服务降级 RT  1S
     */
    try {
-			TimeUnit.SECONDS.sleep(1);
-		} catch (InterruptedException e) {
-			e.printStackTrace();
-		}
+            TimeUnit.SECONDS.sleep(1);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
    log.info("testD 测试RT");
    return  "---------------testD";
 }
@@ -1062,17 +1059,17 @@ SentinelResource类似hystrix的HystrixCommand。
 ```
 //value随意，只要求唯一    
 //blockHandler表示违背了热点规则 则执行指定兜底方法，使用热点限流一定要配，否则返回异常页面而不会像前面一样返回sentienl默认提示
-	@SentinelResource(value = "testHotKey",blockHandler = "deal_testHotKey")
-	@GetMapping("/testHotKey")
-	public String testHotKey(@RequestParam(value="p1",required = false) String p1,
-							 @RequestParam(value="p2",required = false) String p2){
-		return "---------------testHotKey  ";
-	}
-	
-	public String deal_testHotKey(String p1, String p2, BlockException exception){
-		//用来替换sentinel默认提示
-		return "---------------deal_testHotKey  热点限流";
-	}
+    @SentinelResource(value = "testHotKey",blockHandler = "deal_testHotKey")
+    @GetMapping("/testHotKey")
+    public String testHotKey(@RequestParam(value="p1",required = false) String p1,
+                             @RequestParam(value="p2",required = false) String p2){
+        return "---------------testHotKey  ";
+    }
+
+    public String deal_testHotKey(String p1, String p2, BlockException exception){
+        //用来替换sentinel默认提示
+        return "---------------deal_testHotKey  热点限流";
+    }
 ```
 
 新增热点规则：
@@ -1176,7 +1173,7 @@ public class RateLimitController {
    public CommonResult byResource(){
       return new CommonResult(200,"按资源名称限流测试",new Payment(2020L,"serial001"));
    }
-   
+
    public CommonResult handleException(BlockException exception){
       return new CommonResult(444,exception.getClass().getCanonicalName()+"\t 服务不可用");
    }
@@ -1197,13 +1194,11 @@ public class RateLimitController {
 
 1s多次访问http://localhost:8401/byResource
 
-com.alibaba.csp.sentinel.slots.block.flow.FlowException	 服务不可用。
+com.alibaba.csp.sentinel.slots.block.flow.FlowException     服务不可用。
 
 问题：在此时关闭8401，再查看sentinel控制台的流控规则，发现刚刚定义的规则消失了。
 
 所以这里是临时规则。
-
-
 
 2.按url地址限流
 
@@ -1231,8 +1226,6 @@ public CommonResult byUrl(){
 1s多次访问http://localhost:8401/byUrl
 
 Blocked by Sentinel (flow limiting)
-
-
 
 区别：
 
@@ -1383,33 +1376,32 @@ controller
 @RestController
 @Slf4j
 public class CircleBreakerController {
-	public static final String SERVICE_URL = "http://nacos-payment-provider";
-	@Resource
-	private RestTemplate restTemplate;
+    public static final String SERVICE_URL = "http://nacos-payment-provider";
+    @Resource
+    private RestTemplate restTemplate;
 
-	@RequestMapping("/consumer/fallback/{id}")
-	@SentinelResource(value = "fallback")    //没有配置
-//	@SentinelResource(value = "fallback", fallback = "handerFallback")   //fallback只负责业务异常
-//	@SentinelResource(value = "fallback", blockHandler = "blockFallback")//block只负责sentinel控制台配置违规
-//	@SentinelResource(value = "fallback", fallback = "handerFallback",blockHandler = "blockFallback")
-	public CommonResult<Payment> fallback(@PathVariable Long id) {
-		CommonResult<Payment> result = restTemplate.getForObject(SERVICE_URL + "/paymentSQL/" + id, CommonResult.class, id);
-		if (id == 4) {
-			throw new IllegalArgumentException(" IllegalArgumentException,非法参数异常————————————————");
-		} else if (result.getData() == null) {
-			throw new NullPointerException("NullPointerException,该id没有对应记录，空值异常——————————————————");
-		}
-		return result;
-	}
+    @RequestMapping("/consumer/fallback/{id}")
+    @SentinelResource(value = "fallback")    //没有配置
+//    @SentinelResource(value = "fallback", fallback = "handerFallback")   //fallback只负责业务异常
+//    @SentinelResource(value = "fallback", blockHandler = "blockFallback")//block只负责sentinel控制台配置违规
+//    @SentinelResource(value = "fallback", fallback = "handerFallback",blockHandler = "blockFallback")
+    public CommonResult<Payment> fallback(@PathVariable Long id) {
+        CommonResult<Payment> result = restTemplate.getForObject(SERVICE_URL + "/paymentSQL/" + id, CommonResult.class, id);
+        if (id == 4) {
+            throw new IllegalArgumentException(" IllegalArgumentException,非法参数异常————————————————");
+        } else if (result.getData() == null) {
+            throw new NullPointerException("NullPointerException,该id没有对应记录，空值异常——————————————————");
+        }
+        return result;
+    }
 
-	public CommonResult<Payment> handerFallback(@PathVariable Long id,Throwable throwable){
-		return new CommonResult<>(4443,"fallback兜底负责业务异常处理------>"+throwable.getMessage(),new Payment(id,null));
-	}
-	public CommonResult<Payment> blockFallback(@PathVariable Long id, BlockException exception){
-		return new CommonResult<>(4444,"blockHandler兜底负责sentinel控制台配置违规------>"+exception.getMessage(),new Payment(id,null));
-	}
+    public CommonResult<Payment> handerFallback(@PathVariable Long id,Throwable throwable){
+        return new CommonResult<>(4443,"fallback兜底负责业务异常处理------>"+throwable.getMessage(),new Payment(id,null));
+    }
+    public CommonResult<Payment> blockFallback(@PathVariable Long id, BlockException exception){
+        return new CommonResult<>(4444,"blockHandler兜底负责sentinel控制台配置违规------>"+exception.getMessage(),new Payment(id,null));
+    }
 }
-
 ```
 
 fallback管运行异常
@@ -1542,8 +1534,8 @@ service包下
 ```
 @FeignClient(value = "nacos-payment-provider",fallback = PaymentFallbackService.class)
 public interface PaymentService {
-	@GetMapping(value = "/paymentSQL/{id}")
-	CommonResult<Payment> paymentSQL(@PathVariable("id") Long id);
+    @GetMapping(value = "/paymentSQL/{id}")
+    CommonResult<Payment> paymentSQL(@PathVariable("id") Long id);
 }
 ```
 
@@ -1637,12 +1629,12 @@ Data ID:cloudalibaba-sentinel-service
 [
 ​    {
 ​        "resource":"/byUrl",           //资源名称        
-​        "limitApp":"default",			//来源应用
-​        "grade":1,						//阈值类型，0表示线程数，1表示QPS
-​        "count":1,						//单击阈值
-​        "strategy":0,					//流控模式，0表示直接，1表示关联，2表示链路
-​        "controlBehavior":0,			//流控效果，0表示快速失败，1表示Warm Up,2表示排队等待
-​        "clusterMode":false			//是否集群
+​        "limitApp":"default",            //来源应用
+​        "grade":1,                        //阈值类型，0表示线程数，1表示QPS
+​        "count":1,                        //单击阈值
+​        "strategy":0,                    //流控模式，0表示直接，1表示关联，2表示链路
+​        "controlBehavior":0,            //流控效果，0表示快速失败，1表示Warm Up,2表示排队等待
+​        "clusterMode":false            //是否集群
 ​    }
 ]
 ```
@@ -1734,7 +1726,7 @@ store {
     db-type = "mysql"
     driver-class-name = "com.mysql.jdbc.Driver"
     url = "jdbc:mysql://127.0.0.1:3306/seata"      #
-    user = "root"								   #
+    user = "root"                                   #
     password = "350562"                            #
     min-conn = 1
     max-conn = 3
@@ -2403,15 +2395,15 @@ domain中的CommonResult与2001一样
 @NoArgsConstructor
 @AllArgsConstructor
 public class Storage {
-	private Long id;
-	//产品id
-	private Long productId;
-	//总库存
-	private Integer total;
-	//已用库存
-	private Integer used;
-	//剩余库存
-	private Integer residue;
+    private Long id;
+    //产品id
+    private Long productId;
+    //总库存
+    private Integer total;
+    //已用库存
+    private Integer used;
+    //剩余库存
+    private Integer residue;
 }
 ```
 
@@ -2649,7 +2641,7 @@ public class AccountServiceImpl implements AccountService {
    @Override
    public void decrease(Long userId, BigDecimal money) {
       LOGGER.info("------->account-service中扣减账户余额开始");
-      		//模拟超时异常,全局事务回滚
+              //模拟超时异常,全局事务回滚
       accountDao.decrease(userId,money);
       LOGGER.info("------->account-service中扣减账户余额结束");
    }
