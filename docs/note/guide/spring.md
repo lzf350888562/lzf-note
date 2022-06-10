@@ -1,6 +1,6 @@
 # Spring深入
 
-代理设计模式 : Spring AOP -> JDK/CGLIB.
+代理设计模式 : Spring AOP -> JDK/CGLIB
 
 模板方法模式 : 大量应用. 如AbstractEnviroment提供的customizePropertySources方法让子类自定义添加PropertySource, 类似有许多以customize开头的方法, 以及refresh中的onRefresh方法, 还有xxxTemplate类也使用了该设计模式.
 
@@ -16,7 +16,7 @@
 
 > 为什么命名refresh而不叫init, 因为 ApplicationContext 建立起来以后，其实我们是可以通过调用 refresh() 这个方法重建的，refresh() 会将原来的 ApplicationContext 销毁，然后再重新执行一次初始化操作。
 
-ClassPathXmlApplicationContext.refresh
+AbstractApplicationContext.refresh
 
 1.prepareRefresh()
 
