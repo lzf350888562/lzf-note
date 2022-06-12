@@ -1,10 +1,10 @@
-[Java](note/guide/base.md "基础理论")
+[Java理论](note/guide/base.md "基础理论")
 
 [多线程](note/guide/thread.md "thread")
 
 [分布式](note/guide/distributed.md "分布式")
 
-# 数据库
+[Spring Cloud](note/guide/springcloud.md "cloud")
 
 [MySQL原理](note/guide/db-mysql.md "mysql")
 
@@ -14,72 +14,12 @@
 
 [MySQL应用](note/guide/db-mysql-apply.md "mysql")
 
-# 中间件
-
 [中间件](note/guide/middleware.md "中间件")
 
 [业务场景](note/guide/other.md "other")
 
-[大数据](note/guide/bigdata.md "大数据")
+
 
 [服务器](note/guide/server.md "服务器")
-
-# 使用笔记
-
-[Spring](note/springboot-common.md "spring")
-
-[MVC](note/springmvc.md "mvc")
-
-[数据库](note/db.md "数据库")
-
-[持久层框架](note/dao.md "持久层")
-
-[日志框架](note/log.md "日志")
-
-[注解开发](note/springboot-new.md "注解开发")
-
-[Json](note/json2j.md "json")
-
-[安全框架](note/safe.md "安全相关")
-
-[工具](note/util.md "工具")
-
-[ElasticSearch7.8x](note/ES7-8.md "ElasticSearch7.8笔记")
-
-[消息队列](note/mq.md "mq")
-
-[Nginx](note/first/nginx.md "nginx")
-
-[Spring扩展](note/springboot-extend.md "spring扩展")
-
-[Spring其他相关](note/springboot-problem.md "spring其他")
-
-# 源码笔记
-
-[Spring](note/guide/spring.md "spring理论")
-
-[Spring Cloud](note/guide/springcloud.md "cloud")
-
-[框架](note/guide/framework.md "框架")
-
-# 网课笔记
-
-[JVM篇幅1](note/jvm-notes/jvm-note01.md "jvm篇幅1")
-
-[JVM篇幅2](note/jvm-notes/jvm-note02.md "jvm篇幅2")
-
-[JVM篇幅3-字节码](note/jvm-notes/jvm-note03-bytecode.md "jvm篇幅三 字节码")
-
-[JVM篇幅4-监控调优](note/jvm-notes/jvm-note04-monitor-optimize.md "jvm篇幅4 监控调优")
-
-[字节码文件结构](note/jvm-notes/class-bytecode-file-struct.md "字节码文件结构")
-
-[jvm指令](note/jvm-notes/jvm-directive.md "指令")
-
-[Spring Cloud D版](note/first/micro-Dalston.md "Dalston ")
-
-[Spring Cloud H版](note/first/micro-Hoxton.md "Hoxton")
-
-[Spring Cloud alibaba](note/first/micro-alibaba.md "alibaba")
 
 # 

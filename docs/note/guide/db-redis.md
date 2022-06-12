@@ -172,11 +172,21 @@ typedef struct RedisObject {
 其数据结构为带容量和长度的**字节**数组(可以存储二进制数据->位数组)的结构体.
 
 ```c
+// 实际上redis还会根据字符串的长度, 选择不同大小的sdshdf数据结构
+// 通常当字符串长度足够小时, 可不必使用4字节的int, 而使用1、2字节记录长度
+// 或者当字符串长度太大是, 采用8字节记录长度
+
 struct sdshdr{    
     int len;//已使用的字节数    
     int free;//未使用的字节数    
     char buf[];//字节数组,保存字符串
 };
+
+// 因为c语言没有1字节的int, redis是采用typedef定义的char:
+typedef unsigned char uint8_t;
+typedef unsigned short uint16_t;
+typedef unsigned int uint32_t;
+typedef unsigned long long uint64_t;
 ```
 
 SDS 遵循 C 字符串以空字符结尾的惯例是为了兼容部分C字符串函数, 但实际上SDS是使用len属性而不是空字符来判断字符串是否结束. 
@@ -915,7 +925,7 @@ SLAVEOF为异步命令, 设置完属性后, 从服务器向客户端返回OK, �
 
 3.发送PING命令
 
-从服务器称为主服务器的客户端后, 首先就是向主服务器发送一个PING命令, 用来检查socket的读写状态是否正常, 确定主服务器是否能正常处理命令.
+从服务器成为主服务器的客户端后, 首先就是向主服务器发送一个PING命令, 用来检查socket的读写状态是否正常, 确定主服务器是否能正常处理命令.
 
 如果由于网络原因从服务器接收主服务器的命令回复超时, 或者主服务器因无法处理命令请求而直接向从服务器返回错误(比如主服务器正在执行一个超时的脚本)时, 从服务器将断开并重新创建与主服务器的连接.
 
@@ -1303,15 +1313,15 @@ def CLUSTER_ADDSLOTS(*all_input_slots)：
         if clusterstate.slots[i]！= NULL：            
             reply_error()            
             return    
-        # 如果所有输入槽都是未指派槽    
-        # 那么再次遍历所有输入槽，将这些槽指派给当前节点    
-        for i in all_input_slots:        
-            # 设置clusterState结构的slots数组        
-            # 将 slots[i]的指针指向代表当前节点的 clusterNode 结构        
-            clusterstate.slots[i] = clusterstate.myself        
-            # 访问代表当前节点的 clusterNode 结构的 slots 数组        
-            # 将数组在索引ⅰ上的二进制位设置为 1        
-            setslotBit(clusterState.myself.slots, i)
+    # 如果所有输入槽都是未指派槽    
+    # 那么再次遍历所有输入槽，将这些槽指派给当前节点    
+    for i in all_input_slots:        
+        # 设置clusterState结构的slots数组        
+        # 将 slots[i]的指针指向代表当前节点的 clusterNode 结构        
+        clusterstate.slots[i] = clusterstate.myself        
+        # 访问代表当前节点的 clusterNode 结构的 slots 数组        
+        # 将数组在索引ⅰ上的二进制位设置为 1        
+        setslotBit(clusterState.myself.slots, i)
 ```
 
 ### 在集群中执行命令
