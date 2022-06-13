@@ -721,13 +721,33 @@ public static void main(String[] args){
 
 ## 集合
 
-### ArrarList
+### List
 
-- toArray 返回的是新数组,通过Arrays.copyOf方法生成;
-- 大量调用native方法System.arraycopy,如指定插入位置的add方法,remove方法,Arrays.copyOf方法其实也是调用了arraycopy方法.类似C语言操作数组;
+**ArrayList**
+
+实现List接口, 继承AbstractList类(自带add方法, 但ArrayList对其进行了重写, 添加了扩容逻辑)
+
+- 底层elementData数组为transient, 但还能序列化, 那是因为实现了序列化方法writeObject和readObject方法, writeObject循环遍历elementData进行一一序列化写, 避免了对数据的空元素进行序列化, 性能提升在数组容量越大空元素越多时越明显, 且避免了考虑null值序列化的问题; 并且通过modCount快速失败机制防止并发修改, jdk认为list的修改级别高于序列化; 而readObject先把EMPTT_ELEMENTDATA赋值给elementData(前提是反序列化对象已经生成), 然后对容量进行一个设置后根据size属性一个一个反序列化到数组元素上;
+- 两个常量空数组, 用意在于初始化阶段, 若指定的初始容量为0, 则将EMPTT_ELEMENTDATA空数组赋给elementData, 而add方法在赋值前会检测容量, 比较elementData是否等于DEFAULTCAPACITY_EMPTY_ELEMENTDATA, 因为不相等, 所以不会将默认容量10属性赋值给minCapacity, 而直接走ensureExplicitCapacity方法, 这样会导致add扩容的跨度每次很小而初期经常扩容; 而当初始化阶段不指定初始容量时, 才会将DEFAULTCAPACITY_EMPTY_ELEMENTDATA赋值给elementData, add时minCapacity才会变成10;
+- ensureExplicit方法中可调用grow方法扩容, 近似1.5倍扩容, 不能小于minCapacity, 不能大于MAX_ARRAY_SIZE(Integer.MAX_VALUE-8), 但在大于逻辑的hugeCapacity中如果minCapacity大于MAX_ARRAY_SIZE, 则新容量允许为Integer.MAX_VALUE;
+- grow方法扩容Arrays.copyOf底层通过native方法System.arraycopy, 其他如指定插入位置的add方法,remove方法也是调用该native方法, 类似c语言操作数组, 注意remove后会将最后一个元素赋为null等待GC回收;
+
 - ensureCapacity方法在ArrayList内部没有被调用过,是给用户使用的,最好在 add 大量元素之前用 ensureCapacity 方法，以减少增量重新分配的次数
+- modCount++是AbstractList中用于记录数组修改次数的属性, 用于快速失败检测.
+- 实现了cloneable接口, clone方法先调用父类的clone方法强转为ArrayList<?>对象, 并调用Arrays.copyOf方法将elementData拷贝给克隆对象的elementData, 并将modCount置0, 注释说是浅拷贝, 但这感觉是深拷贝呀.
+- 无参toArray 返回的是新数组,通过Arrays.copyOf方法生成; 
+- addAll方法有坑, 当参数集合元素为0时, 该方法会返回false, 坑;
+- 有意思的是removeAll和retainAll共用batchRemove方法, 只是第二个boolean参数值不相同, 里面涉及算法;
 
-### HashMap
+Arrays.asList()会返回新创建的内部ArrayList类对象, 该内部类同样继承了AbstractList但没有重写add方法, 而AbstractList自带的add方法直接抛出UnsupportedOperationException. 因此无法add, 貌似是个坑, 是JDK8的一个缺陷吧. 因此该方式只适合元素个数固定的情况.
+
+Collections.emptyList()直接返回其内部静态常量EmptyList对象实例, EmptyList也是其内部类, 继承了AbstractList, 也没有重写add方法...适用于项目逻辑中需要返回空list的情况, 该方式的优点就是没有新对象的创建.
+
+迭代器不适合实现了随机访问接口的list, 适合for循环
+
+### Map
+
+**HashMap**
 
  JDK1.8 的 `HashMap` 当链表长度大于阈值（默认为 8,这个阈值为表示链表或红黑树大小的阈值,是常量）时，将链表转化为红黑树（将链表转换成红黑树前会判断，如果当前数组的长度小于 64，那么会选择先进行数组扩容，而不是转换为红黑树），以减少搜索时间.
 
