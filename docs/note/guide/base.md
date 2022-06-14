@@ -684,7 +684,7 @@ class ConcreteSubject extends Subject{
 
 抽象观察者
 
-```
+```java
 interface Observer{
     void process(); //具体的处理
 }
@@ -728,85 +728,110 @@ public static void main(String[] args){
 实现List接口, 继承AbstractList类(自带add方法, 但ArrayList对其进行了重写, 添加了扩容逻辑)
 
 - 底层elementData数组为transient, 但还能序列化, 那是因为实现了序列化方法writeObject和readObject方法, writeObject循环遍历elementData进行一一序列化写, 避免了对数据的空元素进行序列化, 性能提升在数组容量越大空元素越多时越明显, 且避免了考虑null值序列化的问题; 并且通过modCount快速失败机制防止并发修改, jdk认为list的修改级别高于序列化; 而readObject先把EMPTT_ELEMENTDATA赋值给elementData(前提是反序列化对象已经生成), 然后对容量进行一个设置后根据size属性一个一个反序列化到数组元素上;
+
 - 两个常量空数组, 用意在于初始化阶段, 若指定的初始容量为0, 则将EMPTT_ELEMENTDATA空数组赋给elementData, 而add方法在赋值前会检测容量, 比较elementData是否等于DEFAULTCAPACITY_EMPTY_ELEMENTDATA, 因为不相等, 所以不会将默认容量10属性赋值给minCapacity, 而直接走ensureExplicitCapacity方法, 这样会导致add扩容的跨度每次很小而初期经常扩容; 而当初始化阶段不指定初始容量时, 才会将DEFAULTCAPACITY_EMPTY_ELEMENTDATA赋值给elementData, add时minCapacity才会变成10;
+
 - ensureExplicit方法中可调用grow方法扩容, 近似1.5倍扩容, 不能小于minCapacity, 不能大于MAX_ARRAY_SIZE(Integer.MAX_VALUE-8), 但在大于逻辑的hugeCapacity中如果minCapacity大于MAX_ARRAY_SIZE, 则新容量允许为Integer.MAX_VALUE;
+
 - grow方法扩容Arrays.copyOf底层通过native方法System.arraycopy, 其他如指定插入位置的add方法,remove方法也是调用该native方法, 类似c语言操作数组, 注意remove后会将最后一个元素赋为null等待GC回收;
 
 - ensureCapacity方法在ArrayList内部没有被调用过,是给用户使用的,最好在 add 大量元素之前用 ensureCapacity 方法，以减少增量重新分配的次数
+
 - modCount++是AbstractList中用于记录数组修改次数的属性, 用于快速失败检测.
+
 - 实现了cloneable接口, clone方法先调用父类的clone方法强转为ArrayList<?>对象, 并调用Arrays.copyOf方法将elementData拷贝给克隆对象的elementData, 并将modCount置0, 注释说是浅拷贝, 但这感觉是深拷贝呀.
+
 - 无参toArray 返回的是新数组,通过Arrays.copyOf方法生成; 
+
 - addAll方法有坑, 当参数集合元素为0时, 该方法会返回false, 坑;
+
 - 有意思的是removeAll和retainAll共用batchRemove方法, 只是第二个boolean参数值不相同, 里面涉及算法;
 
 Arrays.asList()会返回新创建的内部ArrayList类对象, 该内部类同样继承了AbstractList但没有重写add方法, 而AbstractList自带的add方法直接抛出UnsupportedOperationException. 因此无法add, 貌似是个坑, 是JDK8的一个缺陷吧. 因此该方式只适合元素个数固定的情况.
 
 Collections.emptyList()直接返回其内部静态常量EmptyList对象实例, EmptyList也是其内部类, 继承了AbstractList, 也没有重写add方法...适用于项目逻辑中需要返回空list的情况, 该方式的优点就是没有新对象的创建.
 
-迭代器不适合实现了随机访问接口的list, 适合for循环
+迭代器不适合实现了随机访问接口的list, 适合for循环.
 
 ### Map
 
 **HashMap**
 
- JDK1.8 的 `HashMap` 当链表长度大于阈值（默认为 8,这个阈值为表示链表或红黑树大小的阈值,是常量）时，将链表转化为红黑树（将链表转换成红黑树前会判断，如果当前数组的长度小于 64，那么会选择先进行数组扩容，而不是转换为红黑树），以减少搜索时间.
+与ArrayList设计类似, 实现了Map接口, 继承了AbstractMap.
+
+DEFAULT_INITIAL_CAPACITY =  2^4 默认数组长度, 
+
+MAXIMUM_CAPACITY = 2^30 最大元素容量,
+
+DEFAULT_LOAD_FACTOR = 0.75f 负载因子,
+
+TREEIFY_THRESHOLD = 8 链表超过8时转红黑树,
+
+UNTREEIFY_THRESHOLD = 6 红黑树超过6转链表,
+
+ MIN_TREEIFY_CAPACITY = 64 转红黑树的数组长度前提,
 
 | 名称              | 用途                                  |
 | --------------- | ----------------------------------- |
-| initialCapacity | HashMap 初始容量                        |
+| initialCapacity | HashMap 初始数组容量                      |
 | loadFactor      | 负载因子,控制数组存放数据的疏密程度                  |
 | threshold       | 当前 HashMap 所能容纳键值对数量的最大值，超过这个值，则需扩容 |
 
-默认情况下，HashMap 初始容量是16，负载因子为 0.75.
-
-`threshold = capacity * loadFactor`
-
 > `HashMap` 可以存储 null 的 key 和 value，但 null 作为键只能有一个，null 作为值可以有多个
 
-**初始化与懒加载**
+节点Node继承Map.Entry, 存储hash(用于冲突时比较),key,value,next, 其中hash和key为final, 即该key不可修改, 只能remove; Node重写了hash, 将key和value的hashCode异或; 重点为equals方法先==比较, 若不相等, 强转为Map.Entry<?,?>, 然后通过Objects.equals方法比较key和value.
 
-new一个HashMap时, 只会设置负载因子;
+> Objects.equals方法比较方式为return (a==b) || (a!=null && a.equals(b))
 
-在首次put元素的时候, 通过resize()方法进行初始化;
+HashMap的hash(key)方法异或自身右移16位, 扰动函数;
 
-resize()中会设置默认的初始化容量DEFAULT_INITIAL_CAPACITY为16, 扩容的阈值为0.75*16 = 12, 即哈希桶数组中元素达到12个便进行扩容操作; 然后创建容量为16的Node数组, 并赋值给成员变量哈希桶table, 即完成了HashMap的初始化操作;
+tableSizeFor(cap)向上获取最大的2的平方值;
 
-**自动扩容**
+table哈希表与ArrayList的elementData一样为transient类型, 使用序列化方法完成序列化
 
-扩容发生在putVal方法的最后, 即写入元素之后才会判断是否需要扩容操作, 当自增后的size大于之前所计算好的阈值threshold, 执行resize操作;
+getNode方法中先通过tab[(n-1)&hash]获取链表第一个节点, 通过
 
-在resize中, 通过位运算<<1进行容量扩充, 即扩容1倍, 同时新的阈值newThr也扩容为旧阈值的1倍;
+first.hash == hash && (( k = first.key) == key || ( key != null && key.equals(k)))判断first是否为要获取的value节点, 后面这个括号相当于equals比较底层, 这里就是考虑了hash相同, 对象不一定相同这种情况, 即hash碰撞; 若不是first, 则进行红黑树或者链表中的获取;
 
-扩容时, 总共存在三种情况：
+**懒初始化, put后扩容**
 
-- 哈希桶数组中某个位置只有1个元素，即不存在哈希冲突时，则直接将该元素copy至新哈希桶数组的对应位置即可。
+懒初始化表现为put前先判断table是否为null或长度是否为0, 是则resize初始化;
 
-- 哈希桶数组中某个位置的节点为树节点时，则执行红黑树的扩容操作。
+通过tab[(n-1)&hash]定位桶, 如果槽为空, 直接创建Node放入; 否则再通过上面的长判断是否存在, 否则分别进行红黑树和链表的逻辑; 若存在, 统一通过evict参数选择是否替换, 如果是替换, 方法会返回旧值.
 
-- 哈希桶数组中某个位置的节点为普通节点时，则执行链表扩容操作，在JDK1.8中，为了避免之前版本中并发扩容所导致的死链问题(头插法)，引入了高低位链表辅助进行扩容操作。
+注意对链表进行插入后会判断链表长度是否大于8, 是则调用treeifyBin, 该方法里面还会判断数组是否大于64;
 
-**哈希计算**(避免冲突)
+最后再判断put后size是否大于阈值, 是则resize扩容.
 
-HashMap并没有直接使用Object的native方法返回的hashCode作为最终的哈希值, 而是进行了二次加工(再哈希). 与ConcurrentHashMap的核心的计算逻辑类似, 都是使用key对应的hashCode与其hashCode右移16位的结果进行异或操作(扰动函数, 目的是将高位的特征融入到低位之中，降低哈希冲突的概率).
+**扩容resize**
 
-**拉链表**(解决冲突)
+1.获取threshold和newCap
 
-在JDK1.8之前, 采用拉链表的方法来解决冲突, 在并发场景下扩容时可能形成死链,  导致get该位置元素的时候CPU利用率高居不下, 应该优先考虑JUC中的ConcurrentHashMap;
+if (oldCap>0):
 
-然而JDK开发者们并没有选择绕过问题, 在JDK1.8之中, 引入了高低位链表, 在扩容时, 哈希桶数组buckets会扩容一倍, 以容量为8的HashMap为例, 原有容量8扩容至16, 将[0, 7]称为低位, [8, 15]称为高位, 低位对应loHead、loTail, 高位对应hiHead、hiTail;
+首先判断旧数组长度是否大于MAXIMUM_CAPACITY, 是则放弃扩容, 并给threshold赋值Integer.MAX_VALUE, 此时threshold虽然到头了, 但是并不会限制元素容量的增加, 之后每次resize进来都是重复操作; 否则左移2倍newCap和newThr扩容.
 
-扩容时会依次遍历旧buckets数组的每一个位置上面的元素：
+else if(oldThr>0): (隐式逻辑为oldCap=0. 为首次初始化, 并且设置过threshold)
 
-- 若不存在冲突, 则重新进行hash取模, 并copy到新buckets数组中的对应位置;
-- 若存在冲突元素, 则采用高低位链表进行处理. 通过e.hash & oldCap来判断取模后是落在高位还是低位. 这种实现降低了对共享资源newTab的访问频次, 先组织冲突节点, 最后再放入newTab的指定位置, 避免了JDK1.8之前每遍历一个元素就放入newTab中, 从而导致并发扩容下的死链问题:
+直接newThr=oldThr.
 
-举个例子：假设当前元素hashCode为0001（忽略高位），其运算结果等于0，说明扩容后结果不变，取模后还是落在低位[0, 7]，即0001 & 1000 = 0000，还是原位置，再用低位链表将这类的元素链接起来。假设当前元素的hashCode为1001， 其运算结果不为0，即1001 & 1000 = 1000 ，扩容后会落在高位，新的位置刚好是旧数组索引（1） + 旧数据长度（8） = 9，再用高位链表将这些元素链接起来。最后，将高低位链表的头节点分别放在扩容后数组newTab的指定位置上，即完成了扩容操作。
+else:
 
-![](picture/高低链表.jpg)
+赋值默认阈值和默认容量
 
-**红黑树**
+2.元素迁移
 
-在JDK1.8中, 如果冲突链上的元素数量大于8, 并且哈希桶数组的长度大于64时, 会使用红黑树代替链表来解决哈希冲突, 此时的节点会被封装成TreeNode而不再是Node（TreeNode其实继承了Node, 以利用多态特性）, 使查询具备O(logn)的性能.
+创建一个Node数组newTab, 循环遍历oldTab, 每次循环暂存oldTab[i]为e并赋值为null等待GC; 
+
+然后判断e.next是否为null为null则表示该桶无碰撞, 直接newTab[e.hash && (newCap-1)] = e;
+
+判断e是否为树, 调用TreeNode.split扩容;
+
+否则进行链表扩容:
+
+采用拉链表的方法来解决冲突在并发场景下扩容时可能形成死链, , 在JDK1.8之中,引入了高低位链表,如[0, 7]称为低位, [8, 15]称为高位, 低位对应loHead、loTail, 高位对应hiHead、hiTail.
+
+通过e.hash & oldCap是否等于0来判断取模后是落在高位还是低位. 这种实现降低了对共享资源newTab的访问频次, 先组织冲突节点, 最后再放入newTab的指定位置, 避免了JDK1.8之前每遍历一个元素就放入newTab中, 从而导致并发扩容下的死链问题:
 
 **为什么哈希桶数组的大小为大于等于给定值的最小2的整数次幂**
 
@@ -814,7 +839,7 @@ HashMap并没有直接使用Object的native方法返回的hashCode作为最终�
 
 确定数组下标采用的算法是 hash & (n - 1), n即为哈希桶数组的大小, 由于其总是2的整数次幂, 这意味着n-1的二进制形式永远都是0000111111的形式, 该二进制与任何值进行&运算都会使该值映射到指定区间[0, n-1], 存储空间利用率100%;
 
-举个反例, 当n=7, n-1对应的二进制为0110, 任何与0110进行&运算会落入到第0、6、4、2个哈希桶, 而不是[0,6]的区间范围内, 少了1、3、5三个哈希桶, 这导致存储空间利用率只有不到60%, 同时也增加了哈希碰撞的几率。.
+举个反例, 当n=7, n-1对应的二进制为0110, 任何与0110进行&运算会落入到第0、6、4、2个哈希桶, 而不是[0,6]的区间范围内, 少了1、3、5三个哈希桶, 这导致存储空间利用率只有不到60%, 同时也增加了哈希碰撞的几率。
 
 ### BitSet(BitMap)
 
