@@ -1,5 +1,7 @@
 # 多线程
 
+以下内容来自对《Java并发编程的艺术》的整理和JUC源码的阅读以及博客的查阅, 如有错误的地方, 请通过[Issues · lzf350888562/lzf-note · GitHub](https://github.com/lzf350888562/lzf-note/issues)指正.
+
 ## JMM
 
 |          | 通信                                 | 同步                             |
@@ -55,6 +57,8 @@ Markword:
 
 当线程对volatile变量修改的时候, 其底层汇编指令会额外添加一个lock前缀, 表示将该修改信息推送到主存, 而lock指令通过总线的时候, 其他线程会嗅探带lock前缀的汇编指令, 将对应的缓存行置位不可用.
 
+缓存一致性将组织同时修改由两个以上的处理器缓存的内存数据区域.
+
 **禁止重排序**
 
 通过**内存屏障**严格限制编译器和处理器对volatile变量与普通变量的重排序
@@ -71,15 +75,17 @@ Markword:
 - 在每个volatile读操作后插入一个LoadLoad屏障, 保证后续读操作执行前, 该读操作已经完毕;(读读)
 - 在每个volatile读操作后再插入一个LoadStore屏障, 保证后续写操作被刷出前, 该读操作已经完毕.(读写)
 
-LoadStore为全能屏障, 但性能低, 所以大部分系统都不只采用该屏障.
+StoreLoad为全能屏障, 但性能低, 所以大部分系统都不只采用该屏障.
 
-防止指令重排序不包括new一个对象指令三步骤, 参照双重检查单例模式代码; 加volatile只是为了让其他线程嗅探到其改变而避免进入if, 而关键在于加锁操作将new这一过程包含在了同步代码块里面, 即三步执行完之后才离开同步代码块
+实际上编译器在生成字节码时还会对屏障的设置进行优化, 见《Java并发编程的艺术p35图3-21》
+
+防止指令重排序不包括new一个对象指令三步骤, 参照双重检查单例模式代码; 加volatile只是为了让其他线程嗅探到其改变而避免进入if, 而关键在于加锁操作将new这一过程包含在了同步代码块里面, JVM顺序一致性中允许临界区内的代码重排序, 但不能允许临界区的代码逃逸出临界区之外.
 
 **无法保证原子性** 
 
 如i++这种指令 --> iload,iadd,istore
 
-但可以保证变量的的getter/setter原子性(与其说是幂等更可靠), 设置为volatile和在getter/setter上加锁是一样的效果.
+但可以保证变量的的getter/setter原子性(与其说是幂等更可靠), 设置为volatile和在getter/setter上加锁是一样的效果, 因为在线程释放锁时, JMM会把该线程对应的本地内存中的共享变量刷新到共享内存中, 可以认为整合了volatile总线推送+嗅探.
 
 问题在于:
 
@@ -675,9 +681,9 @@ public final boolean weakCompareAndSetInt(Object o, long offset,
 
 **ABA问题**
 
-即一个值原来是A，变成了B，又变回了A。这个时候使用CAS是检查不出变化的，但实际上却被更新了两次。解决思路是在变量前面追加上**版本号或者时间戳**。从JDK 1.5开始，JDK的atomic包里提供了一个类`AtomicStampedReference`类来解决ABA问题。
+即一个值原来是A, 变成了B, 又变回了A. 这个时候使用CAS是检查不出变化的, 但实际上却被更新了两次. 解决思路是在变量前面追加上**版本号或者时间戳**. 从JDK 1.5开始, JDK的atomic包里提供了一个类`AtomicStampedReference`类来解决ABA问题.
 
-这个类的`compareAndSet`方法的作用是首先检查当前引用是否等于预期引用，并且检查当前标志是否等于预期标志，如果二者都相等，才使用CAS设置为新的值和标志。
+这个类的`compareAndSet`方法的作用是首先检查当前引用是否等于预期引用, 并且检查当前标志是否等于预期标志, 如果二者都相等, 才使用CAS设置为新的值和标志.
 
 ```java
 public boolean compareAndSet(V   expectedReference,
@@ -696,20 +702,20 @@ public boolean compareAndSet(V   expectedReference,
 
 **2.过多自旋**
 
-自旋CAS长时间不成功将会占用大量的CPU资源。解决思路是让JVM支持处理器提供的**pause指令**。
+自旋CAS长时间不成功将会占用大量的CPU资源. 解决思路是让JVM支持处理器提供的**pause指令**。
 
-pause指令能让自旋失败时cpu睡眠一小段时间再继续自旋，从而使得读操作的频率低很多,为解决内存顺序冲突而导致的CPU流水线重排的代价也会小很多。
+pause指令能让自旋失败时cpu睡眠一小段时间再继续自旋, 从而使得读操作的频率低很多,为解决内存顺序冲突而导致的CPU流水线重排的代价也会小很多.
 
 **3.只能保证一个共享变量的原子操作**
 
 有两种解决方案：
 
-1. 使用JDK 1.5开始提供的`AtomicReference`类保证对象之间的原子性，把多个变量放到一个对象里面进行CAS操作；
-2. 使用锁，锁内的临界区代码可以保证只有当前线程能操作。
+1. 使用JDK 1.5开始提供的`AtomicReference`类保证对象之间的原子性, 把多个变量放到一个对象里面进行CAS操作;
+2. 使用锁, \锁内的临界区代码可以保证只有当前线程能操作.
 
 ## AQS
 
-AQS的设计是基于**模板方法模式**的，它有一些protocted修饰的方法必须要子类去实现的，它们主要有：
+AQS的设计是基于**模板方法模式**的, 它有一些protocted修饰的方法必须要子类去实现的，它们主要有：
 
 - isHeldExclusively()：该线程是否正在独占资源。只有用到condition才需要去实现它。
 - tryAcquire(int)：独占方式。尝试获取资源，成功则返回true，失败则返回false。
@@ -719,19 +725,19 @@ AQS的设计是基于**模板方法模式**的，它有一些protocted修饰的�
 
 AQS对上面方法默认实现为直接抛出异常, 不适用抽象方法是为了避免子类把所有的抽象方法都实现一遍, 子类只需要实现自己关心的抽象方法即可, 比如 Semaphore 只需要实现 tryAcquire 方法而不用实现其余不需要用到的模版方法.
 
-具体见《Java并发编程的艺术5.2》
-
 ReentrantLock通过AQS实现, 与synchronized关键字相比(相当于把同步队列和等待队列从jvm c代码移动到了java代码层面), 依赖于API而非JVM, 并增加了等待可中断((lockInterruptibly)、尝试加锁(tryLock)、公平锁选择、选择性通知((Condition). 
 
-通过同步状态标志+双向队列(链表)实现, 线程尝试获取锁, 获取不到cas(有竞争)到等待队列尾部, 链表的第一个node自旋获取状态, 后继node阻塞, 等待前一个node的唤醒( 通过LockSupport实现) . 
+通过同步状态标志+双向队列(链表)实现, 线程尝试获取锁, 获取不到cas(有竞争)到等待队列尾部, 链表的第一个node自旋获取状态, 后继node阻塞, 等待前一个node的唤醒.
+
+线程的阻塞与唤醒操作通过LockSupport工具实现, 其park方法可阻塞当前线程, unpark方法可唤醒指定线程.
 
 在争取锁时, 公平队列需要判断当前节点所在同步队列是否有前序节点, 若无前序节点时才可获取锁
 
-对于condition.wait后的线程, 直接进入等待队列尾部, 不需要cas, 因为此时只有当前线程持有锁, 无竞争. 当在等待队列头部时被唤醒允许去竞争锁, 若失败再cas进入同步队列尾部..
+每个Condition对象(ConditionObject)都包含一个等待队列, 等待队列复用了AQS同步队列中的Node类; 对于condition.await后的线程, 直接进入等待队列尾部(相当于同步队列头部的node移动到了等待队列的尾部), 不需要cas, 因为此时只有当前线程持有锁, 无竞争. 当调用condition.signal时唤醒在等待队列头部的node, 唤醒前会将节点移动到同步队列尾部而去竞争锁.
 
-具体见《Java并发编程的艺术5.3》
+ReentrantReadWriteLock是ReadWriteLock接口的JDK默认实现, 与ReentrantLock的功能类似, 并支持支持”读写锁“. 通过在共享状态state上维护16位读+16位写两个状态来对共享锁和独占锁进行操作; JDK6利用ThreadLocal存储自身线程获取读锁的次数; 并且支持在已持有写锁的情况下进行降级到读锁, 然后释放以前的写锁; 读写锁因为在读多写少的情况下, 存在写饥饿问题(StampedLock解决).
 
-ReentrantReadWriteLock是ReadWriteLock接口的JDK默认实现, 与ReentrantLock的功能类似, 并支持支持”读写锁“. 通过在共享状态state上维护16位读+16位写两个状态来对共享锁和独占锁进行操作. 读写锁因为在读多写少的情况下, 存在写饥饿问题(StampedLock解决). 具体见《Java并发编程的艺术5.4》
+    
 
 ## JUC
 
@@ -747,9 +753,9 @@ ReentrantReadWriteLock是ReadWriteLock接口的JDK默认实现, 与ReentrantLock
 
 Segment是一种可重入锁, 结构与HashMap类似, 是一种数组+链表结构, HashEntry用于存储键值对数据.
 
-为了使得元素能均匀的分布在不同的Segment下, 在插入和获取元素的时候, 必须通过再散列(对元素的hashCode再进行一次散列)的方式定位到Segment.
+为了使得元素能均匀的分布在不同的Segment下, 在插入和获取元素的时候, 通过再散列取高位的方式定位到Segment. 定位Segement与定位HashEntry的方式多个一个取高位操作.
 
-对于get操作: 不加锁, 将get方法要使用的共享变量都定义成volatile类型, 如HashEntry的value, 因为get不需要对共享变量进行写, 所以可以不用加锁, 即使多个线程进行put也能get到最新的值. **这是使用volatile替换锁的经典使用场景**.
+对于get操作: 不加锁, 将get方法要使用的共享变量都定义成volatile类型, 如HashEntry的value和获取当前Segement大小的count, 因为get不需要对共享变量进行写, 所以可以不用加锁, 即使多个线程进行put也能get到最新的值. **这是使用volatile替换锁的经典使用场景**.
 
 对于put操作: 必须要对Segment加锁, **在插入前**, 先会判断Segment里的HashEntry数组是否超过容量(threshold), 如果超过, 则进行二倍扩容.
 
