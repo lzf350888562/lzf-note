@@ -171,11 +171,7 @@ typedef struct RedisObject {
 
 其数据结构为带容量和长度的**字节**数组(可以存储二进制数据->位数组)的结构体.
 
-```c
-// 实际上redis还会根据字符串的长度, 选择不同大小的sdshdf数据结构
-// 通常当字符串长度足够小时, 可不必使用4字节的int, 而使用1、2字节记录长度
-// 或者当字符串长度太大是, 采用8字节记录长度
-
+```C
 struct sdshdr{    
     int len;//已使用的字节数    
     int free;//未使用的字节数    
@@ -187,6 +183,18 @@ typedef unsigned char uint8_t;
 typedef unsigned short uint16_t;
 typedef unsigned int uint32_t;
 typedef unsigned long long uint64_t;
+
+// 实际上3.2版本之后redis还会根据字符串的长度, 选择不同大小的sdshdf数据结构
+// 通常当字符串长度足够小时, 可不必使用4字节的int, 而使用1字节记录长度
+// 或者当字符串长度太大是, 采用8字节记录长度
+// 实际上还包含sdshdr5类型, 但官方好像表示还没有使用过
+// 以int8为例:
+struct sdshdr8 {
+    uint8_t alloc; // 1byte
+    uint8_t len; // 1byte
+    uint8_t flags; // 1byte
+    char buf[]; // 内联数组，长度为 capacity
+}
 ```
 
 SDS 遵循 C 字符串以空字符结尾的惯例是为了兼容部分C字符串函数, 但实际上SDS是使用len属性而不是空字符来判断字符串是否结束. 
@@ -195,7 +203,7 @@ SDS 遵循 C 字符串以空字符结尾的惯例是为了兼容部分C字符串
 
 SDS是可以修改的字符串，内部结构实现上类似于 Java 的 ArrayList，采用预分配冗余空间的方式来减少内存的频繁分配, 避免C字符串API存在的溢出问题(SDS追加时先判断free空间是否足够)
 
-如果是整数, 则使用int编码; 当Redis字符串的长度小于等于44时, 使用embstr编码; 当字符串长度超过44时, 使用raw编码存储. 因为内存分配器最多分配64字节空间, redisObject固定占用16字节, SDS固定属性占用3字节, 字符串结尾符占用1字节, 还剩下最多64-20=44字节, 超过44则为大字符串, 需要采用raw形式.
+如果是整数, 则使用int编码; 当Redis字符串的长度小于等于44时, 使用embstr编码; 当字符串长度超过44时, 使用raw编码存储. 因为内存分配器最多分配64字节空间, redisObject固定占用16字节, SDS固定属性占用3字节(3.2版本前为8字节), 字符串结尾符占用1字节, 还剩下最多64-20=44字节(3.2版本为39), 超过44则为大字符串, 需要采用raw形式.
 
 embstr与raw的区别为: embstr将 RedisObject 和 SDS 对 象连续存在一起, 使用 malloc 方法一次分配; 而 raw 存储形式不一样, 它需要两次 malloc, 两个对象结构在内存地址上一般是不连续的.
 
@@ -221,7 +229,9 @@ embstr与raw的区别为: embstr将 RedisObject 和 SDS 对 象连续存在一�
 
 linkedlist为一个双端队列, 默认情况下, 当list对象中所有字符串元素的长度都小于64字节且元素个数小于512时, 会采用ziplist编码, 可通过配置文件改变上限值.
 
-ziplist有一个zltail属性记录尾结点偏移量, 每个节点通过previous_entry_length记录前一个节点的长度结合zltail来支持反向遍历, 每个节点通过encoding记录节点的content属性所保存的数据类型(字节数组或整数类型)以及长度.
+ziplist包含zlbytes记录整个ziplist大小, zllen记录节点entry数量, **zltail属性记录尾结点偏移量**, entries记录所有节点, zlend作为ziplist结束标识.
+
+每个节点通过previous_entry_length记录前一个节点的长度结合zltail来支持反向遍历, 每个节点通过encoding记录节点的content属性所保存的数据类型(字节数组或整数类型)以及长度.
 
 > 因为前一节点长度小于254时previous_entry_length需要1字节记录, 大于等于254时previous_entry_length需要5字节记录, 所以ziplist在添加和删除元素时若存在多个连续长度介于250-253字节的节点将会导致连锁更新
 
@@ -246,7 +256,8 @@ hash 类似于 JDK1.8 前的 HashMap(数组 + 链表)。包括hashtable(字典)�
 ```c
 typedef struct dict {    
     dictType *type;    
-    void *privdata;    dictht ht[2];    
+    void *privdata;    
+    dictht ht[2];    
     long rehashidx; 
     /* rehashing not in progress if rehashidx == -1 */    
     int iterators; 
@@ -254,8 +265,7 @@ typedef struct dict {
 } dict;
 typedef struct dictht {    
     //指针数组，这个hash的桶    
-    dictEntry **table;    
-    //元素个数    
+    dictEntry **table;   
     unsigned long size;    
     unsigned long sizemask;    
     unsigned long used;
@@ -284,13 +294,13 @@ rehash过程:
 
 2、定时维持一个索引计数器变量rehashidx，并将它的值设置为0，表示rehash 开始；
 
-3、在rehash进行期间，每次对字典执行CRUD操作时，程序除了执行指定的操作以外，还会将ht[0]中的数据rehash 到ht[1]表中，并且将rehashidx加一；
+3、在rehash进行期间，每次对字典执行CRUD操作时，程序除了执行指定的操作以外，还会将ht[0]中的数据每次一个桶一个桶的添加到ht[1]表中，并且将rehashidx加一；
 
 4、当ht[0]中所有数据转移到ht[1]中时，将rehashidx 设置成-1，表示rehash 结束；
 
 5、将ht[0]释放，然后将ht[1]设置成ht[0]，最后为ht[1]分配一个空白哈希表。
 
-> 当Hash表中的元素个数等于table指针第一维数组的长度(桶数)的时候，就会开始两倍扩容.
+> 当Hash表中的元素个数(used)等于table指针第一维数组的长度(桶数size)的时候，就会开始两倍扩容.
 > 
 > 在bgsave时为了减少内存页的过多分离，redis不会去扩容。但如果hash表的元素个数已经到达了第一维数组长度的5倍的时候，就会强制扩容，不管你是否在持久化。
 > 
@@ -308,7 +318,7 @@ ziplist插入键值对时先推入key到ziplist末尾, 再推入value到ziplist�
 
 **4.set**
 
-类似 Java 中的 `HashSet` 。通过inset(如果只有整数且元素不超过512个)t或hashtable(值为null)实现.
+类似 Java 中的 `HashSet` 。通过inset(如果只有整数且元素不超过512个)或hashtable(值为null)实现.
 
 inset可以通过判断新加入的元素长度动态扩展每个元素的空间: content数组为int8_t类型, encoding支持int16_t,int32_t和int64_t编码改变每个元素在content数组中的字节数, 只可升级不可降级.
 
@@ -327,6 +337,8 @@ inset为一个有序集合, 查找元素O(logN)二分, 但插入不一定为O(lo
 ziplist对每个zset元素紧挨存储, 元素存储在前面, 权重存储在后面, 集合元素按权重从小到大排序.
 
 skiplist中每个节点zskiplistNode结构通过一个后退指针以支持反向遍历, 但不能跳跃; 并包含一个zskiplistLevel结构数组表示每一层的跳表节点包含一个前进指针和一个跨度值记录两个节点之间的记录, 将查询某个节点时的对沿途跨度进行累加用于score rank实现. 
+
+> 不采用红黑树是因为跳表支持范围顺序遍历, 红黑树需要中序遍历
 
 另外, 为了提高查询效率, skiplist增加了从元素到分值的映射字典.
 
@@ -352,11 +364,9 @@ skiplist中每个节点zskiplistNode结构通过一个后退指针以支持反�
 
 ## 持久化
 
-**Redis 的持久化方式有快照（snapshotting，RDB），和只追加文件（append-only file, AOF）**。
-
 ### RDB
 
-RDB快照持久化是 Redis 默认采用的持久化方式，在 Redis.conf 配置文件中默认有此下配置：
+Redis 默认采用的持久化方式, redis.conf 相关配置：
 
 ```
 save 900 1           #在900秒(15分钟)之后，如果至少有1个key发生变化，Redis就会自动触发BGSAVE命令创建快照。
@@ -512,8 +522,6 @@ AOF 日志在长期的运行过程中会变的无比庞大, 数据库**重启时
 
 Redis服务器为一个事件驱动程序, 分为文件事件与时间事件, 在一个事件处理循环函数中获取与处理.
 
-> 单线程事件机制也是有缺陷的，所有的事件都是串行执行，一旦某个事件比较重就会阻塞其它事件，从而导致整个系统的吞吐率下降。比如某个客户端执行了一个比较重的lua函数、或者使用了诸如keys*、zrange(0,-1)、hgetall等全集合扫描的操作，又或者删除的过期键是个big key，又或者使用了较多内存的redis实例进行bgsave时，都会导致服务器一定程度的阻塞，一般伴随会有相应的慢日志。所以我们在实际使用redis的过程中，必须要给每一次的操作分配合理的时间片。
-
 ### 文件事件
 
 Redis服务器通过socket与client连接, 文件事件就是服务器对socket操作的抽象: 服务器与客户端通信产生对应的文件事件, 服务器通过监听并处理这些时间完成网络通信操作.
@@ -522,7 +530,7 @@ Redis服务器通过socket与client连接, 文件事件就是服务器对socket�
 
 文件事件处理器使用I/O多路复用程序同时监听多个socket, 并根据socket目前执行的任务来经由文件事件分发器为socket关联不同的事件处理器(如accept、read、write、close等)来处理(在事件处理循环中).
 
-> 多个事务处理器并不意味着redis会并行处理事件, I/O多路复用器会将所有事件的socker放到一个队列里面通过分发器发送. 只有当上一个socket产生的事件被处理完之后, 即该socket所关联的事件处理器执行完毕后, I/O多路复用程序才会继续向分发器传送下一个socket
+> 多个事务处理器并不意味着redis会并行处理事件, I/O多路复用器会将所有socket的事件放到一个队列里面通过分发器发送. 只有当上一个socket产生的事件被处理完之后, 即该socket所关联的事件处理器执行完毕后, I/O多路复用程序才会继续向分发器传送下一个socket
 
 **I/O多路复用器**
 
@@ -560,7 +568,7 @@ Redis服务器将所有时间事件存放在一个链表中(新时间事件从�
 
 **serverCron**
 
-用于对Redis服务器资源与状态进行检查与调整, 保证服务器长期文档运行. 其工作包括:
+用于对Redis服务器资源与状态进行检查与调整, 保证服务器长期稳当运行. 其工作包括:
 
 1.更新服务器的各类统计信息，比如时间、内存占用、数据库占用情况等。
 2.清理数据库中的过期键值对。
@@ -599,29 +607,13 @@ typedef struct redisDb {
 
 > redis的删除操作采用的是异步内存回收, 主线程将key从字典中摘除后, 将这个key的内存回收操作包装成一个任务塞进异步队列中后台清理.
 
-但是，仅仅通过给 key 设置过期时间还是有问题的。因为还是可能存在定期删除和惰性删除漏掉了很多过期 key 的情况。这样就导致大量过期 key 堆积在内存里，然后就 Out of memory 了。 所以有了**内存淘汰机制**
-
-> 如果同时有大量key过期的话，极可能导致主线程阻塞。一般可以通过做散列来优化处理。
+因为且随着key增多内存不断增大, 光靠过期删除策略是无法及时腾出空闲内存来的, 因此有了内存淘汰机制.
 
 ## 内存淘汰
 
 内存淘汰为当redis执行写操作时, 如果内存超出maxmemory就会执行一次内存淘汰算法.
 
 https://redis.io/topics/lru-cache
-
-Redis 提供 6 种数据淘汰策略：
-
-1. **volatile-lru（least recently used）**：从已设置过期时间的数据集（server.db[i].expires）中挑选最近最少使用的数据淘汰
-2. **volatile-ttl**：从已设置过期时间的数据集（server.db[i].expires）中挑选将要过期的数据淘汰
-3. **volatile-random**：从已设置过期时间的数据集（server.db[i].expires）中任意选择数据淘汰
-4. **allkeys-lru（least recently used）**：当内存不足以容纳新写入数据时，在键空间中，移除最近最少使用的 key（这个是最常用的）
-5. **allkeys-random**：从数据集（server.db[i].dict）中任意选择数据淘汰
-6. **no-eviction**：禁止驱逐数据，也就是说当内存不足以容纳新写入数据时，新写入操作会报错。这个应该没人使用吧！
-
-4.0 版本后增加以下两种：
-
-1. **volatile-lfu（least frequently used）**：从已设置过期时间的数据集（server.db[i].expires）中挑选最不经常使用的数据淘汰
-2. **allkeys-lfu（least frequently used）**：当内存不足以容纳新写入数据时，在键空间中，移除最不经常使用的 key
 
 > 如果redis服务器内存分配不足, 可能会导致热点数据覆盖度不足, 频繁触发LRU清除, 导致缓存穿透, 这样通常可通过扩大redis服务内存或更换key存储结构实现以提高QPS
 
@@ -671,14 +663,11 @@ class LRUCache {
         return val;    
 
     }
-    public void put(int key, int val) {        
-        // 先把新节点 x 做出来        
+    public void put(int key, int val) {         
         Node x = new Node(key, val);        
-        if (map.containsKey(key)) {            
-            // 删除旧的节点，新的插到头部            
+        if (map.containsKey(key)) {              
             cache.remove(map.get(key));            
-            cache.addFirst(x);            
-            // 更新 map 中对应的数据            
+            cache.addFirst(x);               
             map.put(key, x);        
         } else {            
             if (cap == cache.size()) {                
@@ -726,17 +715,7 @@ class LRUCache {
 
 > 布隆过滤器只会误判没有遇见过的元素.
 
-**应用场景**
-
-判断给定数据是否存在：比如判断一个数字是否存在于包含大量数字的数字集中（数字集很大，5 亿以上！）、 防止缓存穿透（判断请求的数据是否有效避免直接绕过缓存请求数据库）、邮箱的垃圾邮件过滤、黑名单、内容推荐的历史记录(历史记录允许误判, 使用没误判的不存在)功能、爬虫系统记录已爬过的URL(错过少量URL)等等。
-
-去重：比如爬给定网址的时候对已经爬取过的 URL 去重。
-
-布隆过滤器在项目缓存中防止缓存穿透的使用流程:
-
-![image-20211204225755493](picture/image-20211204225755493.png)
-
-**问题**:假如布隆过滤器初始化后的某个商品被删除了怎么办?
+假如布隆过滤器初始化后的某个商品被删除了怎么办?
 
 布隆过滤器因为某一位二进制可能被多个编号Hash引用,因此布隆过滤器无法直接处理删除数据的情况.
 
@@ -753,7 +732,7 @@ class LRUCache {
 2.Guava BloomFilter
 
 ```
-// 创建布隆过滤器对象,最多存放 1500 个整数的布隆过滤器，并且我们可以容忍误判的概率为百分之
+// 1500个整数的布隆过滤器，并且我们可以容忍误判的概率为百分之
 BloomFilter<Integer> filter = BloomFilter.create(
     Funnels.integerFunnel(),
     1500,
@@ -770,11 +749,9 @@ filter.put(1);
 ```
 Config config = new Config();
 config.useSingleServer().setAddress("redis://127.0.0.1:6379");
-//构造Redisson
 RedissonClient redisson = Redisson.create(config);
 RBloomFilter<String> bloomFilter = redisson.getBloomFilter("bloom");
-//初始化布隆过滤器：预计元素为1000000L,误判率为1%
-bloomFilter.tryInit(1000000L,0.01);
+bloomFilter.tryInit(1000000L,0.01); //预计元素为1000000L,误判率为1%
 bloomFilter.add("1"); //增加数据
 //判断指定编号是否在布隆过滤器中
 System.out.println(bloomFilter.contains("1")); //输出true
@@ -783,47 +760,15 @@ System.out.println(bloomFilter.contains("8888"));//输出false
 
 4.RedisBloom
 
-Redis v4.0 之后有了 Module（模块/插件） 功能，Redis Modules 让 Redis 可以使用外部模块扩展其功能 。布隆过滤器就是其中的 Module。布隆过滤 器作为一个插件加载到 Redis Server 中.
+Redis v4.0 的Module, 具体使用见另外查阅.
 
-**命令**
+## 缓存击穿与雪崩
 
-1. **`BF.ADD`**：将元素添加到布隆过滤器中，如果该过滤器尚不存在，则创建该过滤器。格式：`BF.ADD {key} {item}`。
-2. **`BF.MADD`** : 将一个或多个元素添加到“布隆过滤器”中，并创建一个尚不存在的过滤器。该命令的操作方式`BF.ADD`与之相同，只不过它允许多个输入并返回多个值。格式：`BF.MADD {key} {item} [item ...]` 。
-3. **`BF.EXISTS`** : 确定元素是否在布隆过滤器中存在。格式：`BF.EXISTS {key} {item}`。
-4. **`BF.MEXISTS`** ： 确定一个或者多个元素是否在布隆过滤器中存在格式：`BF.MEXISTS {key} {item} [item ...]`。
+缓存击穿指高并发热点key失效的瞬间, 并发压力落到了数据库.
 
-另外， `BF. RESERVE` 命令需要单独介绍一下：
+可通过互斥锁, 在缓存不存在时, 阻塞其他线程只让一个线程去读取数据库(Guava LoadingCache)
 
-这个命令的格式如下：
-
-`BF. RESERVE {key} {error_rate} {capacity} [EXPANSION expansion]` 。
-
-1. key：布隆过滤器的名称
-2. error_rate : 期望的误报率。该值必须介于 0 到 1 之间。例如，对于期望的误报率 0.1％（1000 中为 1），error_rate 应该设置为 0.001。期望的错误率越低内存消耗越大，并且每个操作的 CPU 使用率越高。
-3. capacity: 过滤器的容量。当实际存储的元素个数超过这个值之后，性能将开始下降, 误判率上升。
-
-可选参数：
-
-- expansion：如果创建了一个新的子过滤器，则其大小将是当前过滤器的大小乘以`expansion`。默认扩展值为 2。这意味着每个后续子过滤器将是前一个子过滤器的两倍。
-
-## 缓存击穿
-
-缓存击穿，是指一个key非常热点，在不停的扛着大并发，大并发集中对这一个点进行访问，当这个key在失效的瞬间，持续的大并发就穿破缓存，直接请求数据库，就像在一个屏障上凿开了一个洞。
-
-为了防止缓存击穿, 可通过互斥锁, 在缓存不存在时, 阻塞其他线程只让一个线程去读取数据库;
-
-### 缓存雪崩
-
-**缓存在同一时间大面积的失效，后面的请求都直接落到了数据库上，造成数据库短时间内承受大量请求。** 
-
-比如缓存服务宕机不可用, 可以    
-
-1. 采用 Redis 集群，避免单机出现问题整个缓存服务都没办法使用。
-2. 限流，避免同时处理大量的请求。
-
-**有一些被大量访问数据（热点缓存）在某一时刻大面积失效，导致对应的请求直接落到了数据库上.**
-
-比如秒杀开始 12 个小时之前，我们统一存放了一批商品到 Redis 中，设置的缓存过期时间也是 12 个小时，那么秒杀开始的时候，这些秒杀的商品的缓存直接就失效了。可以
+缓存雪崩为击穿更严重的版本, 对应大量高并发热点key失效的情况.
 
 1. 设置不同的失效时间比如随机设置缓存的失效时间。
 2. 缓存永不失效
@@ -1018,17 +963,11 @@ min-slaves-max-lag 10
 
 Redis的高可用, 可通过主从复制机制以及Sentinel集群来实现
 
-Sentinel 由一个或多个Sentinel实例组成的哨兵系统，可以监视任意多个主从服务器，并完成Failover的操作。Sentinal其实是一个运行在特殊模式下的Redis服务器，运行期间，会与各服务器建立网络连接，以检测服务器的状态；同时会与其它Sentinel服务器创建连接，完成信息交换，比如发现某个主服务器心跳异常时，会互相询问心跳结果，当超过一定数量时即可判定为客观下线；一旦主服务器被判定为客观下线状态，那么Sentinel集群会通过raft协议选举，选出一个Leader来执行故障转移Failover。
-
-Failover 一般来说，会先选出优先级最高的从服务器，然后再从中选出复制偏移量最大的实例，作为新的主服务器；最后将其它从和旧的主都切换为新主的从。
-
 ![image-20211205153735959](picture/image-20211205153735959.png)
 
 **故障发现**:客观下线即认为其真正宕机.
 
 ![image-20211205153935302](picture/image-20211205153935302.png)
-
-> 通常设置为有N/2+1 个sentinel确认master主观下线时就标注master为客观下线
 
 **故障转移**:先剔除无效slave, 再选出slave
 
@@ -1037,8 +976,6 @@ Failover 一般来说，会先选出优先级最高的从服务器，然后再�
 当选举出slave后 , sentinel leader控制改变master.
 
 ![image-20211205155353562](picture/image-20211205155353562.png)
-
-> 为了防止应用实例重启以后之前的工作内容消失不见,所以所有redis节点在进行完主从迁移之后会自动对本地配置文件进行更新. 从而在重启后工作内容信息不会丢失.
 
 因为sentinel相当重要,所以也需要有相应的高可用解决方案:
 
@@ -1079,7 +1016,7 @@ Sentinel默认每2s通过命令连接向每个被监视的主从服务器发送P
 
 当Sentinel与一个主或从服务器建立订阅连接后, Sentinel通过订阅连接向其发送SUBSCRIBE命令接收频道消息.
 
-> 也就是说, 对于每一个与Sentinel建立连接的服务器, Sentinel既通过命令连接向服务器的`__sentinel:hello`频道发送消息, 又通过订阅连接从服务器的`__sentinel__:hello`频道接收消息( 主要是为了分享master的认证和暴露自己给其他Sentinel )
+> 也就是说, 对于每一个与Sentinel建立连接的服务器, Sentinel既通过命令连接向服务器的`__sentinel:hello`频道发送消息, 又通过订阅连接从服务器的`__sentinel__:hello`频道接收消息( 主要是为了分享master的认知和暴露自己给其他Sentinel )
 
 因此, 对于监视同一个服务器的多个Sentinel, 一个Sentinel发送的信息会被其他Sentinel收到(因为其他Sentinel也订阅了服务器的频道~), 用于更新其他Sentinel对发送信息的Sentinel的认知和对被监视服务器的认知;
 
@@ -1189,9 +1126,23 @@ cluster模式集群中槽分配的元数据会不断的在集群中分发(gossip
 
 **构建配置**
 
-redis-cluster.conf
+redis-cluster.conf:
 
-![image-20211207193419534](picture/image-20211207193419534.png)
+```conf
+#是否开启集群
+cluster-enabled yes
+#生成的node文件，记录集群节点信息，默认为nodes.conf
+cluster-config-file nodes.conf
+#节点连接超时时间
+cluster-node-timeout 20000
+#集群节点映射端口
+cluster-announce-port 6379
+#集群节点总线端口，节点之间互相通信，常规端口+1万
+cluster-announce-bus-port 16379
+EOF
+cd /usr/local/redis-stable
+./src/redis-server redis-cluster.conf
+```
 
 **创建命令**
 
@@ -1201,19 +1152,24 @@ redis-cluster.conf
 ./src/redis-cli -a 123456 --cluster create 192.168.31.102:6379 192.168.31.103:6379 192.168.31.104:6379  192.168.31.110:6379 192.168.31.111:6379 192.168.31.112:6379 --cluster-replicas 1
 ```
 
-启动之后日志
+启动之后日志:
 
-![image-20211207193714585](picture/image-20211207193714585.png)
+```log
+192.168.31,102:6379@16379 master - 0 1626954110371 1 connected 0-5460
+192,168,31,104:6379@16379 master - 0 1626954109344 3 connected 10923-16383
+192.168.31.112:6379@16379 myse1f,slave d19364caee69daf2cf1d790b0eb9d5742c294154
+192,168,31,103:6379@16379 master - 0 1626954111000 2 connected 5461-10922
+192,168,31,111:6379@16379 s1ave 6714367aa4a9d2379862ebc72b54ef3dad98acdd 0 ...
+192,168,31,110:6379@16379 s1aVe 7d1b82830052fe187f81fbcc7ce1470b0e975313 0 ...
+```
 
-操作结果中也会显示槽的定位转发(重定向)
+操作结果中也会显示槽的定位转发(重定向), 如:
 
-![image-20211207193814192](picture/image-20211207193814192.png)
+```
+Redirected to slot [15495] located at xxx.xxx.xxx.xxx:6379
+```
 
-**故障日志**
-
-![image-20211207194103490](picture/image-20211207194103490.png)
-
-![image-20211207194107617](picture/image-20211207194107617.png)
+还有故障转移日志.
 
 如果一对主从都挂了 , 整个集群变为fail状态而不可用 . 所以redis规定最少一个副本 , 条件允许可以弄两个副本.
 
@@ -1628,11 +1584,9 @@ keys命令用来查找key, 并支持正则, 但是其存在缺点:
 
 **字典与游标**
 
-在 Redis 中所有的 key 都存储在一个很大的字典中，这个字典的结构和 Java 中的 HashMap 一样，是一维数组 + 二维链表结构，第一维数组的大小总是 2^n(n>=0)，扩容一 次数组大小空间加倍，也就是 n++。
+scan 指令返回的游标就是第一维数组的位置索引,  即槽.  如果不考虑字典的扩容缩容, 直接按数组下标挨个遍历就行了. 
 
-scan 指令返回的游标就是第一维数组的位置索引，我们将这个位置索引称为槽 (slot)。 如果不考虑字典的扩容缩容，直接按数组下标挨个遍历就行了。limit 参数就表示需要遍历的 槽位数，之所以返回的结果可能多可能少，是因为不是所有的槽位上都会挂接链表，有些槽位可能是空的，还有些槽位上挂接的链表上的元素可能会有多个。每一次遍历都会将 limit 数量的槽位上挂接的所有链表元素进行模式匹配过滤后，一次性返回给客户端。
-
-scan 的遍历顺序非常特别。它不是从第一维数组的第 0 位一直遍历到末尾，而是采用 了高位进位加法来遍历。之所以使用这样特殊的方式进行遍历，是考虑到字典的扩容和缩容时避免槽位的遍历重复和遗漏。
+scan 的遍历顺序采用 了高位进位加法来遍历, 为了在字典的扩容和缩容时避免槽位的遍历重复和遗漏。
 
 详细见《Redis深度历险》
 

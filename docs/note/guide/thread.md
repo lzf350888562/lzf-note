@@ -1,6 +1,6 @@
 # 多线程
 
-以下内容来自对《Java并发编程的艺术》的整理和JUC源码的阅读以及博客的查阅, 如有错误的地方, 请通过[Issues · lzf350888562/lzf-note · GitHub](https://github.com/lzf350888562/lzf-note/issues)指正.
+以下内容来自对《Java并发编程的艺术》的整理和JUC源码的阅读以及博客的查阅
 
 ## JMM
 
@@ -78,8 +78,6 @@ Markword:
 StoreLoad为全能屏障, 但性能低, 所以大部分系统都不只采用该屏障.
 
 实际上编译器在生成字节码时还会对屏障的设置进行优化, 见《Java并发编程的艺术p35图3-21》
-
-防止指令重排序不包括new一个对象指令三步骤, 参照双重检查单例模式代码; 加volatile只是为了让其他线程嗅探到其改变而避免进入if, 而关键在于加锁操作将new这一过程包含在了同步代码块里面, JVM顺序一致性中允许临界区内的代码重排序, 但不能允许临界区的代码逃逸出临界区之外.
 
 **无法保证原子性** 
 
@@ -282,7 +280,8 @@ ThreadPoolExecutor的3个最重要的参数：
 ```
 ThreadPoolExecutor.AbortPolicy： 抛出 RejectedExecutionException来拒绝新任务的处理。 这是默认的拒绝策略
 ThreadPoolExecutor.CallerRunsPolicy： 由调用线程处理该任务,如果执行程序已关闭，则会丢弃该任务。
-ThreadPoolExecutor.DiscardPolicy： 不处理新任务，直接丢弃掉。 ThreadPoolExecutor.DiscardOldestPolicy： 此策略将丢弃最早的未处理的任务请求(队列头部)。
+ThreadPoolExecutor.DiscardPolicy： 不处理新任务，直接丢弃掉。
+ThreadPoolExecutor.DiscardOldestPolicy： 此策略将丢弃最早的未处理的任务请求(队列头部)。
 ```
 
 **线程池状态**
@@ -471,8 +470,10 @@ final void runWorker(Worker w) {
 - 对于局部变量, 因为线程处于阻塞状态，肯定还有栈帧没有出栈，栈帧中有局部变量表，凡是被局部变量表引用的内存都不能回收。所以如果这个线程创建了比较大的局部变量，那么这一部分内存无法GC。
 
 - 对于TLAB机制：如果线程数过多，那么新的线程初始化可能因为Eden没有足够的空间分配TLAB而触发YoungGC。
-  
-  **6.keepAliveTime=0**
+
+
+
+**6.keepAliveTime=0**
 
 在JDK1.8中，keepAliveTime=0表示非核心线程执行完立刻终止。
 
@@ -729,11 +730,13 @@ ReentrantLock通过AQS实现, 与synchronized关键字相比(相当于把同步�
 
 通过同步状态标志+双向队列(链表)实现, 线程尝试获取锁, 获取不到cas(有竞争)到等待队列尾部, 链表的第一个node自旋获取状态, 后继node阻塞, 等待前一个node的唤醒.
 
+> 公平锁其实仅体现在新线程的第一次tryAcquire方法中, 无前驱节点时才尝试获取锁, 
+> 
+> 但公平锁和非公平锁对于已经入了同步队列的线程唤醒都是顺序的, 区别仅是非公平锁不保证新线程插队获取锁, 
+
 线程的阻塞与唤醒操作通过LockSupport工具实现, 其park方法可阻塞当前线程, unpark方法可唤醒指定线程.
 
-在争取锁时, 公平队列需要判断当前节点所在同步队列是否有前序节点, 若无前序节点时才可获取锁
-
-每个Condition对象(ConditionObject)都包含一个等待队列, 等待队列复用了AQS同步队列中的Node类; 对于condition.await后的线程, 直接进入等待队列尾部(相当于同步队列头部的node移动到了等待队列的尾部), 不需要cas, 因为此时只有当前线程持有锁, 无竞争. 当调用condition.signal时唤醒在等待队列头部的node, 唤醒前会将节点移动到同步队列尾部而去竞争锁.
+每个Condition对象(ConditionObject)都包含一个等待队列, 等待队列复用了AQS同步队列中的Node类; 对于condition.await后的线程, 直接进入等待队列尾部, 不需要cas, 因为此时只有当前线程持有锁, 无竞争. 当调用condition.signal时唤醒在等待队列头部的node, 唤醒前会将节点移动到同步队列尾部而去竞争锁.
 
 ReentrantReadWriteLock是ReadWriteLock接口的JDK默认实现, 与ReentrantLock的功能类似, 并支持支持”读写锁“. 通过在共享状态state上维护16位读+16位写两个状态来对共享锁和独占锁进行操作; JDK6利用ThreadLocal存储自身线程获取读锁的次数; 并且支持在已持有写锁的情况下进行降级到读锁, 然后释放以前的写锁; 读写锁因为在读多写少的情况下, 存在写饥饿问题(StampedLock解决).
 

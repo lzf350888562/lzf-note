@@ -239,7 +239,7 @@ checkpoint技术主要解决以下问题:
 
 3.重做日志不可用时:
 
-重做日志的设计为固定大小循环使用(重做日志文件组), 对checkpoint之前的部分进行覆盖重用, 若无法覆盖时, 需要强制执行checkpoint将缓冲池中的页至少刷新到当前重做日志的位置, 将checkpoint位置后推.
+重做日志的设计为固定大小循环使用(重做日志文件组), 对checkpoint之前的部分进行覆盖重用, 若无法覆盖时, 需要强制执行checkpoint将**缓冲池**中的页至少刷新到当前重做日志的位置, 将checkpoint位置后推.
 
 InnoDB存在4种checkpoint情况:
 
@@ -869,13 +869,17 @@ consistent nonlocking read指InnoDB存储引擎通过行多版本控制（multi 
 > 
 > `insert`、`update`、`delete` 操作, x锁
 
-因此MVCC+Next-Key Lock下, 可解决**部分**非锁定读和锁定读下的幻读问题.
+但在同时存在非锁定读和锁定读, 貌似还会存在幻读问题:
 
-> 实验特例: 如果在事务1(先begin)的两次快照读中, 修改(当前读)了事务2(后begin)insert(当前读)的记录(这里事务1会阻塞直到事务2提交, 因为insert为x锁),  会重新生成ReadView ,  导致出现幻读. 
+> 实验特例: 如果在事务1(先begin)的两次快照读中, 修改(当前读)了事务2(后begin)insert(当前读)的记录(这里事务1会阻塞直到事务2提交, 因为insert为x锁),  会重新生成ReadView ,  导致出现幻读;
 > 
-> 结论: 当前读会重置Read View的生成, 尽管隔离级别为RR. 如果事务在两个快照读中的当前读覆盖了其他事务新增的数据, 将会产生幻读
+> 再简单一点的, 一个事务在快照读后的当前读前有其他事务插入了范围内记录, 则当前读事务会在插入事务结束后(阻塞)出现幻读.
 > 
-> 文章https://blog.csdn.net/rsjssc/article/details/123465816对RR级别下幻读情况进行了列举
+> 结论: RR级别下如果只设计快照读, 不会有问题. 但如果使用了当前读可能会产生幻读. 如果事务在两个快照读中的当前读覆盖了其他事务新增的数据, 甚至会导致重新生成ReadView.
+> 
+> 当前解决办法是将两个快照读改为当前读, 使用Next-Key Lock阻止其他事务修改记录即可.
+> 
+> 文章[MySQL的RR隔离级别与幻读问题 - 简书](https://www.jianshu.com/p/4c02a3a2e9d2)对RR级别下幻读情况进行了列举
 
 #### MVCC实现
 
@@ -1171,4 +1175,4 @@ undo log保证事务一致性, 为逻辑日志, 根据每行记录进行记录, 
 
 undo log分为insert undo log和update undo log, 其中insert undo log在事务提交后直接删除而不需purge操作, 因为insert操作对其他事务不可见, 只对事务本身可见;
 
-update undo log记录delete和undate操作产生的undo log, 因为还用来提供MVCC支持, 所以不能再事务提交时删除, 提交时放入undo log链表, 等待purge线程删除.
+update undo log记录delete和undate操作产生的undo log, 因为还用来提供MVCC支持, 所以不能在事务提交时删除, 提交时放入undo log链表, 等待purge线程删除.

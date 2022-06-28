@@ -217,9 +217,7 @@ public class DateConverter implements Converter<String, Date> {
 
 ## 内容协商
 
-**内容协商**机制是指客户端和服务器端就响应的资源内容进行交涉，然后提供给客户端最为适合的资源。内容协商会以响应资源的语言、字符集、编码方式等作为判断的基准。HTTP请求头中Content-Type，Accept等内容就是内容协商判断的标准。在Spring Boot中，一个完整的内容协商过程如下图所示：
-
-![](picture/contentNegotiation.png)
+**内容协商**机制是指客户端和服务器端就响应的资源内容进行交涉，然后提供给客户端最为适合的资源。内容协商会以响应资源的语言、字符集、编码方式等作为判断的基准。HTTP请求头中Content-Type，Accept等内容就是内容协商判断的标准。
 
 > @RequestBody和@ResponseBody都是通过HttpMessageConverter对请求体转换(序列化)和转换为响应体(反序列化)的.
 
