@@ -24,7 +24,7 @@
 
 2.**系统复杂性提高：** 需要考虑消息重复消费、消息丢失、顺序消费等问题.
 
-3.**一致性问题：**需要采用消息事务, 本地消息表等方式解决一致性问题.
+3.**一致性问题**：需要采用消息事务, 本地消息表等方式解决一致性问题.
 
 | 特性    | RabbitMQ | RocketMQ | Kafka | Pulsar |
 | ----- | -------- | -------- | ----- | ------ |
@@ -88,8 +88,6 @@ Exactly once: 恰好一次. 即在消息传递时, 只会被送达一次. 不允
 
 单向发送是指发送端发送完成之后，调用该发送接口后立刻返回，并不返回发送的结果，业务方无法根据发送的状态来判断消息是否发送成功，单向发送相对前两种发送方式来说是一种不可靠的消息发送方式，因此要保证消息发送的可靠性，不推荐采用这种方式来发送消息。
 
-### 可靠性投递
-
 MQ如何实现可靠性投递?
 
 ![image-20211208210508486](picture/image-20211208210508486.png)
@@ -128,13 +126,9 @@ Kafka通过zk维护成员关系, 每个broker都有唯一id(设置/自动生成)
 
 一个主题被分为多个分区, 分区可有多个副本保存在broker上.
 
-为实现同步, follower向leader发送包含下一个同步偏移量(有序)数据的请求, leader根据每个follower的当前偏移量知道各自的同步进度. 如果follower在10s内没有任何请求消息, 或10s内没有请求最新的数据, 则认为该follower不同步. 在leader失效时, 不同步的follower无法参与新首领选举.
-
-因为broker会拒绝分区leader在另一个broker(或不存在)的对特定分区的请求, 所以Kafka客户端需要自己通过元数据将请求发送到正确的broker. 客户端可通过向任一一个broker发送(每个都有缓存元数据信息)元数据请求, 获取客户端相关的topic列表信息, 包括这些topic所包含的分区、每个分区的副本、副本的首领信息. 并保证一定时间内刷新元数据.
+因为kafka的follow副本是不对外提供服务, 所以Kafka客户端需要自己通过元数据将请求发送到正确的leader副本所在的broker. 客户端可通过向任一一个broker发送(每个都有缓存元数据信息)元数据请求, 获取客户端相关的topic列表信息, 包括这些topic所包含的分区、每个分区的副本、副本的首领信息. 并保证一定时间内刷新元数据.
 
 一个topic的分区信息也由zk维护. 比如创建一个名字为 my-topic 的主题并且它有两个分区，对应到 zookeeper 中会创建这些文件夹：`/brokers/topics/my-topic/Partitions/0`、`/brokers/topics/my-topic/Partitions/1`
-
-**负载均衡** ：对于同一个 Topic 的不同 Partition，Kafka 会尽力将这些 Partition 分布到不同的 Broker 服务器上。当生产者产生消息后也会尽量投递到不同 Broker 的 Partition 里面。当 Consumer 消费的时候，Zookeeper 可以根据当前的 Partition 数量以及 Consumer 数量来实现动态负载均衡。
 
 ### 分区顺序消费
 
@@ -150,15 +144,13 @@ Kafka通过zk维护成员关系, 每个broker都有唯一id(设置/自动生成)
 
 ### 保证消息可靠性
 
-1.对于生产者:生产者(Producer) 调用`send`方法发送消息之后，消息可能因为网络问题并没有发送过去。
-
-可通过get方法让其成为同步操作:
+1.生产者:生产者(Producer) 调用`send`方法发送消息之后, 消息可能因为网络问题并没有发送过去, 可通过get方法让其成为同步操作:
 
 ```
 kafkaTemplate.send(topic, o).get();
 ```
 
-一般不推荐这么做, 效率低, 可以采用为其添加回调函数的形式，
+也可以采用异步回调函数的形式:
 
 ```
  ListenableFuture<SendResult<String, Object>> future = kafkaTemplate.send(topic, o);
@@ -166,69 +158,59 @@ kafkaTemplate.send(topic, o).get();
                 ex -> logger.error("生产者发送消失败，原因：{}", ex.getMessage()));
 ```
 
-> Producer 的`retries`（重试次数）可以设置一个比较合理的值，一般是 3 ，但是为了保证消息不丢失的话一般会设置比较大一点。设置完成之后，当出现网络问题之后能够自动重试消息发送，避免消息丢失。另外，建议还要设置重试间隔，因为间隔太小的话重试的效果就不明显了，网络波动一次你3次一下子就重试完了 
+为了保证消息不丢失, producer还需要设置重试机制, 重试次数和重试间隔都需要根据实际业务场景决定.
 
-2.对于消费者
+2.消费者
 
-消息在被追加到 Partition(分区)的时候都会分配一个特定的偏移量（offset）。偏移量（offset)表示 Consumer 当前消费到的 Partition(分区)的所在的位置。Kafka 通过偏移量（offset）可以保证消息在分区内的顺序性。
+offset表示Consumer当前消费到的Partition(分区)的所在的位置, 当Consumer拉取到了分区的某个消息之后, 会自动提交了 offse. 为防止自动提交完消息处理出错, **可手动关闭自动提交 offset, 每次在真正消费完消息之后再自己手动提交 offset**.
 
-当消费者拉取到了分区的某个消息之后，消费者会自动提交了 offset。可能出现刚自动提交完, 消费者处理出错。
+3.kafka服务器
 
-**可手动关闭自动提交 offset，每次在真正消费完消息之后再自己手动提交 offset。** 
+当副本还没同步完时leader发生故障, 会造成数据丢失.
 
-3.对于kafka
+每一个kafka Leader副本维护一组ISR(In-Sync Replicas)列表, 存储与Leader副本与与Leader副本保持同步的Follower副本集合(集合中记录当前副本消息的offset); 未与Leader保持同步的Follower保存在OSR(Out-Sync Replicas)列表.
 
-假如 leader 副本所在的 broker 突然挂掉，那么就要从 follower 副本重新选出一个 leader ，但是 leader 的数据还有一些没有被 follower 副本的同步的话，就会造成消息丢失。
+kafka通过default.replication.factor设置每个Partition包含多少个副本, 每个Follower副本会周期性从Leader副本拉取(Fetch)数据进行同步, 若Follower副本超过replica.lag.time.max.ms未进行同步, Leader副本会将该Follower移除ISR.
 
-**设置 acks = all** (Producer)
+设置unclean.leader.election.enable = false表示当leader副本发生故障时只会从ISR中选举新的Leader副本, 若没有, 服务不可用(为true表示优先从ISR, 否则从OSR); 参数min.insync.replicas表示kafka副本能接受的最小ISR数量, 若小于, 生产者将报错.
 
-acks 的默认值即为1，代表我们的消息被leader副本接收之后就算被成功写。当配置 **acks = all** 代表则所有副本都要接收到该消息之后该消息才算真正被成功写。
+设置request.required.acks来决定消息的持久性程度, 0表示收到消息就行, 1表示是收到 Leader的ack, all 表示收到所有ISR的ack.
 
-**设置 replication.factor >= 3**(Topic)
+当一条消息被同步给了所有ISR(注意, 是ISR, 不是所有副本), 该消息offset即HW(High Watermark)位置, 小于HW的消息为已提交消息, 消费者可见. 这样做是为了保证消费者读到的消息都已持久化到所有ISR, 即使Leader副本出现了故障并进行了转移.
 
-为了保证 leader 副本与 follower 副本能同步消息，可为 topic 设置 replication.factor >= 3。这样就可以保证每个 分区(partition) 至少有 3 个副本。虽然造成了数据冗余，但是带来了数据的安全性。
+### 高性能读写
 
-**设置 min.insync.replicas > 1**
+Kafka的持久化在服务器收到producer的消息后持久化到磁盘然后通过网络发送:
 
-代表消息至少要被写入到 2 个副本才算是被成功发送。min.insync.replicas 的默认值为 1 ，在实际生产中应尽量避免默认值 1。
-
-但是，为了保证整个 Kafka 服务的高可用性，你需要确保 replication.factor > min.insync.replicas 假如两者相等的话，只要是有一个副本挂掉，整个分区就无法正常工作了。一般推荐设置成 replication.factor = min.insync.replicas + 1。
-
-**设置 unclean.leader.election.enable = false**
-
-> Kafka 0.11.0.0版本开始 unclean.leader.election.enable 参数的默认值由原来的true 改为false
-
-消息会被发送到 leader 副本，然后 follower 副本才能从 leader 副本中拉取消息进行同步。多个 follower 副本之间的消息同步情况不一样，当配置了 unclean.leader.election.enable = false  的话，当 leader 副本发生故障时就不会从  follower 副本中和 leader 同步程度达不到要求的副本中选择出  leader ，这样降低了消息丢失的可能性。
-
-### 磁盘顺序读写
-
-大吞吐量, 天然支持Hadoop大数据生态
-
-Kafka基于顺序读写实现高性能.
-
-首先,无论是什么类型的硬盘, 硬盘随机读与顺序读性能差异极大:
+1.**Kafka基于顺序读写实现高性能**.
 
 ![image-20211209194348090](picture/image-20211209194348090.png)
 
 kafka中的partition分区(类似其他MQ产品的消息队列) , 每个partition为一个单独的文件 ,所有新来的消息都是追加到文件末尾 , 所以每个partition一直处于持续递增状态. 
 
+consumer从broker读取数据根据offset顺序读.
+
 Q:但是partition中的数据被消费完后要删除不会破坏顺序关系吗?
 
 A:kafka不实时删除数据 , 基于时间或分区大小等策略对数据统一批量删除 , 比起用完直接删效率高不少.
 
-**页缓存**
+2.**页缓存**
 
-Kafka避免使用JVM , 直接使用**操作系统的页缓存**(内存)特性提高处理速度, 进而避免了JVM GC带来的性能损耗.
+Kafka避免使用JVM , 通过MMAP(内存映射文件)技术直接使用**操作系统的页缓存**(内存)完成对文件的映射, 用户修改内存就能直接修改磁盘文件, 该特性提高了处理速度, 进而避免了JVM GC带来的性能损耗.
+
+但因为写MMAP没有真正写落盘, 不安全, 需要等待操作系统flush写盘, 因此Kafka通过producer.type=sync使Kafka每次写MMAP后进行flush刷盘, 还有一个参数async代表写MMAP后直接返回不等待刷盘, 有数据丢失风险.
 
 Kafka采用字节(流)紧密存储，避免产生对象，这样可以进一步提高空间利用率
 
-**零拷贝**
+3.**零拷贝**
 
 零拷贝表示不再产生内核态和用户态之间数据拷贝 .
 
-通常kafka运行在Linux上 , linux要使用磁盘的数据 , 它会先加载到内核态的页缓存中(操作系统层面) ,  如果应用程序要对其进行管理 , 就需要把页缓存的数据复制到用户态中进行处理,  之后再把它放到Socket缓冲区发送.
+通常kafka运行在Linux上, linux要使用磁盘的数据 , 会先加载到内核缓冲区中,  如果应用程序要对其进行管理 , 就需要把页缓存的数据复制到用户态中进行处理,  之后再把它放到Socket缓冲区发送.
 
-而kafka在磁盘产生的数据加载到内核态中直接由内核态从页缓存发送到Socket缓冲区 , 不在涉及用户态数据复制过程. 
+而kafka通过DMA(直接内存访问)技术在磁盘产生的数据加载到内核态中直接由内核态从页缓存发送到Socket缓冲区 , 不在涉及用户态数据复制过程, 然后再拷贝到网络协议(DMA)进行发送. 
+
+> 关于mmap和sendFile, 见我的笔记[MMAP和sendFile · 语雀](https://www.yuque.com/lzfbads3505621/ikqc2f/czez3c)
 
 **批量操作**
 

@@ -129,24 +129,6 @@ client->cmd->proc(client)
 3. 单线程，天生的队列模式，避免了因多线程竞争而导致的上下文切换和抢锁的开销
 4. 事件机制，Redis服务器将所有处理的任务分为两类事件，一类是采用**I/O多路复用**处理客户端请求的网络事件；一类是处理定时任务的时间事件，包括更新统计信息、清理过期键、持久化(如更新save条件的serverCron函数)、主从同步等；
 
-**分布式缓存的选择**
-
-相比Memcached , redis优点:
-
-Redis 支持更丰富的数据类型;
-
-Redis 支持数据的持久化，可以将内存中的数据保持在磁盘中，重启的时候可以再次加载进行使用(也可以容灾),而 Memecache 把数据全部存在内存之中。
-
-Redis 在服务器内存使用完之后，可以将不用的数据放到磁盘上。Memcached 在服务器内存使用完之后，就会直接报异常。
-
-Memcached 没有原生的集群模式，需要依靠客户端来实现往集群中分片写入数据；但是 Redis 目前是原生支持 cluster 模式的。
-
-Memcached 是多线程，非阻塞 IO 复用的网络模型；Redis 使用单线程的多路 IO 复用模型。 （Redis 6.0 引入了多线程 IO ）
-
-Redis 支持发布订阅模型、Lua 脚本、事务等功能，而 Memcached 不支持。并且，Redis 支持更多的编程语言。
-
-Memcached 过期数据的删除策略只用了惰性删除，而 Redis 同时使用了惰性删除与定期删除。
-
 ## 数据类型
 
 redisObject通过encoding属性设置对象所使用的编码，type属性设置对象类型,  而不是为特定类型的对象关联一种固定的编码， 极大地提升了 Redis 的灵活性和效率.
@@ -167,7 +149,7 @@ typedef struct RedisObject {
 
 > Redis键也是SDS
 
-虽然 Redis 是用 C 语言写的，但并没有使用 C 的字符串表示，而是自己构建了一种 **简单动态字符串SDS**。
+虽然 Redis 是用 C 语言写的, 但并没有使用 C 的字符串表示, 而是自己构建了一种 **简单动态字符串SDS**.
 
 其数据结构为带容量和长度的**字节**数组(可以存储二进制数据->位数组)的结构体.
 
@@ -225,7 +207,7 @@ embstr与raw的区别为: embstr将 RedisObject 和 SDS 对 象连续存在一�
 
 **2.List**
 
-类采用ziplist或linkedlist(双端队列)实现, 为优化存储和减少内存碎片,  3.2版本被quicklist替换(ziplist和linkedlist的结合体)), 因为ziplist在数据量大时扩容费时, linkedlist会产生大量内存碎片, 并且pre和next指针增加附加空间.
+采用ziplist或linkedlist(双端队列)实现, 为优化存储和减少内存碎片,  3.2版本被quicklist替换(ziplist和linkedlist的结合体)), 因为ziplist在数据量大时扩容费时, linkedlist会产生大量内存碎片, 并且pre和next指针增加附加空间.
 
 linkedlist为一个双端队列, 默认情况下, 当list对象中所有字符串元素的长度都小于64字节且元素个数小于512时, 会采用ziplist编码, 可通过配置文件改变上限值.
 
@@ -249,7 +231,7 @@ quicklist压缩深度: 为了进一步节约空间，可使用LZF算法压缩对
 
 **3.Hash**
 
-hash 类似于 JDK1.8 前的 HashMap(数组 + 链表)。包括hashtable(字典)和ziplist两种实现.
+类似于 JDK1.8 前的 HashMap(数组 + 链表), 包括hashtable(字典)和ziplist两种实现.
 
 当hash对象中键值对的键和值字符串长度都小于64字节且键值对数量小于512个时, redis会采用ziplist实现hash.可通过配置文件改变上限值. 
 
@@ -286,7 +268,7 @@ typedef struct dictEntry {
 } dictEntry;
 ```
 
-字典dict采用渐进式rehash, 包含两个hash表指针,  在 rehash 的同时，保留新旧两个 hash 结构，查询时会同时查询两个 hash 结构, 插入只在新表中插入，然后在后续的定时任务中以及 hash 的子指令中，循序渐进地将旧 hash 的内容 一点点迁移到新的 hash 结构中(因为原生rehash耗时O(n), 单线程redis无法接受).
+字典dict采用渐进式rehash, 包含两个hash表指针,  在 rehash 的同时，保留新旧两个 hash 结构，查询时会同时查询两个 hash 结构, 插入只在新表中插入.
 
 rehash过程:
 
@@ -468,11 +450,7 @@ appendonly yes
 
 aof保存的是 appendonly.aof 文件
 
-AOF持久化功能分为三个阶段:
-
-1.命令追加
-
-如果一个事件循环中执行了写命令, Redis 就会将该命令写入到**内存缓存** `server.aof_buf` 中(redis单线程串行写入)，
+如果一个文件事件循环中执行了写命令, Redis 就会将该命令写入到**内存缓存** `server.aof_buf` 中(redis单线程串行写入);
 
 ```c
 struct redisServer{    
@@ -482,7 +460,9 @@ struct redisServer{
 }
 ```
 
-然后再根据 `appendfsync` 配置来决定何时将其同步到硬盘中的 AOF 文件(fsync命令, 独立线程**异步**刷回, 真正的磁盘IO, 耗时!)
+然后调用write将内存缓存写入aof文件的页缓存;
+
+最后再根据 `appendfsync` 配置来决定何时将其同步到硬盘中的 AOF 文件
 
 > Redis服务器进程就是一个事件循环, 伪代码如下:
 > 
@@ -494,16 +474,16 @@ struct redisServer{
 >     processFileEvents()  
 >     # 处理时间事件  
 >     processTimeEvents()  
->     # 考虑是否要将 aof_buf 中的内容写入和保存到 AOF 文件里面, 由appdendfsync选项决定 
+>     # 由appdendfsync选项决定刷盘
 >     flushAppendOnlyFile()
 > ```
 
 在 Redis 的配置文件中存在三种不同的 AOF 持久化方式分别是：
 
 ```text
-appendfsync always    #每个事件循环都会同步AOF文件,这样会严重降低Redis 的速度
-appendfsync everysec  #每个事件循环判断距离上次同步aof文件是否超过1s, 如果是, 则同步AOF文件
-appendfsync no        #让操作系统决定何时进行同步
+appendfsync always    #每次写后都fsync刷盘
+appendfsync everysec  #每秒fsync刷盘
+appendfsync no        #os决定
 ```
 
 AOF 日志在长期的运行过程中会变的无比庞大, 数据库**重启时(空的redis实例)需要加载 AOF 日志进行指令重放(顺序执行所有指令)**, aof越大加载越慢. 所以需要定期进行 AOF 重写, 给 AOF 日志进行瘦身.
@@ -599,9 +579,9 @@ typedef struct redisDb {
 
 **过期数据删除策略**
 
-**惰性删除** ：只会在取出 key 的时候才对数据进行过期检查。这样对 CPU 最友好，但是可能会造成太多过期 key 没有被删除。
+**惰性删除** ：只会在读/写key的时候才对数据进行过期检查, 若已过期, 返回nil;
 
-**定期删除** ： 每隔一段时间抽取一批 key 执行删除过期 key 操作。并且，Redis 底层会通过限制删除操作执行的时长和频率来减少删除操作对 CPU 时间的影响。
+**定期删除** ： 通过serverCron定期删除, 100ms一次
 
 定期删除对内存更加友好，惰性删除对 CPU 更加友好。两者各有千秋，所以 Redis 采用的是 **定期删除+惰性/懒汉式删除** 。
 

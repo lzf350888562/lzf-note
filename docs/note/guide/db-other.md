@@ -91,15 +91,15 @@ Lucene穿了一件json的外套就是ElasticSearch, 相较于Solr, 内置了对�
 
 ### 原理
 
-ES集群采用多shard多replica方式实现高可用, 集群中会自动选举一个master节点, 负责维护索引元数据、切换primary shard和replica shard身份等. 如果一个非master节点宕机, master会将该宕机节点primary shard对应的replica shard切换为primary, 当宕机的节点恢复后, 不再是primary shard, 而是replica shard.
+ES集群采用多shard多replica方式实现高可用, 集群中会自动选举一个master节点(可以不是数据节点), 负责维护索引元数据、切换primary shard和replica shard身份等. 如果一个非master节点宕机, master会将该宕机节点primary shard对应的replica shard切换为primary, 当宕机的节点恢复后, 不再是primary shard, 而是replica shard.
 
 ES的写请求(任一的协调节点)将根据doc_id(hash)**转发**到对应的primary shard节点上进行写, 然后同步到所有replica shard节点, 待同步完成后, (协调节点)返回响应给客户端;
 
 ES的读请求(任一的协调节点)将根据doc_id(hash), 并根据**随机轮询**策略, 在其primary shard和所有replica shard节点中随机选择一个完成读请求以实现负载均衡, 读请求完成之后返回doc给协调节点, 协调节点再返回给客户端. 若是范围查询需要对所有shard查询, 见深度分页.
 
-ES的写操作先写内存buffer(无法查找), 同时将数据写入translog日志文件.
+ES的写操作先写内存buffer(非段, 无法查找), 同时将数据写入translog日志文件.
 
-每一秒ES将buffer(或满时)中的数据refresh到操作系统文件缓存(可查找), 之后需要等待操作系统fsync到一个新的segment file, 这也是为什么ES为准实时的, 即写入的数据1s之后才可以查找到. 也可以手动refresh到操作系统文件缓存.
+每一秒ES将buffer(或满时)中的数据refresh到操作系统文件缓存(段, 可查找), 之后需要等待操作系统fsync到一个新的segment file, 这也是为什么ES为准实时的, 即写入的数据等待1s之内才可以查找到. 也可以手动refresh到操作系统文件缓存.
 
 translog类似redo log, 因为refresh前后数据存在于buffer和操作系统文件缓存都有可能丢失数据, translog可同于重启后数据的恢复. translog也是先经过操作系统文件缓存, 默认情况下每5s fsync到磁盘, 即可能会丢失5s的数据.
 
@@ -110,6 +110,8 @@ translog类似redo log, 因为refresh前后数据存在于buffer和操作系统�
 当translog大到阈值(async)或默认每隔30分钟(request), 会触发commit操作将buffer的数据强行fsync到segment file.
 
 ES的删除操作会生成.del文件, 将被删除的doc标识为deleted; 更新操作会将document标记为deleted后插入新数据. 因为在buffer每次refresh都会产生一个segement file( 默认情况下1s一个 ), ES会定期进行merge操作, merge的同时会将标识为deleted的doc给物理删除掉.
+
+ES的更新相当于删除+添加.
 
 ### 深度分页
 
