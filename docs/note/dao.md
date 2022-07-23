@@ -149,7 +149,7 @@ spring.datasource.druid.stat-view-servlet.login-password       ：监控页面�
 ## JPA
 
 ```xml
-<dependency
+<dependency>
     <groupId>org.springframework.boot</groupId>
     <artifactId>spring-boot-starter-data-jpa</artifactId>
 </dependency>
